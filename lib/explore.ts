@@ -8,6 +8,7 @@ import type { FlightSeries, FlightMetrics } from './analyze/types';
 import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, apogeeCaveat, apogeeIsQualified, withheldReason, type AccelCaveatFacts, type ApogeeCaveatFacts } from './readings';
 import { type UnitSystem, lengthIn, speedIn, accelInG, tempIn, pressureIn, pressureUnit, unitsOf, type UnitChoice, accelIn } from './display';
 import { formulaGuard } from './csv';
+import { Q_ASCENT_CAVEAT, dynamicPressureSeries } from './dynamicPressure';
 import { PROVENANCE_COLUMN, PROVENANCE_MIXED, provenanceCell, syntheticHeader } from './synthetic';
 
 export interface PlotChannel {
@@ -30,6 +31,19 @@ export interface PlotChannel {
    *  A trace kept for diagnosis and a maximum offered for a document are different claims, and
    *  the second one needs the headline's caveat travelling with it. */
   caveat?: string;
+  /**
+   * What stretch of the flight this channel is drawn over, when it is not the whole record.
+   *
+   * **Deliberately NOT `caveat`, and the distinction is the point.** A caveat says *these numbers
+   * are not ones to quote* and is rendered in §2's warning hue, on "the one row whose numbers the
+   * report refused". A scope says *these numbers are exactly right, over this stretch* — the
+   * dynamic-pressure curve is read over the ascent because that is where a load case exists, and
+   * its max IS the max-Q the report publishes. Putting that in `caveat` would paint every flight's
+   * row amber forever, and `explore.test.ts` already states the rule it would break: *a caveat on
+   * every flight is a caveat nobody reads*. Two meanings, two fields, so the warning hue keeps
+   * meaning one thing.
+   */
+  scope?: string;
 }
 
 /** Map a canonical unit string to a display conversion + label. Lengths, speeds,
@@ -62,18 +76,39 @@ export interface CsvColumn {
    *  Per column rather than per call because the comparison overlay writes one column per flight,
    *  so a single file can hold a made-up flight beside a recording. */
   synthetic?: boolean;
+  /**
+   * The qualification this channel carries on screen — a withheld peak, a floor apogee, a railed
+   * accelerometer, a curve drawn over the ascent only.
+   *
+   * **It is here because the panel's clipboard and the panel's FILE disagreed about it.**
+   * `Copy these stats` writes `label — caveat` per channel, and `Save .csv` beside it wrote the
+   * bare label, so the same numbers left the same panel by two routes and only one of them said
+   * what they could not be used for. A CSV has no comment syntax every reader agrees on — which is
+   * this repo's standing reason for not writing a build stamp into one — so it rides in the column
+   * HEADER, the one field every reader must already parse. That is row 41's precedent, the same
+   * one the provenance column above is built on.
+   */
+  caveat?: string;
+  /** The stretch this column is drawn over, when it is not the whole record — see
+   *  `PlotChannel.scope`. Written into the header beside the caveat, because a reader opening the
+   *  file cannot see that the column stops early or ask why. */
+  scope?: string;
 }
 
 function quoted(s: string): string {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-function csvHeader({ label, unit, synthetic }: CsvColumn): string {
+function csvHeader({ label, unit, synthetic, caveat, scope }: CsvColumn): string {
   // The label is file-derived (a logger's column name, or a flight's file name), so defang any
   // spreadsheet-formula text — BEFORE tagging it, not after. `formulaGuard` inspects the first
   // character only, so a `SYNTHETIC — ` prefix in front of it hides a leading `=` and the guard
   // silently stops applying to exactly the columns this slice added. Found by the pre-push review.
-  return quoted(syntheticHeader(formulaGuard(unit ? `${label} (${unit})` : label), synthetic));
+  const named = syntheticHeader(formulaGuard(unit ? `${label} (${unit})` : label), synthetic);
+  // After the synthetic tag, not before it: the made-up claim is the stronger one and stays first;
+  // then the caveat (a refusal), then the scope (a domain), which is the order of decreasing force.
+  const notes = [caveat, scope].filter(Boolean).join('; ');
+  return quoted(notes ? `${named} — ${notes}` : named);
 }
 
 /** CSV of exactly what the explorer is plotting (X column then each Y series),
@@ -298,12 +333,17 @@ export function buildPlotChannels(
     // Unitless, so it sits on its own axis cleanly and reads straight off as Mach.
     out.push({ key: 'd-mach', label: 'Mach', group: 'Debrief', values: mach, ...display('') });
   }
-  if (velUsable && hasData(series.airDensity)) {
-    const q = new Float64Array(series.velocity.length);
-    for (let i = 0; i < q.length; i++) {
-      const v = series.velocity[i];
-      q[i] = 0.5 * series.airDensity[i] * v * v;
-    }
+  // **And the load case, which is the one this table got wrong for longest.** The max of this
+  // trace IS the max-Q the grid, the report and every export publish — and until 2026-08-17 it
+  // was built here over the whole record while the headline was built over the ascent, so this
+  // table, `Copy these stats` and the `.csv` beside it republished the deployment transient the
+  // analysis exists to refuse: 47,322 kPa against an ascent peak of 404 kPa on one corpus
+  // flight. `lib/dynamicPressure.ts` is now the only place that computes it, for all four
+  // surfaces, and it carries its own caveat so the truncated curve reads as a decision.
+  // Built once and tested, rather than `hasDynamicPressure()` followed by a second identical
+  // pass — this runs on every render of a report whose series can be 190k samples long.
+  const q = velUsable && hasData(series.airDensity) ? dynamicPressureSeries(series) : null;
+  if (q && q.some((v) => Number.isFinite(v))) {
     // Shown in the chosen system's pressure unit (kPa/psi), matching the report
     // and comparison — not raw Pa like a recorded barometric-pressure channel.
     out.push({
@@ -313,6 +353,7 @@ export function buildPlotChannels(
       values: q,
       toDisplay: (v, sys) => pressureIn(v, sys),
       unitLabel: (sys) => pressureUnit(sys),
+      scope: Q_ASCENT_CAVEAT,
     });
   }
   const n = flight.time.length;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildPlotChannels, planAxes, windowStats, exploreCsv } from './explore';
-import { withheldReason } from './readings';
+import { apogeeCaveat, withheldReason } from './readings';
 import type { RawFlight } from './flight/types';
 import type { FlightSeries } from './analyze/types';
 
@@ -17,6 +17,10 @@ const series: FlightSeries = {
   speedOfSound: 340,
   speedOfSoundProfile: Float64Array.from([340, 339, 338]),
   airDensity: Float64Array.from([1.2, 1.2, 1.2]),
+  // Liftoff to apogee: this three-sample flight climbs to its peak at the last one. Declared
+  // rather than defaulted, because `d-q` is drawn over exactly this range and a series that
+  // does not say where its ascent is gets no dynamic-pressure channel at all.
+  ascent: { start: 0, end: 2 },
 };
 
 const flight: RawFlight = {
@@ -115,8 +119,13 @@ describe('buildPlotChannels', () => {
         (c) => c.key === 'd-velocity',
       )!;
       expect(v.caveat).toBeUndefined();
-      // And no other channel picks one up by accident.
-      expect(buildPlotChannels(flight, series).every((c) => c.caveat === undefined)).toBe(true);
+      // And no other channel picks up the WITHHELD-SPEED one by accident. Tested by its wording
+      // rather than by absence, because `d-q` legitimately carries a caveat of its own — it is
+      // drawn over the ascent only — and an `every(c => c.caveat === undefined)` here would have
+      // to be deleted the first time any channel earned a second, unrelated qualification.
+      expect(
+        buildPlotChannels(flight, series).every((c) => !/withheld|stands behind/.test(c.caveat ?? '')),
+      ).toBe(true);
     });
 
     it('caveats on the metrics alone, so a withheld peak cannot slip through on a clean series', () => {
@@ -164,7 +173,12 @@ describe('buildPlotChannels', () => {
       const all = buildPlotChannels(flight, series, { maxVelocityWithheld: null, apogeeIsFloor: true });
       const others = all.filter((c) => !c.key.startsWith('d-altitude'));
       expect(others.length).toBeGreaterThan(0);
-      for (const c of others) expect(c.caveat).toBeUndefined();
+      // By wording, not by absence — see the note on the withheld-speed case above. `d-q` carries
+      // its own ascent-window caveat, which mentions apogee for an unrelated reason, so this
+      // matches the apogee caveat's own distinguishing clause rather than the bare word.
+      const apogeeWording = apogeeCaveat({ apogeeIsFloor: true })!;
+      expect(apogeeWording).toBeTruthy();
+      for (const c of others) expect(c.caveat ?? '').not.toContain(apogeeWording);
     });
   });
 
@@ -213,7 +227,9 @@ describe('buildPlotChannels', () => {
       });
       const others = all.filter((c) => c.key !== 'd-acceleration');
       expect(others.length).toBeGreaterThan(0);
-      for (const c of others) expect(c.caveat, `${c.key} is not about the accelerometer`).toBeUndefined();
+      // By wording, not by absence — see the note on the withheld-speed case above.
+      for (const c of others)
+        expect(c.caveat ?? '', `${c.key} is not about the accelerometer`).not.toMatch(/clipped|railed/i);
     });
   });
 

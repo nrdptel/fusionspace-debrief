@@ -209,6 +209,32 @@ export interface FlightSeries {
    *  diagnosed; what is withheld is everything DERIVED from a peak the analysis would not
    *  stand behind. *Why* it was withheld belongs on `FlightMetrics.maxVelocityWithheld`. */
   velocityUnusable?: boolean;
+  /**
+   * The sample range the ASCENT occupies — liftoff to apogee inclusive — or `null` where the
+   * record has no ascent to speak of (a log that starts already coming down).
+   *
+   * **It is here because four surfaces were computing ½ρv² from this series and only one of
+   * them knew where the ascent was.** `analyzeFlight` restricts max-Q to this window on
+   * purpose — q squares the speed, so a deployment transient that swings the derived velocity
+   * hard NEGATIVE contributes as though it were airspeed. The explorer, the comparison overlay
+   * and the analyzed-data CSV each rebuilt the same quantity over the whole record and so
+   * republished exactly the sample the headline exists to refuse. Measured 2026-08-17 across 37
+   * analysable corpus recordings: **4 of them**, worst `blueraven__reddit-meraki2-121km` at
+   * **47,322 kPa against an ascent peak of 404 kPa** — a ×117 structural load case taken from a
+   * −8,970 m/s sample 542 s after apogee.
+   *
+   * So the window travels WITH the series rather than being re-derived per surface, and
+   * `lib/dynamicPressure.ts` is the one place that reads it. A consumer that ignores it is
+   * reintroducing the bug; a consumer that has no window (`null`) withholds rather than guessing,
+   * which is why this is nullable rather than optional — every constructor has to decide.
+   */
+  ascent: AscentWindow | null;
+}
+
+/** Liftoff → apogee, as sample indices into a `FlightSeries`, both inclusive. */
+export interface AscentWindow {
+  start: number;
+  end: number;
 }
 
 /**

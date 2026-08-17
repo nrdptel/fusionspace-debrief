@@ -118,6 +118,13 @@ export interface PlotPreset extends PlotView {
 // altitude, raw altitude and velocity on 34; Mach and dynamic pressure on 30 (both withheld
 // when the velocity is judged impossible); measured acceleration on 16.
 //
+// **The pair no longer travels together, as of 2026-08-17.** Dynamic pressure is additionally
+// withheld where the record has no ASCENT — a log that starts already coming down has no load
+// case, so `analyzeFlight` reports no max-Q and `lib/dynamicPressure.ts` draws no curve — while
+// Mach, which does not square its input, is not. So "Mach & max-Q" can now be the built-in that
+// disappears while "Altitude & speed" stays, and the reason is a property of one channel rather
+// than of the velocity they share. No corpus recording is in that state today.
+//
 // A built-in is offered only where the flight has EVERY channel it names. A view that quietly
 // drops half its series is a different view under the same name: "Speed & acceleration"
 // plotting velocity alone on a baro-only log promises two readings and shows one.

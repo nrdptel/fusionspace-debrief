@@ -293,7 +293,17 @@ export default function ChannelExplorer({
     // made-up flight marks the whole file: the header of each column, and a `Provenance` cell on
     // every row for a block pasted without its headers.
     const x = { label: xName, unit: xUnit, values: xVals, synthetic };
-    const ys = selected.map((c, i) => ({ label: c.label, unit: c.unitLabel(sys), values: seriesData[i], synthetic }));
+    // `caveat` travels with the column, so the file says what the clipboard already said. Without
+    // it, `Copy these stats` wrote "Dynamic pressure — drawn over the ascent only…" while the .csv
+    // beside it wrote a bare "Dynamic pressure (kPa)" over a column that stops at apogee.
+    const ys = selected.map((c, i) => ({
+      label: c.label,
+      unit: c.unitLabel(sys),
+      values: seriesData[i],
+      synthetic,
+      ...(c.caveat ? { caveat: c.caveat } : {}),
+      ...(c.scope ? { scope: c.scope } : {}),
+    }));
     download(new Blob([exploreCsv(x, ys)], { type: 'text/csv' }), `${stem}-explore.csv`);
   };
   const savePng = () => {
@@ -737,7 +747,10 @@ function Stats({
               // writes out" — while these figures, which the comment above calls the ones a cert
               // document quotes, went to the clipboard bare. Same cell as the caveat because it is
               // the same argument, and the synthetic claim is the stronger of the two.
-              syntheticHeader(c.caveat ? `${c.label} — ${c.caveat}` : c.label, synthetic),
+              syntheticHeader(
+                [c.label, c.caveat, c.scope].filter(Boolean).join(' — '),
+                synthetic,
+              ),
               c.unitLabel(sys),
               ...(s
                 ? [num(s.min), num(s.max), num(s.mean), ...(showDeltaRate ? [num(s.delta), num(s.rate)] : [])]
@@ -803,7 +816,17 @@ function Stats({
                       derived-reading panels, which rendered every state message at caption size
                       including a flight-safety caution. */}
                   {c.caveat && (
-                    <span className="mt-0.5 block text-sm text-amber-700 dark:text-amber-500">{c.caveat}</span>
+                    <span className="mt-1 block text-sm text-amber-700 dark:text-amber-500">{c.caveat}</span>
+                  )}
+                  {/* A SCOPE, not a caveat, so it is NOT in the warning hue. These statistics are
+                      exactly right — they are simply read over a stretch rather than the whole
+                      record, which a reader cannot otherwise tell from a table of numbers. Amber
+                      here would fire on every flight that has a dynamic-pressure curve, and this
+                      panel's own test states the rule that breaks: a caveat on every flight is a
+                      caveat nobody reads. Same size as the caveat above (§3 keeps caption size for
+                      the text around a value, and this is a sentence), zinc rather than amber. */}
+                  {c.scope && (
+                    <span className="mt-1 block text-sm text-zinc-600 dark:text-zinc-400">{c.scope}</span>
                   )}
                 </th>
                 {s ? (

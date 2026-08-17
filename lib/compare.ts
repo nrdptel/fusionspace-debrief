@@ -7,6 +7,7 @@
 import { formatFlownDay, type FlownAt } from './flight/flownAt';
 import { apogeeIsQualified, landedInRecord } from './readings';
 import type { EventType, FlightAnalysis, FlightMetrics } from './analyze/types';
+import { dynamicPressureSeries } from './dynamicPressure';
 
 // Distinct, colour-blind-friendly-ish strokes; one per flight, in order.
 export const COMPARE_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#0ea5e9', '#a855f7'];
@@ -123,7 +124,15 @@ export function resample(srcTime: Float64Array, srcVal: Float64Array, grid: Floa
     // Clamp the fraction to [0,1] so a non-monotonic or duplicated source
     // timestamp can never extrapolate past the bracketing samples.
     const f = tb === ta ? 0 : Math.min(1, Math.max(0, (t - ta) / (tb - ta)));
-    out[i] = va + (vb - va) * f;
+    // **Land exactly on an endpoint rather than interpolating onto it**, which matters only when
+    // the other end is `NaN` — and then it matters a lot. A grid point sitting ON the first
+    // finite sample of a gappy series takes `f === 1` with `va` still `NaN`, and
+    // `NaN + (vb - NaN) * 1` is `NaN`: the leading edge of every gap swallowed its first real
+    // sample. The trailing edge was always fine (`f === 0` reads `va` and never touches `vb`),
+    // which is why this went unseen until the dynamic-pressure curve started at liftoff instead
+    // of at the record's first row. It is also strictly more accurate where both ends are
+    // finite: `vb` beats `va + (vb - va) * 1`, which is only equal to it up to rounding.
+    out[i] = f === 0 ? va : f === 1 ? vb : va + (vb - va) * f;
   }
   return out;
 }
@@ -163,9 +172,7 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
     const { series, metrics } = it.analysis;
     // Per-sample Mach and dynamic pressure from the same atmosphere the analysis
     // used, built here so they resample onto the shared grid like the rest.
-    const n = Math.min(series.velocity.length, series.airDensity.length);
     const mach = new Float64Array(series.velocity.length);
-    const q = new Float64Array(series.velocity.length);
     // A record whose peak speed was withheld had its Mach and max-Q headlines withheld
     // with it; don't draw the overlay curves derived from that trace either (the velocity
     // line still shows). Tests the ONE flag, so a new reason to withhold reaches here too.
@@ -174,8 +181,14 @@ export function buildComparison(inputs: CompareInput[]): Comparison {
       const v = series.velocity[i];
       const sos = series.speedOfSoundProfile[i]; // local speed of sound at each height
       mach[i] = velUsable && Number.isFinite(sos) && sos > 0 ? v / sos : NaN;
-      q[i] = velUsable && i < n ? 0.5 * series.airDensity[i] * v * v : NaN;
     }
+    // **The load case comes from the shared module, over the ascent only.** This loop used to
+    // build it alongside the Mach above, over the whole record — so this overlay and
+    // `compare-data.csv` carried the deployment transient that `metrics.maxDynamicPressure`
+    // restricts its window to refuse, and the y-axis was then set by a single post-apogee
+    // sample, flattening every real curve on the panel whose stated purpose is surfacing a
+    // max-Q disagreement between recordings. `velocityUnusable` is honoured inside the module.
+    const q = dynamicPressureSeries(series);
     return {
       id: it.id,
       name: it.name,

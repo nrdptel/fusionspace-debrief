@@ -283,8 +283,14 @@ const BUDGET = {
    * Pinned at the honest number, on the way down. P1 converts in slices — one surface per
    * increment, never one sweeping diff — so a target of 0 here would force every remaining edit
    * into whichever increment happened to widen the pattern.
+   *
+   * **66 → 65 on 2026-08-17**, and it moved for the reason the ratchet exists rather than as a
+   * sweep: the explorer's stats table grew a second note span beside its caveat, the obvious move
+   * was to copy the neighbour's `mt-0.5`, and this check reddened on 67. `DESIGN.md` wins over the
+   * surrounding code, so both spans went to §4's `mt-1` — the new one and the one it was copied
+   * from — which is a net −1 rather than a +1. The 2 px it costs is invisible; the count is not.
    */
-  halfStepSpacing: 66,
+  halfStepSpacing: 65,
   /** Component files where caption size OUTNUMBERS the body default.
    *
    *  **The target is NOT 0, and this is measured rather than conceded.** The ratio is a proxy: it

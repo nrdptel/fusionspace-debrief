@@ -261,7 +261,7 @@ function analysis(t0: number, apogee: number): FlightAnalysis {
   const altitude = Float64Array.from([0, 0, 50, 100, 50]); // 50 m AGL at liftoff
   const velocity = Float64Array.from([0, 0, 80, 40, -10]);
   return {
-    series: { time, altitude, altitudeRaw: altitude, velocity, acceleration: new Float64Array(5), axialAccel: new Float64Array(5), velocitySource: 'baro', accelerationSource: 'baro', altitudeSource: 'baro', speedOfSound: 340, speedOfSoundProfile: new Float64Array(5).fill(340), airDensity: new Float64Array(5).fill(1.225) },
+    series: { time, altitude, altitudeRaw: altitude, velocity, acceleration: new Float64Array(5), axialAccel: new Float64Array(5), velocitySource: 'baro', accelerationSource: 'baro', altitudeSource: 'baro', speedOfSound: 340, speedOfSoundProfile: new Float64Array(5).fill(340), airDensity: new Float64Array(5).fill(1.225), ascent: { start: 2, end: 3 } },
     events: [{ type: 'liftoff', label: 'Liftoff', time: t0, index: 2, altitude: 50, provenance: 'measured' }],
     metrics: metrics(apogee),
     warnings: [],
@@ -383,11 +383,15 @@ describe('buildComparison', () => {
 
   it('derives Mach and dynamic-pressure curves on the shared grid', () => {
     const cmp = buildComparison([input('a', 2, 100), input('b', 5, 200)]);
-    // The grid point nearest liftoff (t≈0), where velocity is 80 m/s in the fixture.
+    // The first grid point AT or after liftoff (t≈0), where velocity is 80 m/s in the fixture.
+    // "At or after" rather than "nearest": the dynamic-pressure curve now starts at liftoff, and a
+    // grid point BEFORE it brackets one absent sample and one real one, so it reads NaN. That is
+    // the intended contract — the curve does not exist before liftoff — and it is asserted below.
+    // The grid point sitting exactly ON liftoff is a different case and reads the real value:
+    // `resample` lands on an endpoint rather than interpolating onto it, which it did not do until
+    // this change exposed the gap (see the note there).
     let k = 0;
-    for (let i = 1; i < cmp.time.length; i++) {
-      if (Math.abs(cmp.time[i]) < Math.abs(cmp.time[k])) k = i;
-    }
+    while (k < cmp.time.length - 1 && cmp.time[k] < 0) k++;
     const f = cmp.flights[0];
     expect(f.mach.length).toBe(cmp.time.length);
     expect(f.dynamicPressure.length).toBe(cmp.time.length);
@@ -396,6 +400,12 @@ describe('buildComparison', () => {
     expect(f.mach[k]).toBeLessThan(0.245);
     expect(f.dynamicPressure[k]).toBeGreaterThan(3700);
     expect(f.dynamicPressure[k]).toBeLessThan(3950);
+    // **And the curve stops at apogee.** The fixture's last sample is −10 m/s, a descent; over
+    // the whole record ½ρv² would publish it as though it were airspeed, which is the defect
+    // `lib/dynamicPressure.ts` exists to close. Mach keeps the sign and so keeps its full curve.
+    const last = f.dynamicPressure.length - 1;
+    expect(Number.isNaN(f.dynamicPressure[last])).toBe(true);
+    expect(Number.isNaN(f.mach[last])).toBe(false);
   });
 
   it('withholds the Mach and dynamic-pressure overlay curves for an impossible velocity', () => {
