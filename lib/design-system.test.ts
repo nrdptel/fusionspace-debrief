@@ -685,7 +685,21 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
    *  Pinned at the condition by `lib/phases.test.ts`; the component's own branch has no walk,
    *  because all three files are private-corpus and reaching it in a browser needs a synthesized
    *  log, which is D10's machinery and a slice of its own. Said here rather than left implied. */
-  EmptyState: 3,
+  /** 3 → 4 on 2026-08-17: `GroundTrack`, whose `if (!track || !stats) return null` deleted the
+   *  whole Recovery section — the map, the landing bearing, the coordinates, the drift and its own
+   *  `<h3>` — on a file that carries latitude and longitude columns holding no usable fix.
+   *
+   *  **The reachability evidence is the OPPOSITE shape to the timeline's above, and saying so is
+   *  the point of this note.** No real recording reaches it: of the 59 that analyse end to end,
+   *  16 carry GPS columns and all 16 resolve a track. What reaches it is a receiver's ordinary
+   *  cold start — a GPS logger writes its columns from power-on and leaves them blank until it
+   *  has a lock, and a flight can be over before the lock arrives. Built as a file and confirmed
+   *  end to end: the roles are detected, both channels are present, `groundTrack` returns null.
+   *  So this one has no corpus witness and DOES have a browser walk, where the timeline had three
+   *  corpus witnesses and no walk. Pinned at the condition by `lib/groundTrackEmpty.test.ts`
+   *  (including the other side of the boundary, so it cannot be satisfied by always returning
+   *  null) and in the app by `e2e/audit3.spec.ts`. */
+  EmptyState: 4,
   ErrorState: 2,
   /** 2 → 3 on 2026-08-09: `app/changelog/page.tsx` (P5 slice 5). The changelog is a new docs
    *  ROUTE, and a route built on the vocabulary rather than beside it is the cheap direction —

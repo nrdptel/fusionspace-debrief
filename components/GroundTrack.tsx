@@ -10,7 +10,7 @@ import { liftoffOnLogClock } from '@/lib/readings';
 import { download } from '@/lib/download';
 import { provenanceCell } from '@/lib/synthetic';
 import { useIsDark } from './useIsDark';
-import { Button, Card, Frame } from './ui';
+import { Button, Card, EmptyState, Frame } from './ui';
 
 /** The plot is square and capped, so a wide column doesn't stretch a north-up map. */
 const MAX_SIZE = 420;
@@ -500,7 +500,77 @@ export default function GroundTrack({
     [proj, cursor, marks],
   );
 
-  if (!track || !stats) return null;
+  /**
+   * GPS columns, and no fix to draw from them.
+   *
+   * This returned a bare `null`, which deleted the whole Recovery section — the map, the landing
+   * bearing, the coordinates and the drift — heading included, with nothing saying why. §5: a
+   * surface with no empty state is not finished. It is the same defect the flight timeline carried
+   * until 2026-08-16, one section down.
+   *
+   * **Reachable, and stated exactly rather than rounded up.** `FlightReport` renders this whenever
+   * the latitude and longitude CHANNELS exist; the track is null when `groundTrack` cannot resolve
+   * an origin (the median of the first 16 fixes is non-finite) and the stats are null when no fix
+   * in the record is finite at all. Measured over every real recording the repo can reach: of 59
+   * flights that analyse end to end, **16 carry GPS columns and 0 reach this branch** — so unlike
+   * the timeline, no corpus file demonstrates it, and that is said rather than implied.
+   *
+   * What does reach it is a receiver's ordinary cold start. A GPS logger writes its columns from
+   * power-on and leaves them blank until it has a lock, and a rocket can fly before the lock
+   * lands. Built as a file and confirmed: the roles are detected as latitude/longitude, both
+   * channels are present, and `groundTrack` returns null — so the flyer whose receiver never
+   * locked, the one person most likely to go looking for the map, is the one who is shown nothing
+   * at all and left to conclude Debrief is broken.
+   *
+   * The two causes get one sentence each because they are different facts about the flight, and no
+   * `action`: there is nothing a flyer can press to put fixes into a file that has none.
+   *
+   * **It also repairs a link to nowhere, which is the half that was invisible from here.**
+   * `FlightReport` adds a *Recovery* entry to the section nav on the same condition it renders this
+   * on — `gpsLat && gpsLon`, at `FlightReport.tsx:860` — pointing at `#ground-track`. That id lived
+   * on the heading this branch deleted, so a flight with unusable fixes offered a nav link that
+   * jumped nowhere. The heading, and the id, now exist on both branches.
+   *
+   * **The copy names no instrument, and that is a correction rather than vagueness.** Two drafts
+   * tried to reassure by provenance — "every reading above comes from the barometer and the
+   * accelerometer, not the GPS" — and both were false. `GpsApogee` renders ABOVE this at
+   * `FlightReport.tsx:1130`; and a Featherweight GPS log has no barometer at all, so its apogee is
+   * the receiver's, with `altitudeSource: 'gps'` set in the analysis. Naming the barometer there
+   * would have told a flyer his GPS-derived apogee came from an instrument the file does not
+   * carry — on the same page that says otherwise two panels up. The e2e fixture this branch is
+   * walked with has no accelerometer column either, so the report prints "This logger didn't
+   * record acceleration" directly above. What IS true of every case is the relationship: nothing
+   * else on the page is measured from the pad, so nothing else is affected. Both drafts were
+   * caught by the pre-push review.
+   */
+  if (!track || !stats) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 id="ground-track" className="text-sm font-semibold tracking-tight text-zinc-700 dark:text-zinc-300">
+            Recovery
+          </h3>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">from GPS</span>
+        </div>
+        <EmptyState
+          className="mt-3"
+          title="No ground track in this recording"
+          what={
+            <>
+              This file carries latitude and longitude columns, but{' '}
+              {track
+                ? 'not one fix in them is a usable position'
+                : 'the opening fixes never resolved into a launch point'}{' '}
+              — so there is no pad to measure from and no track to draw. A receiver that had not got
+              a lock yet writes its columns empty, and a flight can be over before the lock arrives.
+              Nothing else on this page rests on the track: every reading above is taken from the
+              columns this file does carry, and none of them is measured from the pad.
+            </>
+          }
+        />
+      </div>
+    );
+  }
 
   const bearing = Math.round(stats.landingBearing);
   const coords = `${lat[stats.landingIndex].toFixed(5)}, ${lon[stats.landingIndex].toFixed(5)}`;

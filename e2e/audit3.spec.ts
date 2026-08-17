@@ -309,6 +309,68 @@ test('a Cd read off the whole descent says so, and does not call the rate termin
 // one: a flight that really does resolve a main leg must still say "terminal" and must carry no
 // whole-descent language at all. Without this, deleting the `wholeDescent` ternary and hard-coding
 // the qualified copy would leave the walk above green.
+/**
+ * The Recovery section used to DELETE ITSELF — heading and all — on a file that carries GPS
+ * columns holding no usable fix. Nothing said why, so the flyer whose receiver never locked, the
+ * one person most likely to go looking for the map, was shown nothing and left to conclude the
+ * tool was broken.
+ *
+ * The file is built here rather than taken from the corpus because no corpus file reaches this:
+ * 16 of the 59 real recordings carry GPS columns and all 16 resolve a track. What does reach it is
+ * a receiver's ordinary cold start — columns written from power-on, blank until the lock lands,
+ * and a flight that can be over before it does.
+ */
+function coldStartGpsCsv(): string {
+  const rows = ['Time (s),Altitude (ft),Latitude,Longitude'];
+  for (let i = 0; i < 400; i++) {
+    const t = (i * 0.1).toFixed(1);
+    const alt = (i < 200 ? i * 15 : (400 - i) * 15).toFixed(1);
+    const pad = (100 + i).toString().padStart(4, '0');
+    // Blank for the first 20 samples — more than groundTrack's 16-sample origin window.
+    rows.push(i < 20 ? `${t},${alt},,` : `${t},${alt},39.2${pad},-109.0${pad}`);
+  }
+  return rows.join('\n');
+}
+
+test('a flight whose GPS never locked says so, instead of deleting the Recovery section', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles({
+    name: 'gps-cold-start.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(coldStartGpsCsv()),
+  });
+
+  // A file no parser claims lands in the column mapper; its roles are guessed, so it is ready.
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+
+  // The heading survives — that is the half the `return null` took with it.
+  const heading = page.getByRole('heading', { name: 'Recovery' });
+  await expect(heading).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('No ground track in this recording')).toBeVisible();
+  // …and it says WHY, naming the cause rather than shrugging.
+  await expect(page.getByText(/latitude and longitude columns/)).toBeVisible();
+  await expect(page.getByText(/never resolved into a launch point/)).toBeVisible();
+  // The readings above are not implicated, and the state says so rather than leaving a flyer to
+  // wonder whether the whole analysis is suspect. It says it by RELATIONSHIP rather than by naming
+  // an instrument: two earlier drafts named the barometer, and a Featherweight GPS log has none —
+  // its apogee is the receiver's — so the reassuring version was false on exactly the files most
+  // likely to reach this state.
+  await expect(page.getByText(/none of them is measured from the pad/)).toBeVisible();
+
+  // **And the section-nav link that pointed at this heading now lands on something.**
+  // `FlightReport` adds its "Recovery" entry on the SAME condition it renders this section on
+  // (`gpsLat && gpsLon`), pointing at `#ground-track` — but that id lived on the heading the old
+  // branch deleted, so the link jumped nowhere. Asserting the id on the heading alone would only
+  // restate the locator; this asserts the two ENDS of the link, which is the defect.
+  const navLink = page.locator('a[href="#ground-track"]').first();
+  await expect(navLink).toBeVisible();
+  const targetId = await heading.getAttribute('id');
+  expect(targetId).toBe('ground-track');
+  await navLink.click();
+  await expect(heading).toBeInViewport();
+});
+
 test('a Cd read off a resolved main leg still calls the rate terminal', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a flight log file').setInputFiles(fx('aim-xtra.csv'));
