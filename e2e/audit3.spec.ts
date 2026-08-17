@@ -269,6 +269,32 @@ test('measures the parachute Cd from the descent, and remembers the inputs', asy
   await expect(page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/)).toHaveValue('53');
 });
 
+// The other basis, which no bundled sample reaches — every sample that opens as a flight
+// resolves a main leg, so the walk above can only ever see the terminal case. This one drops
+// a committed fixture that resolves NEITHER leg, which is the branch the card was publishing
+// bare: it said "at X terminal" over an apogee-to-ground average, while the landing-energy
+// card directly above it said so. Over the private corpus that branch carries 23 of the 38
+// flights that land inside their own record.
+test('a Cd read off the whole descent says so, and does not call the rate terminal', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles(fx('altimetercloud-mercury.csv'));
+
+  const panel = page.getByRole('region', { name: 'Parachute Cd (measured)' });
+  await expect(panel).toBeVisible();
+  await page.getByRole('region', { name: 'Landing energy' }).getByLabel(/Descending mass/).fill('53');
+  await panel.getByLabel(/Canopy diameter/).fill('36');
+
+  // The number computes — this is a qualifier, never a withholding.
+  await expect(panel.getByText(/^\d\.\d{2}$/)).toBeVisible();
+  // …and the word "terminal" is exactly what must NOT be there, because no main leg resolved.
+  await expect(panel.getByText(/over the whole descent · rule of thumb/)).toBeVisible();
+  await expect(panel.getByText(/terminal · rule of thumb/)).toHaveCount(0);
+  // The direction is stated, since it is the half a flyer can act on: a rate inflated by an
+  // unresolved drogue leg pushes a Cd (which goes as 1/v²) down, so the figure is a floor.
+  await expect(panel.getByText(/no deployment change is in this record/)).toBeVisible();
+  await expect(panel.getByText(/reads low/)).toBeVisible();
+});
+
 test('measures the drogue Cd from the drogue-phase descent on a dual-deploy flight', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

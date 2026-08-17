@@ -14,6 +14,54 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-17 — `lib/analyze/index.ts:409` fabricates a ground datum from three CLIMBING samples,
+  and four real L1 logs file an apogee 67–116 ft low because of it. MEASURED, and deliberately NOT
+  fixed this run: every candidate repair breaks a different real log worse than the bug it fixes.**
+  `padBaseline` walks forward while a sample stays within 6 m of the first, then does
+  `baseEnd = Math.max(3, baseEnd)`. When the record starts already airborne the loop never advances
+  (`raw = 1`), so that `Math.max` does not extend a short pad window — it invents one out of three
+  points on the ascent, and the median of those is subtracted from every altitude in the file.
+  The four `jimheaney` fixtures carry a column literally headed `Alt AGL (ft)` — the device has
+  already ground-referenced it — and their first sample is 43–64 ft up:
+
+  | fixture | raw `Alt AGL (ft)` max | Debrief | error |
+  |---|---|---|---|
+  | `discovery-L1` | 2450.3 ft | 2353 ft | −97 ft (−4.0%) |
+  | `penguin-L1` | 2526.5 ft | 2460 ft | −67 ft (−2.6%) |
+  | `swiss-cheese-L1` | 2554.2 ft | 2452 ft | −102 ft (−4.0%) |
+  | `the-gardener-L1` | 2536.7 ft | 2421 ft | −116 ft (−4.6%) |
+
+  **14 of 52 analysable records have no quiet window at all** (the loop returns `raw < 3`), and 25 of
+  59 already carry the *"doesn't appear to start on the pad"* warning — so the app is not silently
+  confident, but the caveat never reaches the apogee tile and `altitudeUnproven` is false on all four
+  (it is true on exactly 1 record in the whole corpus, and that one is a different flight).
+
+  **Four repairs were measured and all four are wrong.** This is the entry's real content — do not
+  re-derive them:
+  1. **`datum = 0` (trust the file's own reference).** Right for the four AGL logs (gives exactly
+     2450/2527/2554/2537). Catastrophic elsewhere: `reddit-asteria-lyrid` sits on a 1,843.9 m MSL pad
+     and its correct 171 ft climb becomes **6,220 ft**; the Featherweight GPS ground-station file goes
+     6,264 → **11,203 ft**.
+  2. **`datum` = a low percentile of the record (a landed record's floor IS ground).** Within ~0.5%
+     on the AGL logs, the lyrid and the GPS file — and it moves `missileworks XPRS` from 13,506 ft to
+     **12,498 ft** against a corpus note of 13,304 ft, and the two `intrepid3tf2` `.pf2` files by
+     ~900 ft each with no ground truth to judge by.
+  3. **Caveat the apogee wherever the baseline is approximate.** Fires on **25 of 59** records, most
+     of which read correctly — a caveat on 42% of flights is noise, and it devalues the one flight
+     that genuinely needs it.
+  4. **Believe an `AGL` header and skip the baseline.** Killed by the same GPS file, which carries
+     BOTH `Alt AGL (ft)` and `TRACKER Alt asl` and whose altitude Debrief reads off the **asl**
+     column — so the rule would key on a header the analysis is not using.
+
+  What is actually needed is a way to tell an AGL datum from an MSL one **for the column being read**,
+  which no heuristic here can do from inside the record. That is a milestone-sized question, not a
+  patch. Until it is answered the honest position is the current one plus a louder caveat, and the
+  reason nothing shipped is that `MAINTAINING.md` forbids exactly this: *"If you cannot ground a
+  method in a citable source or reproduce a reference case, do not ship it — least of all on a
+  safety-relevant number."* Reproduce the table above with a sweep over
+  `lib/parsers/__corpus__/generic-csv/genericcsv__reddit-jimheaney-*`; `expected.json` asserts no
+  apogee on any of the four, which is why the gate is green over a number that is wrong.
+
 - **2026-08-13 — `maxDeceleration` is documented as "most negative" and is only the ASCENT
   minimum.** `lib/analyze/types.ts:70` says most negative; `lib/analyze/index.ts:1851` computes
   `argMin(signedAccel, liftoffRef, apogeeIdx + 1)`, so the window stops at apogee and a harder

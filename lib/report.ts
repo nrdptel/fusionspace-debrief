@@ -1803,6 +1803,15 @@ export function analysisJson(
       rec.descendingMass = { value: round(recovery.descendingMassKg / MASS_TO_KG[massUnit], massUnit === 'oz' ? 1 : 0), unit: massUnit };
       rec.landingEnergyJoules = round(joules, 1);
       rec.landingEnergyFtLbf = round(joulesToFtLbf(joules), 1);
+      // The basis the prose row has carried since it was written (see `headlineRows`), and
+      // the reason it belongs here MORE than there: this is the sink a script or a cert tool
+      // reads, and a consumer branching on the fields it is given has no sentence to read.
+      // Energy goes as v², so a whole-descent average that includes an unresolved drogue leg
+      // publishes a joule figure that is HIGH, and a club or RSO ground-hazard limit is
+      // exactly what it gets checked against. Emitted always rather than only when true, so
+      // a consumer can tell "measured on a resolved main leg" from "this build is older
+      // than the flag" — an absent key means neither.
+      rec.landingEnergyBasis = landingRateIsWholeDescent(m) ? 'whole-descent-average' : 'main-leg';
     }
     if (recovery.mainDeploy) {
       const { setM, actualM } = recovery.mainDeploy;

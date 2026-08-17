@@ -36,7 +36,7 @@ import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
 import { toCanonical } from '@/lib/canonical';
-import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, landedInRecord, landingRate, liftoffOnLogClock, withheldReason } from '@/lib/readings';
+import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, landedInRecord, landingRate, landingRateIsWholeDescent, liftoffOnLogClock, withheldReason } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import FigureChooser from './FigureChooser';
@@ -1491,6 +1491,10 @@ export default function FlightReport({
         {landingRate(metrics) != null && (
           <ParachuteCd
             descentRate={landingRate(metrics) as number}
+            // The same rule the landing-energy card above reads, from the same one
+            // place — a Cd goes as 1/v², so a whole-descent average is a stronger
+            // caveat here than it is there, not a weaker one.
+            wholeDescent={landingRateIsWholeDescent(metrics)}
             // Ground-level air density (first finite sample) — the main descends low,
             // where density is near the pad's, so this is the right ρ for terminal v.
             airDensity={series.airDensity.find((d) => Number.isFinite(d)) ?? 1.225}

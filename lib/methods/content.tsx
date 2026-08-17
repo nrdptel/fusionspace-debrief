@@ -1102,6 +1102,16 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           flight — the fast fall between apogee and the main, worked with the thinner air density up
           there — flagged approximate, since a small drogue may not be fully at terminal velocity.
         </p>
+        <p>
+          Where no deployment change is in the record, there is no main leg to resolve and the rate
+          used is the average over the <em>whole</em> descent — the card says so rather than calling it
+          terminal. That case is common rather than exotic: it covers 23 of the 38 flights in
+          Debrief&rsquo;s validation corpus that land inside their own record. Only the direction of the
+          error is claimable. A whole-descent average that includes a drogue leg is faster than the
+          main alone, and C<sub>d</sub> goes as 1&nbsp;÷&nbsp;v², so the figure is a floor — the real
+          canopy did at least this well. The size is not claimable, because a record that resolved no
+          main leg carries no second rate to measure the gap against.
+        </p>
       </>
     ),
   },
