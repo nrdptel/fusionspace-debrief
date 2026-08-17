@@ -2077,11 +2077,39 @@ of numbers and `9322` occurs inside the soup by coincidence. Matching whole nume
 them too — `9322` and `1009` are both real values in those logs. Only the semantic rule works. Two
 mutants, each reddening with its own figure named, is the only reason this counts as a check.
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c) and TWO of (d)'s three logs SHIPPED.**
-Every sink the audit has found carries the claim (`todo: 0`), the mapper sample is OFFERED, `/stitch`
-has a demonstration for the first time, and so does the app's own refusal to publish a railed peak.
-**What is left is a coarse-GPS flight — and one thing this milestone's own two lists disagree
-about, below.**
+**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c), TWO of (d)'s three logs, and the
+OPENROCKET DESIGN OVERLAY all SHIPPED.** Every sink the audit has found carries the claim
+(`todo: 0`), the mapper sample is OFFERED, `/stitch` has a demonstration for the first time, so does
+the app's own refusal to publish a railed peak, and as of 2026-08-17 so does the predicted-versus-flown
+overlay. **Five of the *done when*'s six capabilities now have a sample; what is left is the
+coarse-GPS flight.**
+
+**2026-08-17 — the design overlay, which was invisible to every status line this milestone wrote.**
+It was named in the *done when* and never in (d)'s list of three logs, so it went unshipped and
+uncounted for four runs. Two decisions settled it, both recorded in full under *Decisions taken
+without the owner*:
+
+- **The design is GENERATED, not served.** The only real `.ork` this project can reach is
+  OpenRocket's own shipped example, and it is **GPL-3.0-or-later** while this repository is MIT.
+  It is also a poor demonstration on its own terms: five simulations (D9's picker, not the overlay)
+  and a 50.59 m apogee against an L2 flight sample. Parked for the owner.
+- **It pairs with a GENERATED flight, not a real one.** Pairing an invented design with a real
+  recording would publish a fabricated error percentage about somebody's actual flight. Both halves
+  are made up, so the comparison is a demonstration end to end.
+
+**And the honesty mechanism it needed did not exist, which is the transferable part.** A made-up
+PREDICTION is not a made-up FLIGHT, and the obvious reuse is actively dangerous: `lib/ingest.ts`
+merges a design's `PredictionContribution.notes` verbatim into the notes of the flight it pairs
+with, and `isSynthetic` matches `SYNTHETIC_NOTE` exactly — so a design carrying that sentence would
+make a **real recording announce itself as invented** on all two dozen labelled sinks, the moment a
+flyer dropped this design beside their own log. `lib/syntheticDesign.ts` gives the design its own
+constant and its own sentence, prepended ahead of the provenance note for `withSyntheticNote`'s
+reason. Pinned by 5 cases in `lib/samples.test.ts` and a walk in `e2e/analyze.spec.ts`; falsified
+by making the two sentences identical, which reddens the unit case, and by removing the note, which
+reddens the walk.
+
+Reads **Predicted 5,248 ft against a flown 5,467 ft** in the app, verified by driving it rather
+than from the generator's own arithmetic.
 
 **The *done when* names SIX capabilities and (d) lists THREE logs, and they are not the same set.**
 Noticed 2026-08-13 while marking the saturated accelerometer shipped, and written down rather than
@@ -4834,6 +4862,30 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-17 — D10's design-overlay sample is GENERATED, not the real `.ork` this project can
+  reach.** *Rejected:* serving OpenRocket's own shipped example design, which `debrief-fixtures`
+  already holds and whose `SOURCES.md` explicitly contemplates publishing (*"If this file is ever
+  published, it goes out under GPL-3 with the licence and its origin attached"*). Two reasons, and
+  the first is the owner's to overturn rather than a session's. **It is GPL-3.0-or-later and this
+  repository is MIT** — publishing it from `public/samples/` mixes a copyleft artifact into an MIT
+  repo and a deployed static site, which `MAINTAINING.md`'s clean-room invariant ("keep the MIT
+  license") argues against and which is a licensing judgment the manual names as owner-level. And
+  it is a poor demonstration independently: it states **five** simulations, which triggers D9's
+  picker rather than the overlay, and its **50.59 m** apogee is two orders of magnitude off any
+  flight sample here, so the cross-check would compare a model rocket against an L2 flight.
+  Parked in `OWNER-NOTES.md` under *Awaiting the owner*. Reversal cost: drop the file into
+  `public/samples/`, add the GPL-3 notice and origin beside it, delete `lib/syntheticDesign.ts`'s
+  `demoDesign` and point the registry entry at it — the marker plumbing stays useful either way,
+  because any generated design still has to say it is one.
+
+- **2026-08-17 — the generated design pairs with a generated FLIGHT, not with a real recording.**
+  *Rejected:* pairing it with `one-flight` / `sample-altusmetrum.csv`, which the previous session's
+  build plan assumed and which is one file cheaper. It would publish a **fabricated error
+  percentage about somebody's actual flight** — the cross-check would report a real recording as
+  having missed a prediction that was never made of it, which is a made-up figure attached to a
+  measurement and worse than either alone. With both halves generated the whole comparison is a
+  demonstration and both files say so. Reversal cost: change one `files:` array.
 
 - **2026-08-13 — the prune notice was hoisted into its own component rather than duplicated into
   the two branches that were missing it.** *Rejected:* pasting the JSX into the report and compare

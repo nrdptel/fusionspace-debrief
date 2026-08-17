@@ -255,6 +255,29 @@ flight, and a staged pair on two devices, which is the only thing that will give
 and the one place a competitor (Featherweight's wFIP 2.0, with Jason Brown's two-stage *BadaBoom*)
 demonstrably beats us.
 
+TRIAGED 2026-08-17 — **still open, and the OpenRocket design overlay shipped, which was the
+capability this milestone had lost track of rather than deferred.** It is named in D10's *done when*
+and was never in (d)'s list of three logs, so four consecutive status lines counted it as neither
+done nor outstanding. `/` now carries a fifth way in — *"A design, and the flight it flew"* — a
+generated design set against a generated recording of the same rocket, reading Predicted 5,248 ft
+against a flown 5,467 ft. **Five of the six capabilities in the *done when* now have a sample; the
+coarse-GPS flight is the last one.**
+
+Two things on this note the owner may want to reverse, both recorded in `ROADMAP.md` under
+*Decisions taken without the owner* and one of them parked below under *Awaiting the owner*:
+
+- The design is **generated rather than served**, because the only real `.ork` reachable here is
+  OpenRocket's own example and it is **GPL-3 while this repo is MIT**. That is a licensing
+  judgment, so it is the owner's; the defensible option was taken and shipping continued.
+- It pairs with a **generated flight** rather than the real front-door sample, because an invented
+  design set against a real recording would publish a fabricated error percentage about somebody's
+  actual flight.
+
+And one finding worth keeping even if both are reversed: **a made-up PREDICTION is not a made-up
+FLIGHT**, and reusing the flight's marker for a design would have made a REAL recording announce
+itself as invented, because `lib/ingest.ts` merges a design's notes into the flight it pairs with.
+The two claims are separate sentences now, with a check that reddens if they are ever made the same.
+
 
 now the samples themselves rather than the labelling.** Every sink this audit has found carries the
 claim: **24 of 29 by a named check, 5 by prose in the document itself, 0 left open**, against 21 of
@@ -592,6 +615,22 @@ runs.
 
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
+
+- **2026-08-17 — may a GPL-3 file be published from this MIT repo? One question, one line of
+  answer, and it decides D10's design sample and nothing else.** `debrief-fixtures` holds
+  OpenRocket's own shipped example design, and its `SOURCES.md` already contemplates the case:
+  *"If this file is ever published, it goes out under GPL-3 with the licence and its origin
+  attached."* That would give Debrief a **real** design to demonstrate the predicted-versus-flown
+  overlay with, instead of the generated one now shipped — and a real design needs no made-up
+  label at all. The cost is that `public/samples/` and the deployed site would carry a copyleft
+  artifact, which `MAINTAINING.md`'s clean-room invariant ("keep the MIT license") argues against
+  and which the manual names as a licensing judgment reserved to you.
+  **Answer NO and nothing changes** — the generated design is shipped, checked and honest.
+  **Answer YES and it is a small swap**: the file, a GPL-3 notice and origin beside it, and the
+  registry entry re-pointed. Worth knowing before you answer: that particular design states five
+  simulations, so it lands on D9's picker rather than the overlay, and its 50.59 m apogee is two
+  orders off any flight sample here — so even under YES it would want re-saving with one
+  simulation, and it would demonstrate less well than it sounds.
 
 - **2026-08-14 — `DESIGN.md` §4 contradicts itself about half-steps, and §4 is a SHARED section, so
   the wording cannot be fixed from inside one repo.** It says *"The scale is `1 2 3 4 6 8 12`.

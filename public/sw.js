@@ -42,6 +42,8 @@ const SAMPLE_FILES = [
   '/samples/sample-saturated.csv',
   '/samples/sample-stage-booster.csv',
   '/samples/sample-stage-sustainer.csv',
+  '/samples/sample-design-flight.csv',
+  '/samples/sample-design.ork',
 ];
 
 const PRECACHE = [

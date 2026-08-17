@@ -11,7 +11,9 @@ import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
 import type { ColumnRole } from './flight/columns';
 import { buildComposite } from './composite';
-import { demoFlight, isSynthetic, saturatedFlight, stagedPair, toLoggerCsv, toMapperCsv } from './synthetic';
+import { demoFlight, isSynthetic, saturatedFlight, stagedPair, toLoggerCsv, toMapperCsv, toSingleLoggerCsv, SYNTHETIC_NOTE } from './synthetic';
+import { demoDesign, isSyntheticDesign, SYNTHETIC_DESIGN_NOTE } from './syntheticDesign';
+import { orkToXml, readPredictionDetail, predictionFiguresFrom } from './parsers/openrocket';
 
 const PUBLIC = fileURLToPath(new URL('../public/samples/', import.meta.url));
 
@@ -38,6 +40,28 @@ function expectGenerated(name: string, want: string): void {
     readFileSync(PUBLIC + name, 'utf8'),
     `${name} has drifted from its generator — regenerate with WRITE_SAMPLES=1 npx vitest run lib/samples.test.ts`,
   ).toBe(want);
+}
+
+/**
+ * The same check for a sample that is BINARY, which `expectGenerated` cannot do: it reads utf8 and
+ * compares strings, so a `.ork` archive round-tripped through a decode would compare two strings of
+ * replacement characters and pass over a real difference.
+ *
+ * The failure message carries both lengths rather than the bytes. A `toEqual` over two 600-byte
+ * `Buffer`s prints two screens of decimal numbers and tells a reader nothing they can act on; the
+ * lengths plus the regenerate command are what actually get used.
+ */
+function expectGeneratedBytes(name: string, want: Uint8Array): void {
+  if (process.env.WRITE_SAMPLES === '1') {
+    writeFileSync(PUBLIC + name, want);
+    return;
+  }
+  const onDisk = new Uint8Array(readFileSync(PUBLIC + name));
+  const same = onDisk.length === want.length && onDisk.every((b, i) => b === want[i]);
+  expect(
+    same,
+    `${name} has drifted from its generator (${onDisk.length} bytes on disk, ${want.length} generated) — regenerate with WRITE_SAMPLES=1 npx vitest run lib/samples.test.ts`,
+  ).toBe(true);
 }
 
 /**
@@ -403,6 +427,128 @@ describe('the sample flights', () => {
     for (const p of pair) expectGenerated(`sample-stage-${p.stage}.csv`, toLoggerCsv(p));
   });
 
+  /**
+   * The design-overlay pair: a made-up flight and a made-up design of the same rocket.
+   *
+   * **Both halves are invented, and that is the honest arrangement rather than the convenient
+   * one.** Pairing a generated design with a REAL recording would publish a fabricated error
+   * percentage about somebody's actual flight — a made-up figure attached to a measurement, which
+   * is worse than either alone. Pairing it with a generated flight makes the whole comparison a
+   * demonstration, and both files say so.
+   *
+   * The design is not served from OpenRocket's own example, which is the only real `.ork` this
+   * project can reach: that file is GPL-3.0-or-later and this repository is MIT. See
+   * `lib/syntheticDesign.ts`.
+   */
+  const DESIGN_SAMPLE = SAMPLES.find((s) => s.id === 'design-overlay');
+
+  it('writes the design pair exactly as its generators do, bytes included', () => {
+    const s = DESIGN_SAMPLE!;
+    expect(s.files, 'the flight comes first, which is the order a flyer would drop them').toEqual([
+      'sample-design-flight.csv',
+      'sample-design.ork',
+    ]);
+    const flight = demoFlight('A design, and the flight it flew');
+    expectGenerated('sample-design-flight.csv', toSingleLoggerCsv(flight, 3));
+    expectGeneratedBytes('sample-design.ork', demoDesign(flight));
+  });
+
+  it('gives the design pair one PARSED flight and one design, which is what pairs them', () => {
+    // `lib/ingest.ts` pairs a design with a flight by name, and falls back to one-of-each. The
+    // rocket name in a generated design does not appear in the log's FILENAME, so this sample
+    // rests entirely on that fallback — which needs exactly one PARSED flight. Every other
+    // synthesized sample lands in the column mapper and could not supply it, and this assertion is
+    // what stops the flight file quietly becoming a mapper file again.
+    const csv = readFileSync(PUBLIC + 'sample-design-flight.csv', 'utf8');
+    const res = importFlight({ name: 'sample-design-flight.csv', text: csv });
+    expect(res.kind, 'the flight half must auto-detect, or the design has nothing to pair with').toBe('flight');
+    if (res.kind !== 'flight') return;
+    expect(isSynthetic(res.flight), 'and it says Debrief made it up').toBe(true);
+  });
+
+  it('reads ten figures out of the design, and states that they were made up', async () => {
+    const bytes = new Uint8Array(readFileSync(PUBLIC + 'sample-design.ork'));
+    const xml = await orkToXml(bytes);
+    const read = readPredictionDetail(xml);
+    expect(read.prediction, 'the archive opens and states a prediction').not.toBeNull();
+    const p = read.prediction!;
+    // Exactly one simulation: two or more triggers D9's picker, which is a different capability
+    // and would make this sample demonstrate that instead.
+    expect(p.runs.length).toBe(1);
+    // All ten, or `readPredictionDetail` drops the run whole and the sample shows nothing.
+    expect(p.runs[0].values.length).toBe(10);
+    expect(p.synthetic, 'the design carries its own made-up marker').toBe(true);
+
+    const figures = predictionFiguresFrom(p);
+    expect(figures.notes[0], 'and the claim comes FIRST, ahead of the provenance sentence').toBe(
+      SYNTHETIC_DESIGN_NOTE,
+    );
+    // The claim on a design is NOT the claim on a flight, and must never be confused with it:
+    // `lib/ingest.ts` merges these notes into the flight's, and `isSynthetic` matches
+    // `SYNTHETIC_NOTE` exactly — so a design carrying that sentence would make a REAL recording
+    // announce itself as invented.
+    expect(figures.notes).not.toContain(SYNTHETIC_NOTE);
+    expect(isSyntheticDesign(figures.notes)).toBe(true);
+  });
+
+  /**
+   * **A case that asserted `maxvelocity / maxmach` lands in the parser's 280–380 band was DELETED
+   * here, and the reason is worth more than the case was.** `demoDesign` writes
+   * `maxmach = maxvelocity / SOUND_MS`, so that ratio is `SOUND_MS` identically — for every
+   * flight, every `MISS`, every apogee. Setting `MISS = 0.1` leaves it green while reddening the
+   * cases around it. Its only live mutant was `SOUND_MS` itself, and the case above already kills
+   * that one: move `SOUND_MS` outside the band and `readPredictionDetail` drops the run, so
+   * `prediction` comes back null and *"reads ten figures out of the design"* fails first.
+   *
+   * It was written to guard the ten-attribute-and-units rule and instead restated the generator's
+   * own arithmetic back to itself. Third check in this repo's history to take that shape; recorded
+   * rather than quietly removed, because the shape is what recurs.
+   */
+  it('derives every one of the ten figures from the flight, with none typed in', () => {
+    // The other half of what that case should have been doing. A constant in the design is not a
+    // units bug, it is a figure that stops moving when the curve does — and one of the three found
+    // by the pre-push review (`optimumdelay = 2.8 s`, against a coast of seventeen and a half
+    // seconds) was absurd enough that a reader who knows the quantity would have caught it.
+    const a = demoDesign(demoFlight('A design, and the flight it flew'));
+    // **TWO mutants, and a figure counts as typed-in only if it is frozen under BOTH.** One is not
+    // enough, and the two attempts it took are the useful part. Scaling heights and speeds alone
+    // freezes `timetoapogee`, `flighttime` and `optimumdelay`, which are read off a clock that
+    // mutation never touched. Scaling heights, speeds AND time together freezes `maxacceleration`,
+    // because dv/dt is invariant when both halves are halved. Each mutant was the check being
+    // right about a mutant that was wrong — a frozen-figure sweep is only as good as the axes it
+    // disturbs, and no single scaling disturbs all of them.
+    const warped = (f: (p: { t: number; altitude: number; velocity: number }) => typeof p) => {
+      const m = demoFlight('a different curve');
+      m.samples = m.samples.map((p) => ({ ...p, ...f({ t: p.t, altitude: p.altitude, velocity: p.velocity }) }));
+      return demoDesign(m);
+    };
+    // Space only: catches every figure read off a height or a speed.
+    const b = warped((p) => ({ ...p, altitude: p.altitude * 0.5, velocity: p.velocity * 0.5 }));
+    // Time only: catches every figure read off the clock, and moves dv/dt as well.
+    const c = warped((p) => ({ ...p, t: p.t * 0.5 }));
+    const attrs = (bytes: Uint8Array) =>
+      Object.fromEntries(
+        [...new TextDecoder().decode(bytes).matchAll(/(\w+)="([-0-9.]+)"/g)].map((m) => [m[1], Number(m[2])]),
+      );
+    const A = attrs(a);
+    const B = attrs(b);
+    const C = attrs(c);
+    const TEN = [
+      'maxaltitude',
+      'maxvelocity',
+      'maxacceleration',
+      'maxmach',
+      'timetoapogee',
+      'flighttime',
+      'groundhitvelocity',
+      'launchrodvelocity',
+      'deploymentvelocity',
+      'optimumdelay',
+    ];
+    const frozen = TEN.filter((k) => A[k] === B[k] && A[k] === C[k]);
+    expect(frozen, 'these figures did not move when the flight did, so they are typed in').toEqual([]);
+  });
+
   it('keeps the staged pair off the surfaces that would open it as a comparison', () => {
     // A booster and a sustainer dropped together build a COMPARISON, and a comparison reports
     // their apogees disagreeing by a factor of ten as though that were a finding — on a set that is
@@ -470,6 +616,25 @@ describe('the surfaces whose subject is more than one file offer a way in', () =
     // comparison, or the surface demonstrates itself with one flight.
     expect(MULTI_SAMPLE, 'the registry still holds a multi-file sample').toBeDefined();
     expect(MULTI_SAMPLE!.files.length).toBeGreaterThan(1);
+  });
+
+  it('refuses a DESIGN pair, which is the second two-file set that is not two recordings', () => {
+    // `/compare` compares RECORDINGS. The design sample is two files and is not `stages`, so it
+    // satisfies the old `files.length > 1 && kind !== 'stages'` predicate by shape — and opening
+    // it here would leave ONE flight in a comparison built for two, because a `.ork` is not a
+    // recording of anything. That is the surface demonstrating itself failing, which is exactly
+    // what the `stages` exclusion beside it was written after.
+    //
+    // Asserted at the SELECTOR and not only at today's answer: the design entry is last in the
+    // registry today, so `find` reaches `two-altimeters` first and the defect is invisible until
+    // somebody reorders the list — which is the same positional luck the check above exists for.
+    expect(MULTI_SAMPLE?.id, 'today it is still the two-board pair').toBe('two-altimeters');
+    expect(MULTI_SAMPLE?.kind, 'and never a design').not.toBe('design');
+    const src = readFileSync(new URL('./samples.ts', import.meta.url), 'utf8');
+    const selector = src.match(/MULTI_SAMPLE[^;]*;/s)?.[0] ?? '';
+    expect(selector, 'the selector itself excludes a design pair').toMatch(/kind !== 'design'/);
+    // And the exclusion has to be true of a sample that really exists, or it guards nothing.
+    expect(SAMPLES.some((s) => s.kind === 'design' && s.files.length > 1)).toBe(true);
   });
 
   it('chooses it by id rather than by position in the registry', () => {

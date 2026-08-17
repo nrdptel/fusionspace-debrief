@@ -13,6 +13,7 @@
 // Debrief states all of them and judges none.
 
 import type { FlightEvent, FlightMetrics } from '@/lib/analyze/types';
+import { syntheticHeader } from '@/lib/synthetic';
 import type { ReportedValue } from '@/lib/flight/types';
 import { fmtAccel, fmtLength, fmtMach, fmtSpeed, fmtTime } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
@@ -76,9 +77,28 @@ export default function DeviceSummary({
   metrics,
   events,
   sys,
+  synthetic,
 }: {
   reported: ReportedValue[];
   metrics: FlightMetrics;
+  /**
+   * Whether this is a flight Debrief MADE UP — required with no default, for the reason
+   * `MetricGrid`'s and `GroundTrack`'s are: the safe-looking default is the defect value on a
+   * panel whose whole output is a clipboard block somebody pastes into a document.
+   *
+   * **This was the sink D10's audit had never enumerated, found by the pre-push review of the
+   * design sample.** Every other table-bearing child of `FlightReport` was passed `synthetic`;
+   * this one was not, because until the design sample existed no synthetic flight ever populated
+   * it — `reported` is non-empty only where a file carries a logger's own summary or a design
+   * pairs with it, and every made-up sample before this one did neither. The sample created the
+   * state and the state had no label, which is exactly the shape this milestone's own notes warn
+   * about: `todo: 0` means nothing KNOWN is open, never that nothing is.
+   *
+   * The claim rides on the column HEADERS rather than on a row, because a column is the unit that
+   * travels — `lib/synthetic.ts`'s `syntheticHeader` records the measurement behind that, and
+   * `DataTable` copies exactly `columns.map(c => c.header)`.
+   */
+  synthetic: boolean;
   /** The deployment shocks live on the apogee and main EVENTS rather than on `FlightMetrics`,
    *  so the cross-check needs them to resolve a device-stated shock. */
   events?: FlightEvent[];
@@ -154,7 +174,7 @@ export default function DeviceSummary({
             ? [
                 {
                   key: 'predicted',
-                  header: 'Predicted',
+                  header: syntheticHeader('Predicted', synthetic),
                   cell: (x: (typeof rows)[number]) => (
                     <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                       {x.predicted ? fmt(x.metric, x.predicted.reported.value, sys) : '—'}
@@ -168,7 +188,7 @@ export default function DeviceSummary({
             ? [
                 {
                   key: 'logger',
-                  header: 'Logger',
+                  header: syntheticHeader('Logger', synthetic),
                   cell: (x: (typeof rows)[number]) => (
                     <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                       {x.hasDevice ? fmt(x.metric, x.r.value, sys) : '—'}
@@ -180,7 +200,7 @@ export default function DeviceSummary({
             : []),
           {
             key: 'debrief',
-            header: 'Debrief',
+            header: syntheticHeader('Debrief', synthetic),
             cell: (x) => (
               <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                 {x.has ? fmt(x.r.metric, x.computed, sys) : '—'}
@@ -199,7 +219,7 @@ export default function DeviceSummary({
             ? [
                 {
                   key: 'agreement',
-                  header: 'Agreement',
+                  header: syntheticHeader('Agreement', synthetic),
                   cell: (x: (typeof rows)[number]) =>
                     !x.hasDevice ? (
                       // The logger stated nothing on this row. Not "not computed" — Debrief may well
@@ -250,7 +270,7 @@ export default function DeviceSummary({
             ? [
                 {
                   key: 'vs-prediction',
-                  header: 'vs prediction',
+                  header: syntheticHeader('vs prediction', synthetic),
                   cell: (x: (typeof rows)[number]) =>
                     x.predicted ? predictionChip(x.predicted) : <span className="text-zinc-500 dark:text-zinc-400">—</span>,
                   text: (x: (typeof rows)[number]) => (x.predicted ? predictionVerdict(x.predicted) : '—'),

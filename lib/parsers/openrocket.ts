@@ -36,6 +36,7 @@
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { ReportedValue } from '../flight/types';
 import { decodeXml, looksLikeZip, readCentralDirectory, readMember, tagAttr, type ZipContext } from '../zipRead';
+import { SYNTHETIC_DESIGN_NOTE, syntheticDesignFromXml } from '../syntheticDesign';
 
 /** The member inside the archive that holds the design. Fixed by the format. */
 const DESIGN_MEMBER = 'rocket.ork';
@@ -167,6 +168,16 @@ export interface Prediction {
   /** What wrote the file, e.g. "OpenRocket 24.12". */
   creator: string | null;
   runs: PredictedRun[];
+  /**
+   * True when the design says, in its own file, that Debrief generated it.
+   *
+   * **Its own axis, never `lib/synthetic.ts`'s.** That module's marker means *this FLIGHT was
+   * invented*, and `lib/ingest.ts` merges a design's notes into the notes of the flight it pairs
+   * with — so reusing it here would make a real recording announce itself as invented the moment a
+   * flyer dropped a demonstration design beside their own log. A prediction and a flight are
+   * different claims and get different sentences. See `lib/syntheticDesign.ts`.
+   */
+  synthetic: boolean;
 }
 
 /** Speed of sound used only to CHECK the file's units, never to compute anything.
@@ -316,7 +327,7 @@ export function readPredictionDetail(xml: string): PredictionRead {
   if (runs.length === 0) {
     return { prediction: null, why: stated === 0 ? 'never-simulated' : 'unusable', rocket };
   }
-  return { prediction: { rocket, creator, runs }, why: null, rocket };
+  return { prediction: { rocket, creator, runs, synthetic: syntheticDesignFromXml(xml) !== null }, why: null, rocket };
 }
 
 /** The prediction a `.ork` states, or null. The common case; use `readPredictionDetail`
@@ -370,7 +381,16 @@ export interface PredictionContribution {
 export function predictionFiguresFrom(prediction: Prediction): PredictionContribution {
   const rocket = prediction.rocket ?? 'this design';
   if (prediction.runs.length > 1) {
-    return { rocket, reported: [], notes: [predictionRefusal(prediction)] };
+    // The made-up claim goes FIRST here too, for `withSyntheticNote`'s reason: a reader takes the
+    // notes in order, and "these figures were invented" outranks "Debrief will not pick between
+    // them". A design that is both synthesized and multi-run is not a shape this repo ships, but
+    // the refusal is reachable from any file a flyer drops, so the branch says it rather than
+    // relying on the other one having been taken.
+    return {
+      rocket,
+      reported: [],
+      notes: [...(prediction.synthetic ? [SYNTHETIC_DESIGN_NOTE] : []), predictionRefusal(prediction)],
+    };
   }
   return figuresForRun(prediction, prediction.runs[0]);
 }
@@ -433,6 +453,12 @@ export function figuresForRun(
     reported: run.values,
     ...(run.series ? { series: run.series } : {}),
     notes: [
+      // **First, and before the flyer's own statement.** `lib/ingest.ts` merges these verbatim
+      // into the flight's notes and every surface renders notes in order, so the claim that the
+      // figures were invented has to outrank both the pick and the provenance sentence below it.
+      // Never `SYNTHETIC_NOTE`: that one says the FLIGHT was made up, and this design can be
+      // dropped beside a real recording — see `lib/syntheticDesign.ts`.
+      ...(prediction.synthetic ? [SYNTHETIC_DESIGN_NOTE] : []),
       ...(chosenByFlyer
         ? [
             `${FLYER_CHOSE} ${run.name ? `“${run.name}”` : 'this simulation'} is the one that flew. Debrief cannot read that from a flight log, ` +
