@@ -309,6 +309,17 @@ an `.xlsx` and sniffs a UTF-16 BOM) and carries its `bytes`. So a sample could o
 text file, and only ever ONE file. Both are gone as of slice 1 — samples build real `File` objects
 and go through `onFiles`, the drop path itself.
 
+
+TRIAGED 2026-08-17 (second run this date) — **still open, unchanged, and no sample work this run.**
+The run opened on the corpus sweep this note's own milestone keeps paying for, and it returned a
+Sev-1 that preempted both tracks: the max-Q a flyer sizes an airframe from was being republished on
+four surfaces at up to 117x the analysis's own figure. D10's last capability — the coarse-GPS flight
+— is unmoved and remains the single item between this note and a closed milestone. What the run DID
+buy it is a map rather than a guess: a GPS surface audit enumerated **38 distinct sinks** that
+present, label or withhold a GPS-derived value, and the honest finding is that exactly **one** of
+them states horizontal fix quality at all. That reorders the last slice: a coarse-GPS sample
+demonstrates a capability, and the capability it would demonstrate is thinner than this milestone
+assumed. `COMPETITION.md` row 47 carries the measured version.
 ---
 
 **CORRECTION, 2026-08-08, and it changes the answer to the owner's actual question.** The verdict
@@ -394,6 +405,13 @@ it did move: the count of surfaces that explain a reading IN PLACE is now the th
 this run added a second `EmptyState` that explains a whole missing section rather than sending a
 flyer elsewhere — the same instinct one level up. The note stays open on its own terms; `Popover`
 exists and the remaining work is the surfaces that still navigate away.
+
+TRIAGED 2026-08-17 (second run this date) — **read, not moved, and P8 remains the answer.** Nothing
+this run touched the `?` affordance. One thing adjacent to it did move and is worth recording here
+because this note is about explanation arriving where the reading is: the channel explorer's
+statistics table gained a `scope` line — an explanation of what stretch of the flight a figure was
+read over, rendered beside the figure rather than a page away. That is this note's instinct applied
+to a different control, and the field is general rather than one-off.
 ---
 
 ---
@@ -467,6 +485,13 @@ count is honest rather than implying movement: the theme control remains UNREPRO
 byte-identical in every property a flyer can perceive) and the tip control remains a deliberate
 colour divergence, because §2 gives amber the meaning *warn* and this app's ambers are real caveats.
 The question parked below is still the cheaper direction and is still the owner's.
+
+TRIAGED 2026-08-17 (second run this date) — **unchanged, and nothing this run touched either
+control.** Stated so the count stays honest rather than implying movement: the theme control remains
+UNREPRODUCED and the tip control remains a deliberate colour divergence, both for the reasons the
+2026-08-17 entry above records. The motor-finder repo is still not attached to this session, so the
+cheaper direction — that repo adopting the neutral treatment its own shared `DESIGN.md` specifies —
+remains the owner's to take, and stays parked below.
 ---
 
 **ON-B2 · the GitHub repo page is a surface too · SOURCE: owner, 2026-08-08 · BOTH REPOS**
@@ -507,6 +532,14 @@ That is worth saying plainly rather than repeating the same reason: it is the ch
 this file — a GitHub description, topics, and one image in a 28 KB README — it needs no gate, no
 corpus and no browser, and three runs in a row have preferred a milestone slice to it. A session
 that finds itself short of a clean increment should take this one before extending the roadmap.
+
+TRIAGED 2026-08-17 (second run this date) — **read, and the blocking half is now CONFIRMED by
+measurement rather than assumed.** The previous entry called this the cheapest open item and said a
+session should take it before extending the roadmap. This run checked whether a session actually
+can: the GitHub tool surface available here exposes `create_repository` and no update-repository
+call of any kind, so **a repository's description, topics and pinned links cannot be set from a
+session** — it is owner-level, not merely unglamorous. That is worth having established once. The
+README half remains doable and remains undone; this run spent itself on a Sev-1 and its review.
 ---
 
 **ON-5 · dark mode is not being checked · SOURCE: cross-applied from loft `ON-1` — NOT the owner's words**
@@ -594,6 +627,13 @@ rated by the rendered contrast audit in both themes without anything being added
 check was built for. The note's one unclosed limit is unchanged: the tone TABLES in `ui.tsx` are
 `const` object literals rather than opening tags, so the SOURCE census still cannot see them, and
 §9 still records that as its largest gap.
+
+TRIAGED 2026-08-17 (second run this date) — **read, and the check it produced was exercised again
+rather than extended.** One new state shipped this run — the explorer's `scope` line, in
+`zinc-600` / `dark:zinc-400` — and it was chosen against §2's token table rather than by copying a
+neighbour, precisely so the contrast census can see it. The note's one unclosed limit is unchanged:
+the tone tables in `ui.tsx` are `const` object literals rather than opening tags, so the source
+census still cannot see them.
 ---
 
 **ON-6 · the phone should be vertical · SOURCE: cross-applied from loft `ON-3` — NOT the owner's words**
@@ -643,6 +683,11 @@ which would have been a live breach of §8 on any tablet or landscape phone. Dri
 at 834 px with `hasTouch`: **all six selects render at exactly 44.0 px.** The floor holds. Recorded
 here because this note is about phone layout being measured rather than assumed, and it is an
 instance of exactly that, arriving from the direction of a false alarm.
+
+TRIAGED 2026-08-17 (second run this date) — **no phone work this run, and nothing new measured about
+one.** Said plainly rather than dressed up: the run went to a Sev-1 on the analysis side and its
+review, and neither touched a layout. The note stays open on its own terms and P4 remains where it
+is answered.
 ---
 
 ## Awaiting the owner
