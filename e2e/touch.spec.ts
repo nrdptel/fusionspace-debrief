@@ -86,7 +86,14 @@ test('every control on a phone is a thumb-sized target', async ({ page }) => {
 // other four were never measured at a phone width by anything. That is the shape of hole §8's
 // own sentence is about: /stitch is a fully interactive surface and had no touch coverage at
 // all, and the footer that appears on all six carried the one real violation.
-for (const route of ['/', '/compare', '/methods', '/privacy', '/validation', '/stitch']) {
+//
+// **`/changelog` was the seventh route and was still missing on 2026-08-18** — the app has seven
+// `page.tsx` files and this list named six, so the one route nothing here walked is also the one
+// that shipped a pinned strip with no scroll clearance (see `e2e/measure.spec.ts`). A list of
+// routes written by hand goes stale the day a route is added; this one is now the whole set, and
+// `every route the app builds is swept on a phone` below fails if it stops being.
+const SWEPT_ROUTES = ['/', '/compare', '/methods', '/privacy', '/validation', '/stitch', '/changelog'];
+for (const route of SWEPT_ROUTES) {
   test(`every control on ${route} is thumb-sized before anything is loaded`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(route);
@@ -106,6 +113,28 @@ for (const route of ['/', '/compare', '/methods', '/privacy', '/validation', '/s
 // rows, its per-flight controls and the sort chips are what a thumb has to hit at the
 // field, and they had never been measured because the analyze page only shows them
 // after a flight is loaded.
+// The list above is written by hand, and `/changelog` proves what that costs: it sat outside every
+// phone sweep in this file for as long as it existed, because nobody edited the array when the
+// route was added. This reads the routes off disk and holds them against it, so the next route to
+// be added fails here rather than going unmeasured.
+test('every route the app builds is swept on a phone', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const appDir = path.join(__dirname, '../app');
+  const routes: string[] = [];
+  const walk = (dir: string, prefix: string) => {
+    for (const e of readdirSync(dir)) {
+      const p = path.join(dir, e);
+      if (statSync(p).isDirectory()) walk(p, `${prefix}/${e}`);
+      else if (e === 'page.tsx') routes.push(prefix === '' ? '/' : prefix);
+    }
+  };
+  walk(appDir, '');
+  const swept = new Set(SWEPT_ROUTES);
+  const missed = routes.filter((r) => !swept.has(r)).sort();
+  expect(missed, `routes the phone sweep never visits: ${missed.join(', ')}`).toEqual([]);
+  expect(routes.length, 'routes found on disk').toBeGreaterThan(5);
+});
+
 test('the compare surface is thumb-sized too', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
@@ -506,6 +535,87 @@ test('the channel stats read down the page on a phone', async ({ page }) => {
   // …and at a desktop width it is a table again, with its headers back.
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole('columnheader', { name: 'Channel' })).toBeVisible();
+});
+
+// The logbook's two figures, and the thing no table check could reach: this list has no header
+// row at ANY width. `sm:contents` dissolves each row into one dense flex line above `sm` and wraps
+// it into a block below, and in neither shape does anything name the two numbers on it — the only
+// thing that ever did was a `title`, which on a touch screen is nothing at all.
+//
+// Measured at 390x844 with one flight remembered, before the fix: the row read
+// `sample-altusmetrum.csv` / `412 mph` / `8,022 ft` / a date, with `Max velocity` and `Apogee`
+// reachable only by hovering a pointer the device does not have. Two bare numbers on the surface
+// built for comparing flights against each other.
+//
+// The star's meaning is NOT part of this: it is spelled out in the panel's own footer prose at
+// every width ("★ marks your best"), which an audit reading source called a missing legend and a
+// walk of the rendered page finds. Checked before it was written, not after.
+test('the logbook says which number is which, without a hover', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page
+    .getByLabel('Choose a flight log file')
+    .setInputFiles({
+      name: 'sample-altusmetrum.csv',
+      mimeType: 'text/csv',
+      buffer: await readFile(path.join(__dirname, '../public/samples/sample-altusmetrum.csv')),
+    });
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+
+  const list = page.getByRole('list', { name: 'Your flights' });
+  await expect(list).toBeVisible();
+
+  // VISIBLE text, not an attribute and not `sr-only`: `toBeVisible` is false for a 1 px clipped
+  // element, which is exactly what these labels become above `sm`. That asymmetry is the
+  // assertion — the phone reads them, the desktop keeps them in the accessibility tree only.
+  for (const label of ['Max velocity', 'Apogee']) {
+    await expect(
+      list.getByText(label, { exact: true }).first(),
+      `${label} is named in visible text on a phone`,
+    ).toBeVisible();
+  }
+
+  // And the legend that explains the ★ is prose on the page, not a tooltip.
+  await expect(page.getByText(/marks\s*your best/)).toBeVisible();
+
+  // Above `sm` the dense row takes its labels back out of the LAYOUT — but not out of the
+  // accessibility tree, which is what `sr-only` buys and `hidden` would have thrown away.
+  //
+  // Measured as geometry rather than asserted with `toBeHidden`, and the reason is worth keeping:
+  // `sr-only` is a 1x1 px clipped box, and Playwright rates any element with a non-empty bounding
+  // box VISIBLE. So `toBeHidden` is false on a correctly-clipped label, and a walk written that
+  // way fails against working code — which is what the first draft of this test did. Ask for the
+  // width; it is the thing the rule is actually about.
+  // `null` where the element is `display: none` — reported as a width of -1 rather than thrown, so
+  // a label deleted from the layout (and from the accessibility tree with it) fails this walk with
+  // a sentence instead of a TypeError. Measured: `sm:hidden` in place of `sm:sr-only` gives -1.
+  const widths = async () =>
+    Promise.all(
+      ['Max velocity', 'Apogee'].map(async (label) => {
+        const box = await list.getByText(label, { exact: true }).first().boundingBox();
+        return { label, w: box ? Math.round(box.width) : -1 };
+      }),
+    );
+
+  const onPhone = await widths();
+  for (const { label, w } of onPhone) {
+    expect(w, `${label} takes real width on a phone`).toBeGreaterThan(20);
+  }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  for (const { label, w } of await widths()) {
+    expect(
+      w,
+      `${label} is clipped out of the dense desktop row rather than removed from it ` +
+        `(width ${w} px; -1 means display:none, which takes it out of the accessibility tree too)`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(w, `${label} takes no room in the dense desktop row (was ${w} px)`).toBeLessThan(4);
+    expect(
+      await list.getByText(label, { exact: true }).first().textContent(),
+      `${label} is still in the accessibility tree at a desktop width`,
+    ).toContain(label);
+  }
 });
 
 // P4 slice 4 — `ON-6`'s THIRD named surface, and the one that is not a table.

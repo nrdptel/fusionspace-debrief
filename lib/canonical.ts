@@ -81,6 +81,7 @@ export const CANONICAL_CHANNEL_KINDS = [
   'longitude',
   'altitudeGps',
   'satellites',
+  'gpsFixGrade',
   'accelAxis',
   'angularRate',
   'attitudeQuaternion',

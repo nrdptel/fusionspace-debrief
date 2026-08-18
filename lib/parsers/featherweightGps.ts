@@ -11,6 +11,7 @@ import type { Parser, ParseInput } from './types';
 import type { RawFlight, Channel } from '../flight/types';
 import { parseTable } from '../csv';
 import { flownAtFromText } from '../flight/flownAt';
+import { fixAllows, gradeFromFixColumn, gradeValue } from '../gpsFix';
 
 function findHeaderRow(rows: string[][]): number {
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
@@ -60,6 +61,7 @@ export const featherweightGpsParser: Parser = {
       alt: number;
       lat: number;
       lon: number;
+      fix: number;
       sats: number;
       batt: number;
     }
@@ -68,14 +70,18 @@ export const featherweightGpsParser: Parser = {
     for (const r of rows.slice(headerIdx + 1)) {
       const t = num(r, cUt);
       if (!Number.isFinite(t)) continue;
-      // A 3D fix is needed for a trustworthy position/altitude; below that, drop it.
-      const fix = num(r, cFix);
-      const has3d = !Number.isFinite(fix) || fix >= 3;
+      // What the receiver's own FIX column allows, adjudicated in `lib/gpsFix.ts` so that this
+      // family and the AltOS one cannot answer the same question differently. The height needs a
+      // three-dimensional solution; the position survives a two-dimensional one, because a fix
+      // solved on an assumed height is a worse bearing rather than no bearing.
+      const grade = gradeFromFixColumn(num(r, cFix));
+      const allows = fixAllows(grade);
       recs.push({
         t,
-        alt: has3d ? num(r, cAlt) * 0.3048 : NaN, // GPS feet → metres
-        lat: has3d ? num(r, cLat) : NaN,
-        lon: has3d ? num(r, cLon) : NaN,
+        alt: allows.altitude ? num(r, cAlt) * 0.3048 : NaN, // GPS feet → metres
+        lat: allows.position ? num(r, cLat) : NaN,
+        lon: allows.position ? num(r, cLon) : NaN,
+        fix: cFix >= 0 ? gradeValue(grade) : NaN,
         sats: num(r, cSats),
         batt: num(r, cBatt),
       });
@@ -99,7 +105,15 @@ export const featherweightGpsParser: Parser = {
       { kind: 'latitude', label: 'Latitude', unit: '°', values: col((r) => r.lat) },
       { kind: 'longitude', label: 'Longitude', unit: '°', values: col((r) => r.lon) },
     ];
-    if (cSats >= 0) channels.push({ kind: 'other', label: 'Satellites', unit: '', values: col((r) => r.sats) });
+    if (cFix >= 0) channels.push({ kind: 'gpsFixGrade', label: 'Fix', unit: '', values: col((r) => r.fix) });
+    // NOT `kind: 'satellites'`, and that is the whole distinction this column turns on. That kind
+    // means satellites IN THE FIX, where 0 says the position beside it is a held-over value; this
+    // column is satellites the receiver can HEAR, binned by signal strength into the `>40`/`>32`/
+    // `>24` columns. The two are not the same number — the ground-station file carries rows whose
+    // own FIX column says NO FIX while this count reads 16 to 19 — so publishing it under that
+    // kind would have a held-over position claim to be measured. The fix quality is stated by the
+    // channel above, off the column the receiver wrote it in.
+    if (cSats >= 0) channels.push({ kind: 'other', label: 'Satellites tracked', unit: '', values: col((r) => r.sats) });
     if (cBatt >= 0) channels.push({ kind: 'voltage', label: 'Battery', unit: 'V', values: col((r) => r.batt) });
 
     return {
@@ -208,6 +222,7 @@ export const featherweightGpsGroundStationParser: Parser = {
       alt: number;
       lat: number;
       lon: number;
+      fix: number;
       sats: number;
       batt: number;
     }
@@ -225,13 +240,14 @@ export const featherweightGpsGroundStationParser: Parser = {
         if (clock < prevClock - 43_200) dayFallback += 1;
         prevClock = clock;
       }
-      const fix = num(r, cFix);
-      const has3d = !Number.isFinite(fix) || fix >= 3;
+      const grade = gradeFromFixColumn(num(r, cFix));
+      const allows = fixAllows(grade);
       recs.push({
         t: (day ?? dayFallback) * 86_400 + clock,
-        alt: has3d ? num(r, cAlt) * toMetres : NaN,
-        lat: has3d ? num(r, cLat) : NaN,
-        lon: has3d ? num(r, cLon) : NaN,
+        alt: allows.altitude ? num(r, cAlt) * toMetres : NaN,
+        lat: allows.position ? num(r, cLat) : NaN,
+        lon: allows.position ? num(r, cLon) : NaN,
+        fix: cFix >= 0 ? gradeValue(grade) : NaN,
         sats: num(r, cSats),
         batt: num(r, cBatt),
       });
@@ -253,9 +269,12 @@ export const featherweightGpsGroundStationParser: Parser = {
       { kind: 'latitude', label: 'Latitude', unit: '°', values: col((r) => r.lat) },
       { kind: 'longitude', label: 'Longitude', unit: '°', values: col((r) => r.lon) },
     ];
+    if (cFix >= 0) channels.push({ kind: 'gpsFixGrade', label: 'Fix', unit: '', values: col((r) => r.fix) });
     // `#TOT` is the satellite count the tracker reported, binned by signal strength into
-    // the `>40`/`>32`/`>24` columns beside it — those three sum to it row by row.
-    if (cSats >= 0) channels.push({ kind: 'other', label: 'Satellites', unit: '', values: col((r) => r.sats) });
+    // the `>40`/`>32`/`>24` columns beside it — those three sum to it row by row. Satellites
+    // TRACKED, not satellites in the fix: this file carries ten rows whose FIX column says no fix
+    // while `#TOT` reads 16, 18 or 19. `kind: 'other'` for that reason — see the tracker variant.
+    if (cSats >= 0) channels.push({ kind: 'other', label: 'Satellites tracked', unit: '', values: col((r) => r.sats) });
     if (cBatt >= 0) channels.push({ kind: 'voltage', label: 'Battery', unit: 'V', values: col((r) => r.batt) });
 
     // DATE and TIME carry no zone. A GPS states UTC and says so; this pair is written by

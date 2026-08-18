@@ -843,6 +843,22 @@ export default function RecentFlights({
                     className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:ml-auto dark:text-zinc-300"
                     title="Max velocity"
                   >
+                    {/* Which number this is, in words. Below `sm` the row is a wrapped block and
+                        these two figures sit side by side with nothing naming them — no header
+                        row exists at any width, so a flyer at the pad read two bare numbers and
+                        the only thing that said which was which was a `title`, i.e. a hover, i.e.
+                        nothing on a touch screen. `sm:sr-only` rather than `sm:hidden`: above `sm`
+                        the dense row keeps its `title` for a pointer, but the name stays in the
+                        accessibility tree at every width instead of being deleted from it, which
+                        is the half the explorer's `Stat` can leave to a `<th>` and this list
+                        cannot — it has no header cells to inherit a name from.
+
+                        §3's caption size and §2's tertiary role, the same treatment the
+                        explorer's block-form cells take, so the two labelled layouts read as one
+                        decision. */}
+                    <span className="mr-1 font-sans text-xs font-normal uppercase tracking-wide text-zinc-500 sm:sr-only dark:text-zinc-400">
+                      Max velocity
+                    </span>
                     {/* The mark is a GLYPH, not a colour. §2 gives amber one meaning — "an estimate
                         outside its envelope, an extrapolation, a caveat" — and this star was wearing
                         it to say the opposite: that a reading is the best of the set. On a logbook
@@ -864,6 +880,9 @@ export default function RecentFlights({
                     className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-300"
                     title="Apogee"
                   >
+                    <span className="mr-1 font-sans text-xs font-normal uppercase tracking-wide text-zinc-500 sm:sr-only dark:text-zinc-400">
+                      Apogee
+                    </span>
                     {isApogeeBest && (
                       <span
                         className="mr-0.5 text-zinc-900 dark:text-zinc-100"

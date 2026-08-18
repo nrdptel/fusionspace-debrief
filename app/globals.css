@@ -230,9 +230,17 @@ html {
 
 /* A `SectionNav` strip pins to the top of the viewport once you scroll past it. A heading jumped
    to from that strip would otherwise land underneath it, so every one of its targets clears the
-   strip's own height. Two surfaces carry a strip — the flight report and `/methods` — and this is
-   the ONE place the clearance is stated for both; e2e asserts measure a jumped-to heading against
-   the strip on each, so a renamed id cannot leave this behind silently.
+   strip's own height. THREE surfaces carry a strip — the flight report, `/methods` and
+   `/changelog` — and this is the ONE place the clearance is stated for all of them; `e2e` measures
+   a jumped-to heading against the strip on each, so a renamed id cannot leave this behind
+   silently.
+
+   **This line read "Two surfaces" until 2026-08-18, and `/changelog` was the third.** It shipped
+   with a `SectionNav` and neither the class below nor a `scroll-mt-*` of its own, so every release
+   jumped to on it landed **under** the strip — the same defect `/methods` carried, arriving by the
+   same route: a surface took the primitive and not its contract. The walk that catches it now
+   enumerates the strips it finds rather than naming two, because a check that lists the surfaces
+   somebody remembered cannot see the one they did not.
 
    The clearance is the tallest the strip gets, not the average: 62 px at 390 px, where the
    coarse-pointer rule above holds every link to the 44 px touch floor, against 42 px on a

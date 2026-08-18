@@ -255,6 +255,30 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           because a 2D fix still walks you to the rocket.
         </p>
         <p>
+          <strong>That is one rule, and it now applies whatever wrote the file.</strong> Loggers
+          state the quality of a fix in one of two ways: a count of satellites, or the
+          receiver&apos;s own fix-type column (0 no fix, 2 two-dimensional, 3 three-dimensional).
+          Debrief read those two statements in two different places and reached two different
+          answers — a three-satellite position survived on an Altus Metrum log and was erased from
+          a Featherweight one — and nothing downstream said which had happened. Both now go through
+          the same judgement, so the same degraded fix means the same thing in every format. One
+          corpus flight spends real time on three satellites, and it does so in{' '}
+          <strong>13</strong> two-dimensional solutions: each is kept as a position and none of
+          them carries a GPS height. A file that states nothing about its fix is graded as though
+          it were solved in three dimensions, because the absence of a quality statement is not a
+          statement of poor quality.
+        </p>
+        <p>
+          <strong>Thirteen, and the way that number was first got wrong is the paragraph
+          below arriving early.</strong> Counted as rows, the same flight reads{' '}
+          <strong>371</strong> two-dimensional fixes in the CSV its board exported and{' '}
+          <strong>13</strong> in the raw download the CSV was made from — two numbers for one
+          flight, because the CSV repeats each position until the receiver solves the next one.
+          Counted as distinct solutions the two exports agree exactly, at 13 apiece. A count of
+          rows is a count of how often a logger wrote a value down; only a count of solutions says
+          how much the receiver actually saw.
+        </p>
+        <p>
           <strong>The count of fixes is a count of SOLUTIONS, not of rows</strong>, and that
           distinction is the whole value of the number. A receiver runs at a few hertz and a log
           can run at two hundred; between solutions the receiver repeats its last position rather

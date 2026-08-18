@@ -62,6 +62,11 @@ export default function ChangelogPage() {
           <Section
             key={release.date}
             id={releaseId(release)}
+            // The strip above pins, so a release jumped to from it has to land BELOW the strip
+            // rather than behind it. The clearance is stated once in `app/globals.css`; taking
+            // `SectionNav` without this class is what put `/methods` 14 px under its own strip
+            // on a touch phone, and it is what this page did too until it was measured.
+            className="section-strip-target"
             title={readable(release.date)}
             description={release.headline}
           >

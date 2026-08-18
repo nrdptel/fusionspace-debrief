@@ -47,8 +47,13 @@ test('compare two flights from the recents list', async ({ page }) => {
   await load('featherweight-raven-fip.csv');
 
   // With two flights remembered, the logbook offers sorting and crowns a best.
-  await expect(page.getByRole('button', { name: 'Apogee' })).toBeVisible();
-  await page.getByRole('button', { name: 'Apogee' }).click();
+  // `exact: true` because the logbook's rows now NAME their two figures: each row button's
+  // accessible name reads "… Max velocity 1,034 ft/s Apogee 8,022 ft" where it used to read two
+  // bare numbers, so a substring match on "Apogee" resolves to the sort control AND every row.
+  // The ambiguity is the improvement — before it, a screen reader got the numbers with no idea
+  // which was which.
+  await expect(page.getByRole('button', { name: 'Apogee', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Apogee', exact: true }).click();
   await expect(page.getByText(/marks your best/)).toBeVisible();
 
   await page.getByLabel('Select altusmetrum-telemetrum.csv to compare').check();

@@ -24,6 +24,7 @@
 import { ParseGuidanceError, type Parser, type ParseInput } from './types';
 import type { Channel, RawFlight } from '../flight/types';
 import { flownAtFromParts, type FlownAt } from '../flight/flownAt';
+import { fixAllows, gradeFromSatellites, gradeValue } from '../gpsFix';
 
 /** Ticks per second on the AltOS clock. Every record is stamped in these. */
 const HZ = 100;
@@ -517,7 +518,7 @@ function fullFix(fixes: Fix[], b: Uint8Array, r: LogRecord): void {
  * the CSV shows a position on every row — a held value, not a reading.
  */
 function attachGps(flight: RawFlight, fixes: Fix[], ticks: number[]): FlownAt | null {
-  const usable = fixes.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon) && !(f.lat === 0 && f.lon === 0) && Math.abs(f.lat) <= 90 && Math.abs(f.lon) <= 180 && (f.satellites === null || f.satellites > 0));
+  const usable = fixes.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon) && !(f.lat === 0 && f.lon === 0) && Math.abs(f.lat) <= 90 && Math.abs(f.lon) <= 180 && fixAllows(gradeFromSatellites(f.satellites)).position);
   if (!usable.length) return null;
 
   const n = ticks.length;
@@ -525,23 +526,28 @@ function attachGps(flight: RawFlight, fixes: Fix[], ticks: number[]): FlownAt | 
   const lon = new Float64Array(n).fill(NaN);
   const alt = new Float64Array(n).fill(NaN);
   const sats = new Float64Array(n).fill(NaN);
+  // Derived from the satellite count, exactly as the CSV path does — same board, same rule, so
+  // the two exports of one download cannot disagree about how good a fix was.
+  const grade = new Float64Array(n).fill(NaN);
   let cursor = 0;
   for (const f of usable) {
     while (cursor + 1 < n && ticks[cursor] < f.tick) cursor++;
     lat[cursor] = f.lat;
     lon[cursor] = f.lon;
     sats[cursor] = f.satellites ?? NaN;
+    if (f.satellites !== null) grade[cursor] = gradeValue(gradeFromSatellites(f.satellites));
     // Three satellites give latitude and longitude on an ASSUMED height; the fourth is
-    // what makes the fix 3D. A height beside a 3-satellite fix is the receiver's guess,
-    // so it is dropped while the position beside it is kept — the same rule the AltOS CSV
-    // parser applies, for the same reason.
-    if (f.altitude !== null && (f.satellites === null || f.satellites >= 4)) alt[cursor] = f.altitude;
+    // what makes the fix 3D. A height beside a 3-satellite fix is the receiver's guess, so it
+    // is dropped while the position beside it is kept. The threshold is `lib/gpsFix.ts`'s
+    // rather than this file's, so that a rule written down in four parsers stays one rule.
+    if (f.altitude !== null && fixAllows(gradeFromSatellites(f.satellites)).altitude) alt[cursor] = f.altitude;
   }
   flight.channels.push(
     { kind: 'latitude', label: 'Latitude', unit: '°', values: lat },
     { kind: 'longitude', label: 'Longitude', unit: '°', values: lon },
     { kind: 'altitudeGps', label: 'Altitude (GPS)', unit: 'm', values: alt },
     { kind: 'satellites', label: 'Satellites', unit: '', values: sats },
+    { kind: 'gpsFixGrade', label: 'Fix (from satellite count)', unit: '', values: grade },
   );
   flight.notes.push(
     `A GPS track was found; the recovery view shows where it drifted and landed. The receiver reported ${usable.length} ${usable.length === 1 ? 'fix' : 'fixes'} over the flight — every other sample is left blank rather than repeating the last position.`,
