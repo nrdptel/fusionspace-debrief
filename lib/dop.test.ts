@@ -146,6 +146,32 @@ describe.skipIf(!hasCorpus)('the sentinel', () => {
  * So the page's numbers are asserted rather than described. Both are EXACT: a bound would go
  * quietly green the day the corpus or the parser moved, which is the whole thing being prevented.
  */
+/**
+ * The placeholder count the methods page states, tied to what the PARSER actually blanks.
+ *
+ * The page said 112 in one paragraph and 108 in another, about the same set, ten lines apart.
+ * Both numbers are real and neither is interchangeable: the file holds **112 raw rows** whose
+ * satellite count is zero, and the parser collapses duplicate timestamps (590 data rows → 529
+ * samples), so what the rule actually blanks is **108**. A page describing what Debrief does has
+ * to quote the second.
+ */
+describe.skipIf(!hasCorpus)('the no-fix placeholder', () => {
+  it('is blanked on exactly the samples the methods page claims', () => {
+    const read = corpusReads().find((r) => r.file.includes('endurance'));
+    expect(read, 'the endurance TeleMetrum recording is in the corpus').toBeTruthy();
+    const h = getChannel(read!.flight, 'dopHorizontal');
+    expect(h, 'it carries a horizontal dilution channel').toBeTruthy();
+
+    const total = h!.values.length;
+    const blank = Array.from(h!.values).filter((v) => !Number.isFinite(v)).length;
+    expect(total, 'samples after duplicate timestamps collapse').toBe(529);
+    expect(blank, 'no-fix samples blanked — the number `/methods` states').toBe(108);
+
+    // …and none of what survives is the placeholder, which is the point of blanking them.
+    for (const v of h!.values) if (Number.isFinite(v)) expect(v).toBeLessThan(23.1);
+  });
+});
+
 describe.skipIf(!hasCorpus)('the numbers the methods page quotes', () => {
   it('are the numbers the corpus actually produces', () => {
     let worst = -Infinity;

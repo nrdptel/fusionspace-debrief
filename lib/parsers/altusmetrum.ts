@@ -268,11 +268,19 @@ export const altusMetrumParser: Parser = {
           lon.values[i] = NaN;
         } else any = true;
         if (gpsAlt && (!ok || !allows.altitude)) gpsAlt.values[i] = NaN;
-        // The dilution columns are held over exactly like the position beside them, and this
-        // file proves it: on `endurance`'s TeleMetrum log, **all 112 rows that report zero
-        // satellites carry `23.10` in all three** — one value, repeated, on every row with no
-        // fix, and the worst number in the file by a factor of ten. Left in, the recovery view
-        // would quote it as this flight's worst geometry, which is a reading it is not.
+        // The dilution columns are held over exactly like the position beside them: on
+        // `endurance`'s TeleMetrum log, all 108 samples that report zero satellites carry
+        // `23.10` in all three — one value, repeated, on every row with no fix. Left in, the
+        // recovery view would quote it as this flight's worst geometry, which is a reading it
+        // is not.
+        //
+        // **The test is the missing FIX, never how the number looks**, and the corpus supplies
+        // the counter-example that settles it: the 121 km flight's TeleMega log writes
+        // `3.60 / 8.00 / 8.80` on all 12,931 of its own zero-satellite rows — an ordinary triple
+        // inside the range of real readings, which satisfies `PDOP² = HDOP² + VDOP²` to 0.31%.
+        // A rule that spotted `23.10` by its size would keep every one of those. (That file is
+        // not reachable through this parser today — its sheet-export headers fall to the column
+        // mapper — which is exactly why it is written down rather than relied on.)
         //
         // Not a quality filter, and the distinction matters because row 47 forbids one: nothing
         // here looks at how BAD a dilution is. It applies the rule the lines above already

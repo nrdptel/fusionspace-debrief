@@ -331,20 +331,31 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           reading it naively publishes a dilution of precision of two billion. It is a{' '}
           <em>per-column</em> statement, not a per-file one: one corpus recording supplies the
           position dilution at 1.60–1.70 while marking the other two never-supplied on all 346 of
-          its rows. The second is in no manual. One recording writes <strong>23.10 into all three
-          columns on every one of its 112 rows that report zero satellites</strong> — a single
-          repeated value, ten times worse than anything real in the file, sitting beside positions
-          that are held-over rather than measured. Left in, it would have been quoted as that
-          flight&apos;s worst geometry. It is dropped with the position it belonged to, on the same
-          rule that already drops the latitude and longitude there.
+          its rows. The second is in no manual: a recording writes <strong>23.10 into all three columns
+          on every one of its 108 samples that report zero satellites</strong>, sitting beside
+          positions that are held-over rather than measured. Left in, it would have been quoted as
+          that flight&apos;s worst geometry.
+        </p>
+        <p>
+          <strong>The reason it is dropped is not that it looks absurd.</strong> It is dropped
+          because a fix with no satellites in it has no geometry to report — the same rule that
+          already blanks the latitude, longitude and receiver altitude on those rows. That
+          distinction matters, and a second recording is why: the 121 km flight&apos;s TeleMega log
+          writes <strong>3.60 / 8.00 / 8.80</strong> on all 12,931 of its own zero-satellite rows —
+          an unremarkable-looking triple, well inside the range of real readings elsewhere, and it
+          <em>passes</em> the consistency check below to 0.31%. Nothing about the number gives it
+          away. Only the missing fix does.
         </p>
         <p>
           The check that the three columns are what they claim is their own arithmetic: the position
           dilution is the horizontal and vertical ones combined in quadrature. Across every corpus
           row that states all three, that holds on <strong>every single one</strong> — 22,199 of
           22,199, worst case 8%, which is what rounding to two decimals costs. It held on 108 fewer
-          before the no-fix placeholder was removed, and those 108 rows were the placeholder:
+          before the no-fix placeholder was removed, and those 108 samples were the placeholder:
           taking out something that was never a reading closed the check rather than loosening it.
+          The check earns its keep by catching a column read out of alignment — one column of shift
+          breaks it on every row — and it is <em>not</em> a placeholder detector, as the 121 km
+          flight above shows.
           Nothing here filters on quality: the worst geometry Debrief reads off any of these files
           — a position dilution of <strong>6.10</strong> — is published exactly as the receiver
           wrote it.

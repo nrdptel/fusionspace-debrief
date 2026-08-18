@@ -14,6 +14,51 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-18 — SEV-1, REPRODUCED, NOT FIXED: max-Q is computed from an air density read at an
+  altitude the analysis itself refuses to state.** `lib/analyze/index.ts:1529` builds `airDensity`
+  (and `sosProfile`) from `altClean`, hundreds of lines before the ascent bounds exist, so the
+  analysis ends up holding TWO heights for one instant — the one `altAt` prints, and the one the
+  atmosphere was read at. **4 of the 31 corpus flights that report a max-Q are in that state, and
+  it runs both ways:**
+  - `irec_2023_telemega.csv` puts its q peak at t=6.04 s where `series.altitude` reads **−296.7 m**
+    — below the pad, where `altAt` returns NaN and the row prints **no height at all** — while the
+    file's own GPS channel reads **2,340 m** at that same index. ρ=1.1548 against roughly 0.97:
+    **205.1 kPa published off air about 19% too thick.** `irec_2023_easymega.csv`, the second
+    recording of the same flight, does the same at −293.5 m for **212.5 kPa**.
+  - `f1machbuster-jan10` **states** a 482.5 m load case with ρ taken at −93.5 m, and
+    `f1machbuster-jan18` states 171.9 m with ρ taken at 774.8 m. One row, two altitudes, 600 m of
+    atmosphere between them, and nothing on the surface says so.
+  Max-Q is the structural load case an airframe is sized against — Sev-1 category 1 exactly.
+  **Reproduce in a minute:** parse either `irec2023` file, take `metrics.maxDynamicPressure` and
+  `metrics.maxDynamicPressureAltitude` (the second is `null`), then read `series.altitude` at the
+  index whose `0.5·airDensity·v²` equals the first.
+  **Two fixes were built this run and BOTH were refused, which is the part worth keeping.**
+  (a) *Withhold q wherever the peak sample has no statable height.* Refused by measurement: the peak
+  simply migrates to an adjacent sample at −28.6 m that the guard's own bands do not catch
+  (`belowGroundBand` = 41.6 m, `contradictionBand` = 249.5 m on that flight), so q moves 205.1 →
+  203.2 kPa and stays wrong. **The trace is smoothly wrong, not spikily wrong, and the contradiction
+  guard is not built to catch that.**
+  (b) *Correct the atmosphere in place at contradicted samples, then withhold q only when no
+  placeable sample can be ruled out by a `ρ(ascentFloor)` upper bound.* Self-consistent — it fixed
+  the "reported q exceeds the climbing peak" corpus case that (a) created — but it took max-Q off
+  **`meraki2 BlueRaven-LR`, which the corpus asserts at 404.1 kPa**, because 5,931 of that flight's
+  ascent samples have no statable height and no sound lower bound on altitude exists through a
+  contradicted stretch (speed bounds altitude from ABOVE, not below). Refusing the 121 km flight's
+  load case to fix two others is a worse trade, and re-baselining the assert would be the
+  regression-dressed-as-a-pass `MAINTAINING.md` names.
+  **What a third attempt needs**, and it is why this is filed rather than forced: a lower bound on
+  ascent altitude that survives a contradicted barometer. The evidence is already in these files —
+  `irec2023` carries a GPS altitude reading 2,340 m at the exact instant the barometer says −296.7 m
+  — so the route is a cross-source altitude check, which is D-track work rather than a patch.
+  **Blast radius if the atmosphere basis alone is corrected:** exactly 4 flights move on q and Mach
+  (−4.38%, −4.35%, −2.18%, +6.21% on q), but **15 of 39 move in `corpus-digests.json`**, so other
+  metrics ride on the same two arrays and each needs validating before that lands.
+  **Mach shares the root cause on the same four flights** and is filed with it: `sosProfile` is
+  built from the same `altClean`, so Mach 1.70/1.67/1.88/1.14 are each read against a speed of sound
+  from the wrong height. The error is far smaller than q's — speed of sound goes as √T where density
+  goes exponentially, about 3% against 19% — so it is not independently Sev-1, but it is the same
+  one-line cause and should be fixed in the same pass.
+
 - **~~2026-08-18 — `fixQualitySentence` is SCREEN-ONLY: the saved report drops the sentence that
   qualifies the coordinate a flyer walks to.~~ RESOLVED 2026-08-18 (found and fixed inside D12
   slice 2).** `components/GroundTrack.tsx` was the only caller — the `.txt`, `.md`, `.html` and JSON
