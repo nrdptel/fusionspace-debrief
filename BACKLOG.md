@@ -14,6 +14,19 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-18 — a GPS apogee 10% below the barometer is called "differ" and never called a BOUND.**
+  Measured on `SG1.1-Booster`, on both of its exports: GPS **2,251 ft** against a barometric
+  **2,502 ft** (`.csv`) and **2,512 ft** (`.eeprom`). That flight spends 13 distinct solutions on
+  three satellites, whose heights are dropped because a 2D fix's height is an assumption — so the
+  surviving peak under-reads and `components/GpsApogee.tsx` presents it as a disagreement between
+  two instruments rather than as one instrument's floor. This supersedes the earlier entry that said
+  no corpus recording is in that state: none is in the EXTREME state a lost-across-apogee sample
+  reaches, but this one is in the ordinary one. **A first fix was built and refused — see
+  `ROADMAP.md` D12 slice 1** — because a gap defined over SAMPLES answers differently for an
+  `.eeprom` (17.9 s) and the `.csv` of the same download (nothing), the eeprom writing a GPS record
+  only when the receiver solved one while AltosUI's CSV repeats the held position. Define it over
+  SOLUTIONS and hold the two exports side by side.
+
 - **2026-08-18 — `padDataLikely` can NEVER be true on a ~1 Hz log, so every GPS tracker recording is
   told it "doesn't appear to start on the pad".** `lib/analyze/index.ts:401-412` sets
   `maxBase = round(3 / dt)` while `:1264-1270` requires `minQuiet = max(5, …)` quiet samples — at
