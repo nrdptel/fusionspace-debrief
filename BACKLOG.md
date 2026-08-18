@@ -14,6 +14,109 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-18 — the logbook has NO column headers at any width, and the desktop half of that is
+  still open.** Each row's top speed and apogee now carry their own names below `sm` and in the
+  accessibility tree everywhere (shipped `0df7eea`), but a sighted pointer user still gets two bare
+  numbers with the identity only in a `title`. Fixing it properly means making the row a GRID:
+  today it is `sm:contents` dissolving into a flex line whose figures are pushed right by
+  `sm:ml-auto`, so the columns do not align between rows and a header could not label them.
+  Measured: 4 value columns (name, speed, apogee, when) across a row that is one flex container.
+
+- **2026-08-18 — `lib/report.ts:547` prints the apogee EVENT's altitude bare on five surfaces while
+  the Apogee tile beside it carries "at least this high" or "(unproven)".** The Events table writes
+  `fmtLength(e.altitude, sys)` with no qualifier in `.txt` (:547), `.md` (:634), `.html` (:789),
+  `analysisJson` (:1724) and on screen (`components/FlightReport.tsx:1446`), where
+  `lib/readings.ts:319` builds the caveat for the tile from `apogeeIsFloor` / `altitudeUnproven`.
+  An adversarial verifier tried and failed to refute this against the real corpus. It is the exact
+  shape this repo keeps finding — a caveat on one surface and a confident claim on another — and it
+  is a **Sev-1 candidate**, not ordinary ledger work: reproduce it and fix it ahead of a milestone.
+
+- **2026-08-18 — the logbook's per-row ✕ deletes the flight AND every recording of it on one click,
+  with no confirm and no undo.** `components/RecentFlights.tsx:905` calls
+  `group.recordings.forEach((rec) => onRemove(rec.id))`, taking the stored file text, the report
+  label, the notes, the chosen crop and any hand-made column mapping with it. The panel's *Clear*
+  button — which deletes strictly less on a grouped row — does have a confirm. A **one-way door**,
+  which `MAINTAINING.md` ranks second in the Sev-1 list. Reproduce before scoping: the sweep that
+  found it read source rather than driving the app.
+
+- **2026-08-18 — every rocket-shaped input is stored under ONE global key, not per flight.**
+  Descending mass, main-deploy altitude, motor delay, chute/drogue/body diameter and rail length all
+  ride `lib/deviceData.ts:60-67` (whose own class is literally named `rocket`), read by
+  `components/FlightReport.tsx:172,189,206`, `DragCoefficient.tsx:28`, `ParachuteCd.tsx:18`,
+  `DrogueCd.tsx:18` and `RailExit.tsx:27`. Open flight A, enter its mass, open flight B — B's
+  landing energy and Cd are computed from A's rocket. A launch day is exactly the case where this
+  bites. Sev-1 candidate on the "wrong number a flyer would act on" limb; measure the actual
+  on-screen effect before scoping, because the fields may be re-prompted per flight in ways source
+  reading cannot see.
+
+- **2026-08-18 — `lib/parsers/corpus.test.ts:296` lets one combination through both guards.** The
+  mapping branch refuses golden values on an unanalysable file (:296) and analyses only when
+  `!fx.knownIssue && hasTime && hasAltitude` (:302) — so a fixture that is MAPPABLE *and* carries a
+  `knownIssue` reaches neither: `assertGolden` is never called and nothing records that it was
+  skipped. No corpus fixture is in that combination today, so it is latent rather than live; it is
+  precisely the "skip that prints like a pass" shape the manual names, and the fix is to make the
+  fall-through print.
+
+- **2026-08-18 — 11 of the 32 entries in `lib/parsers/corpus-overrides.json` are byte-identical to
+  the entry already in the fetched `expected.json`.** The corpus HAS been re-cut past them and the
+  file's own rule ("remove an entry once the corpus is re-cut to include it") was not followed —
+  stale at L5, L44, L81, L118, L155, L193 and onward. A bridge that outlives its window is a second
+  copy of a golden value that can silently disagree with the first.
+
+- **2026-08-18 — `corpus.lock.json` pins tag `v1.1.0` while the fixtures repo's own `VERSION` file
+  reads `v1.0.0`.** `VERSION` was written once at the initial commit and never bumped across the
+  three later commits, including the one that re-cut `expected.json`. So the file that exists to say
+  which cut you are holding cannot answer it, and a session comparing the two reads a mismatch that
+  is bookkeeping rather than drift.
+
+- **2026-08-18 — AltOS `pdop`/`hdop`/`vdop` carry an INT32_MAX sentinel meaning "never supplied".**
+  `2147483647.0` appears on 2 of the 8 corpus AltOS CSVs that have the columns (measured: `hdop`
+  min = p50 = max = 2147483647 on `intrepid2` and `SG1.1-Booster`). Whoever reads those columns —
+  `COMPETITION.md` row 47 proposes it — must map the sentinel to "not stated" first, or the app
+  publishes a dilution of precision of two billion.
+
+- **2026-08-18 — the mapper route cannot express GPS quality, and does not consult `lib/gpsFix.ts`.**
+  `lib/flight/mappingOptions.ts:24` offers `latitude` and `longitude` only; `satellites` and
+  `altitudeGps` are legal `ColumnRole`s and legal `ChannelKind`s and are absent from the picker. So
+  a flyer with their own GPS spreadsheet can map the position and has no way to declare the quality
+  column beside it — and a hand-mapped 0-satellite held position reaches the ground track ungated,
+  where the same file read through a named parser would not. `grep -rn "gpsFix" lib/flight/` returns
+  nothing.
+
+- **2026-08-18 — the hover-only sweep cannot see the case it is named for, and runs on one route.**
+  `e2e/hoverOnly.ts:68` exempts any element with ANY visible text (`if (visible(el).trim()) continue`),
+  so a `title` that COMPLETES a truncated string or explains a glyph the element renders is never
+  flagged — only text-free elements are. And `hoverOnlyStatements` is evaluated exactly once, on `/`
+  with a report loaded, so `/compare`, `/stitch`, the column mapper and a populated logbook are never
+  swept. Both halves have to move together: widening the exemption without widening the routes just
+  finds more of one page.
+
+- **2026-08-18 — `DESIGN.md` audit rows 5, 7, 9 and 10 are still open, re-verified this run.**
+  Row 5: `components/ChannelExplorer.tsx:555` is still a bare `Card` plus a hand-written axis line
+  where §5's `Figure` owns the row — and the blocker has HALVED, because `Card` now takes a `ref`
+  (`ui.tsx:183`), leaving `Figure`'s own heading as the one thing in the way. Row 7:
+  `components/SampleTable.tsx:262,270,275` still wear `text-[11px]`, one of them on a
+  `<p role="status" aria-live="polite">`, where §3 reserves that size for axis ticks. Row 9 shipped
+  inside `ChannelExplorer` (zero bare `<button>` left) but the CLASS relocated rather than closing —
+  `CompareView.tsx:903,913`, `RecentFlights.tsx:888,903` still hand-roll `IconButton` in three
+  geometries. Row 10: three hand-rolled tables remain un-sortable (`ColumnMapper.tsx:186`,
+  `ChannelExplorer.tsx:834`, `StitchSurface.tsx:538`), and a verifier established that `aria-sort`
+  on them would be a REGRESSION rather than a fix, since it is only valid on a sortable header.
+
+- **2026-08-18 — §5 has no word for a SELECT, and five of them wear four different class strings.**
+  `ChannelExplorer.tsx:36` (a shared `SELECT` const used at :398 and :431), `ColumnMapper.tsx:212`
+  and `:232`. It is the shape §5 has now recorded four times — `link`, `ChipButton`, `Popover`,
+  `DismissibleChip` — a site reaching for a missing word rather than a surface being undisciplined.
+  The mapper's two are also `text-xs` where §3 makes `text-sm` the floor for anything a flyer reads
+  to decide, and a column role IS that.
+
+- **2026-08-18 — `lib/flightCard.ts:84` pushes `Flight time` with no `sub`** while the grid tile
+  (`lib/readings.ts:529`) and the `.txt`/`.md`/`.html` rows (`lib/report.ts:299,306`) both append
+  "from this file's second copy of the flight" when `metrics.descentSource === 'second-copy'`. The
+  card qualifies Apogee, Max velocity and Max acceleration and drops the qualifier on the one
+  reading whose provenance the flag is about. Smaller than the Events-table entry above and the
+  same species.
+
 - **2026-08-17 — `scripts/fetch-fixtures.mjs` hard-fails the whole CI gate on a transient 403, with
   no retry and without printing the response body, so a rate limit is indistinguishable from a
   permission loss.** Hit for real on run `32038034198`: the `frontend` job died in *Fetch private
