@@ -13,7 +13,7 @@
 import type { Parser, ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
 import { getChannel } from '../flight/types';
-import { dropNeverSupplied, fixAllows, gradeFromSatellites, gradeValue } from '../gpsFix';
+
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 import { flownAtFromColumns } from '../flight/flownAt';
@@ -227,85 +227,21 @@ export const altusMetrumParser: Parser = {
     // the row, so on its own it reads as a duplicate in the explorer's channel list. The
     // source name is kept — this only says which of the two it is.
     if (gpsAlt) gpsAlt.label = `${gpsAlt.label} (GPS)`;
-    const sats = getChannel(flight, 'satellites');
-    if (lat && lon) {
-      let any = false;
-      // What each fix was solved in, DERIVED from the satellite count rather than read off a
-      // column — AltOS writes no fix-type field. The label says so, because a value Debrief
-      // worked out and one the instrument stated are not the same claim.
-      const gradeVals = new Float64Array(lat.values.length).fill(NaN);
-      const dops = (['dopHorizontal', 'dopVertical', 'dopPosition'] as const)
-        .map((k) => getChannel(flight, k))
-        .filter((c): c is NonNullable<typeof c> => !!c);
-      for (let i = 0; i < lat.values.length; i++) {
-        const la = lat.values[i];
-        const lo = lon.values[i];
-        // With no satellites in the fix, the position and the GPS altitude beside it are
-        // the last ones the receiver had, written again — not readings. One corpus flight
-        // loses lock through the whole boost and repeats its pad position and 218 m all
-        // the way to 2,400 m, so taking those as data would put the rocket on the pad
-        // while the barometer has it a mile up.
-        //
-        // What a count of satellites permits is `lib/gpsFix.ts`'s judgement rather than this
-        // parser's, so that the Featherweight family — which asks the same question of a
-        // fix-type column instead — cannot answer it differently. The rule it states is the one
-        // this parser has always taken: three satellites give latitude and longitude on an
-        // ASSUMED height, so the height is dropped and the position beside it is kept, because
-        // a 2D fix still walks you to the rocket.
-        const n = sats && Number.isFinite(sats.values[i]) ? sats.values[i] : null;
-        const grade = gradeFromSatellites(n);
-        if (n !== null) gradeVals[i] = gradeValue(grade);
-        const allows = fixAllows(grade);
-        const ok =
-          allows.position &&
-          Number.isFinite(la) &&
-          Number.isFinite(lo) &&
-          Math.abs(la) <= 90 &&
-          Math.abs(lo) <= 180 &&
-          !(la === 0 && lo === 0);
-        if (!ok) {
-          lat.values[i] = NaN;
-          lon.values[i] = NaN;
-        } else any = true;
-        if (gpsAlt && (!ok || !allows.altitude)) gpsAlt.values[i] = NaN;
-        // The dilution columns are held over exactly like the position beside them: on
-        // `endurance`'s TeleMetrum log, all 108 samples that report zero satellites carry
-        // `23.10` in all three — one value, repeated, on every row with no fix. Left in, the
-        // recovery view would quote it as this flight's worst geometry, which is a reading it
-        // is not.
-        //
-        // **The test is the missing FIX, never how the number looks**, and the corpus supplies
-        // the counter-example that settles it: the 121 km flight's TeleMega log writes
-        // `3.60 / 8.00 / 8.80` on all 12,931 of its own zero-satellite rows — an ordinary triple
-        // inside the range of real readings, which satisfies `PDOP² = HDOP² + VDOP²` to 0.31%.
-        // A rule that spotted `23.10` by its size would keep every one of those. (That file is
-        // not reachable through this parser today — its sheet-export headers fall to the column
-        // mapper — which is exactly why it is written down rather than relied on.)
-        //
-        // Not a quality filter, and the distinction matters because row 47 forbids one: nothing
-        // here looks at how BAD a dilution is. It applies the rule the lines above already
-        // apply — with no satellites in the fix, the values beside it are the last ones the
-        // receiver had — to one more column of the same fix.
-        if (!allows.position) for (const d of dops) d.values[i] = NaN;
-      }
+    // The satellite-count fix rule now lives in `lib/gpsFix.ts` and is applied by `buildFlight`
+    // for EVERY route a file arrives by — this parser, the column mapper, and a reopened flight
+    // alike. It used to be written out here, which is why a flyer's own GPS spreadsheet came back
+    // ungraded while this file came back graded: one file, two answers, decided by the route.
+    // `flight` has already been through it by the time this runs, so all that is left is the two
+    // things that ARE this format's own: what its second altitude column is called, and whether to
+    // say a track was found.
+    const track = getChannel(flight, 'gpsFixGrade');
+    if (lat && lon && track) {
+      const any = Array.from(lat.values).some((v) => Number.isFinite(v));
       if (any) {
         flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');
-        if (sats) {
-          flight.channels.push({
-            kind: 'gpsFixGrade',
-            label: 'Fix (from satellite count)',
-            unit: '',
-            values: gradeVals,
-          });
-        }
       }
     }
 
-    // OUTSIDE the `lat && lon` guard on purpose. A dilution column is written by the same
-    // receiver but is not conditional on this file having a usable position — and the failure of
-    // getting that wrong is not a missing channel, it is a published dilution of precision of two
-    // billion on a record whose track Debrief happened to reject.
-    dropNeverSupplied(flight);
     return flight;
   },
 };

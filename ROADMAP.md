@@ -3057,11 +3057,38 @@ instead of a constant. What is missing is everything downstream of the position.
    weakest satellites as an accuracy signal, and no vendor publishes a dB-Hz→metres function — so
    this is a diagnostic to SHOW, never a number to compute an accuracy from.
 
-4. **The mapper can declare a quality column.** `lib/flight/mappingOptions.ts:24` offers latitude and
-   longitude and nothing else; `satellites` and `altitudeGps` are legal `ColumnRole`s and legal
-   `ChannelKind`s and are absent from the picker. So a flyer with their own GPS spreadsheet gets a
-   position and no way to say how good it was, while the same data through a named parser is graded
-   — one file, two answers, decided by which route it came in on.
+4. **The mapper can declare a quality column. SHIPPED 2026-08-18.**
+
+   `lib/flight/mappingOptions.ts` offered latitude and longitude and nothing else, while
+   `altitudeGps`, `satellites` and (after slice 2) the three dilution roles were all legal
+   `ColumnRole`s and legal `ChannelKind`s. All five are offered now.
+
+   **But the picker was the smaller half, and shipping only it would have made the defect worse.**
+   The satellite-count fix rule — no satellites means the position, the receiver's height and the
+   dilution beside it are the last ones it had, and a three-satellite fix keeps its position and
+   loses its height — was written INSIDE `lib/parsers/altusmetrum.ts`. Offering a `satellites`
+   column without moving that rule would have let a flyer declare a satellite count that graded
+   nothing, on the one route where the grading is least likely to exist elsewhere.
+
+   So the rule moved to `lib/gpsFix.ts` as `applySatelliteFixQuality`, and `buildFlight` applies it
+   — **every route a file arrives by**: a named parser, the column mapper, and a reopened flight
+   alike. `MAINTAINING.md`'s architecture invariant already said this ("every importer AND the
+   in-app column-mapper is a thin producer of a single internal flight model"); the rule living in
+   one importer was the invariant being described rather than held. It is inert unless a file gives
+   it something to judge, and it will not run twice: a `gpsFixGrade` channel already present means a
+   parser read a real fix-type column, and a stated grade outranks a derived one.
+
+   **The refactor moved no reading about any real flight** — `lib/parsers/corpus.test.ts` is 149/149
+   including the digest snapshot, which is the check that would have caught it.
+
+   **Pinned by** `lib/mapperGps.test.ts`, which holds the two routes SIDE BY SIDE rather than
+   testing each alone — the same four fixes as a hand mapping and as an AltOS export, asserting they
+   blank the same rows on every channel. Falsified by removing the `buildFlight` hook: the mapped
+   flight keeps a position with no satellites behind it, and the parser stops producing a grade at
+   all. A third case pins the picker, including that the `satellites` label says **in the fix** —
+   Featherweight's file carries satellites the receiver can HEAR under a similar name, reading 16,
+   18 or 19 on rows whose own `FIX` column says NO FIX (row 47), and mapping that here would make a
+   held-over position claim to be measured.
 
 5. **The tracks a flyer walks to carry it.** GPX reserves `<sat>`, `<hdop>` and `<fix>` and Debrief
    writes none of them; KML has `ExtendedData` per point. `lib/gps.ts` already skips a fix whose
@@ -3076,9 +3103,10 @@ fails rather than passing unnoticed. **And no accuracy is stated in metres anywh
 vendor publishes a function from what these files carry; the claim is always what the receiver
 solved, never how close it got.
 
-**Size.** 4–6 increments. **Slice 2 is shipped**; slice 1 is not counted until a file that exercises
-it turns up, having been refused twice. **Next: slice 3** (the Featherweight signal breakdown), then
-4 and 5 — all three are disclosure of data the files already carry, checkable against the corpus.
+**Size.** 4–6 increments. **Slices 2 and 4 are shipped**; slice 1 is not counted until a file that
+exercises it turns up, having been refused twice. **Next: slice 3** (the Featherweight signal
+breakdown), then 5 (the `.gpx`/`.kml` quality fields) — both are disclosure of data the files
+already carry, checkable against the corpus today.
 
 **Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
 this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate

@@ -1,4 +1,5 @@
-import type { Channel, ChannelKind } from './flight/types';
+import type { Channel, ChannelKind, RawFlight } from './flight/types';
+import { getChannel } from './flight/types';
 
 /**
  * How good a GPS fix was, and what it is therefore allowed to say — one rule, written once,
@@ -306,4 +307,73 @@ export function dopSentence(d: DopSummary | null): string | null {
     'error the receiver already had, so it is a quality signal and not a distance; turning it into ' +
     'metres needs that error, which this file does not carry.'
   );
+}
+
+/**
+ * The satellite-count fix rule, applied to a built flight — **one implementation, for every route
+ * a file can arrive by.**
+ *
+ * It used to live inside `lib/parsers/altusmetrum.ts`, which meant a flyer's own GPS spreadsheet
+ * got a position and no grading at all while the same data through a named parser was graded:
+ * one file, two answers, decided by which route it came in on. `MAINTAINING.md`'s architecture
+ * invariant says every importer AND the column-mapper is a thin producer of one model, so the
+ * rule belongs where they meet — `buildFlight` — and not in one of them.
+ *
+ * What it does, unchanged from the parser it came from: with no satellites in the fix, the
+ * position, the receiver's own altitude and the dilution columns beside it are the last ones the
+ * receiver had rather than readings, so they are blanked. A three-satellite fix gives latitude and
+ * longitude on an ASSUMED height, so the height goes and the position stays — a 2D fix still walks
+ * you to the rocket. The grade each fix was solved in is published as its own channel, labelled to
+ * say Debrief DERIVED it from a count rather than reading it off a fix-type column.
+ *
+ * Deliberately inert unless a file gives it something to judge: it needs a satellite count and a
+ * position, and it will not run twice (a `gpsFixGrade` channel already present means a parser that
+ * reads a real fix-type column has already answered, and its answer outranks a derived one).
+ *
+ * Returns whether any position survived, which is what callers use to decide whether to say a
+ * track was found at all.
+ */
+export function applySatelliteFixQuality(flight: RawFlight): boolean {
+  const lat = getChannel(flight, 'latitude');
+  const lon = getChannel(flight, 'longitude');
+  const sats = getChannel(flight, 'satellites');
+  if (!lat || !lon || !sats) return false;
+  if (getChannel(flight, 'gpsFixGrade')) return false;
+
+  const gpsAlt = getChannel(flight, 'altitudeGps');
+  const dops = (['dopHorizontal', 'dopVertical', 'dopPosition'] as const)
+    .map((k) => getChannel(flight, k))
+    .filter((c): c is NonNullable<ReturnType<typeof getChannel>> => !!c);
+
+  const gradeVals = new Float64Array(lat.values.length).fill(NaN);
+  let any = false;
+  for (let i = 0; i < lat.values.length; i++) {
+    const la = lat.values[i];
+    const lo = lon.values[i];
+    const n = Number.isFinite(sats.values[i]) ? sats.values[i] : null;
+    const grade = gradeFromSatellites(n);
+    if (n !== null) gradeVals[i] = gradeValue(grade);
+    const allows = fixAllows(grade);
+    const ok =
+      allows.position &&
+      Number.isFinite(la) &&
+      Number.isFinite(lo) &&
+      Math.abs(la) <= 90 &&
+      Math.abs(lo) <= 180 &&
+      !(la === 0 && lo === 0);
+    if (!ok) {
+      lat.values[i] = NaN;
+      lon.values[i] = NaN;
+    } else any = true;
+    if (gpsAlt && (!ok || !allows.altitude)) gpsAlt.values[i] = NaN;
+    if (!allows.position) for (const d of dops) d.values[i] = NaN;
+  }
+
+  flight.channels.push({
+    kind: 'gpsFixGrade',
+    label: 'Fix (from satellite count)',
+    unit: '',
+    values: gradeVals,
+  });
+  return any;
 }
