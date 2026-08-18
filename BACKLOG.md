@@ -14,6 +14,24 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **~~2026-08-18 — the channel explorer publishes a peak speed and a MACH NUMBER the report
+  refuses, bare.~~ RESOLVED 2026-08-18.** Found by the opening corpus sweep and reproduced before
+  scoping — and the first reproduction FAILED, which is the part worth keeping: run against
+  `BlueRaven-LR.csv` the explorer and the report agreed exactly (1,719.4 m/s, Mach 5.79). The sweep
+  had named `Mega38-1_TeleMega.csv`, the SAME flight recorded by the other board, which no named
+  parser claims — it reaches an analysis only through the column mapper. Through that route:
+  explorer Velocity `max` **3,728.29 m/s** and Mach **12.64**, both at t=181.5 s (a post-apogee
+  re-entry sample), against the report's **1,663.8 m/s** and Mach **5.64**. **2.24x, with no caveat
+  and no scope**, in the table whose own comment calls these *"the numbers a cert document quotes"*.
+  `d-acceleration` had the same hole for the landing spike. The analysis reads all three peaks over
+  the CLIMB and the explorer plots the whole record. `d-altitude` was given this sentence in August
+  and `d-q` got its own in the same pass; the two traces that say a rocket went supersonic were
+  left without one. Fixed by one helper (`traceTopsPeak`) on all three, pinned by
+  `lib/explore.test.ts` with a silence case beside it. **Two transferable notes.** A finding is a
+  claim until reproduced *on the file it names* — half a reproduction refuted it. And when a
+  qualification is added to a family of readings, the surface audit has to enumerate the FAMILY:
+  altitude and q got it, speed, Mach and acceleration did not, and nothing in between noticed.
+
 - **2026-08-18 — SEV-1, REPRODUCED, NOT FIXED: max-Q is computed from an air density read at an
   altitude the analysis itself refuses to state.** `lib/analyze/index.ts:1529` builds `airDensity`
   (and `sosProfile`) from `altClean`, hundreds of lines before the ascent bounds exist, so the
