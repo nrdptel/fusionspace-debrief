@@ -2963,6 +2963,26 @@ instead of a constant. What is missing is everything downstream of the position.
    run `hdop` **0.5–5.4**, and the existing `nsat > 0` gate already removes the bad ones, so **HDOP
    buys graded confidence, not extra filtering** and must not ship as a correctness fix.
 
+   **Re-measured 2026-08-18, and three things are now known that the entry above did not say.**
+   (a) **The sentinel is whole-FILE, not per-row.** Both files that carry it carry it on *every* row
+   — 346 of 346 and 4,118 of 4,118 — so it is a firmware that never supplied DOP at all, and the
+   honest surface for those files is *"this recording states no dilution of precision"* rather than a
+   per-fix gap. (b) **The triple is internally consistent, so the columns are what they say.**
+   `PDOP² = HDOP² + VDOP²` holds on **every fix row of every file that carries all three** —
+   478/478, 20/20, 15,938/15,938, 6,907/6,907, 1,085/1,085, and 13,770 of 13,985 on the last, worst
+   case 11.1% and typically under 8%. That is worth having before building: it means the three can be
+   presented as one geometry rather than three unrelated numbers, and it is a cheap check to keep.
+   (c) **3 of the 11 AltOS CSVs carry no DOP columns at all**, so the surface has to say nothing
+   gracefully more often than it says something.
+
+   **And a trap that cost this measurement two passes.** The AltOS CSV header line begins with `#`
+   (`#version,serial,flight,…`) while the data rows have **no** extra leading field, so stripping the
+   `#` gives the correct indices and adding an offset for it shifts every column by one. The shifted
+   read did not error — it produced `nsat` **41**, `vdop` **24.00** and a `PDOP² = HDOP² + VDOP²`
+   check that failed on 100% of rows, which reads exactly like a real finding about a broken vendor
+   format. What caught it was physical plausibility: no receiver has 41 satellites in a fix. **Sanity
+   the units before believing a measurement about a format, not after.**
+
 3. **The satellite signal breakdown Featherweight carries, read the way the vendor reads it.** The
    `>40`/`>32`/`>24` dB-Hz columns are in the committed fixture. **Three disjoint bands summing to at
    most the tracked total** — measured over 174 rows: `sum == #SATS` on 0 of them, `<=` on all 174,

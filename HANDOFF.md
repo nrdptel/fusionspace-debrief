@@ -114,10 +114,10 @@ only those two keys excluded reproduced the committed hashes exactly, so no read
 flight moved — worth repeating whenever `corpus-digests.json` goes red on a metrics addition, rather
 than regenerating on the assumption.
 
-## Four things this run got WRONG first, and what caught them
+## Five things this run got WRONG first, and what caught them
 
 Kept because each survived the thing that should have stopped it — three were green under a full
-gate, and the fourth was written down as fact.
+gate, the fourth was written down as fact, and the fifth produced numbers rather than an error.
 
 1. **Featherweight's satellite count published as `satellites`.** That kind means satellites IN the
    fix, where 0 says the position beside it is held over. The column is satellites the receiver can
@@ -149,7 +149,20 @@ gate, and the fourth was written down as fact.
    say only what the record says — *"started at X, still running when I looked"* — which is both
    honest and enough to act on.
 
-**The lesson under all four: a full green gate proves the code does what it says, not that what it
+5. **A measurement about a file format, read one column out of alignment — and it did not error,
+   it answered.** Scouting D12 slice 2, the AltOS CSVs were indexed with an offset for the `#` that
+   begins their header line. The data rows have no matching extra field, so every column shifted by
+   one. The result was not a crash and not a blank: it was `nsat` **41**, `vdop` **24.00–32.00**, and
+   a `PDOP² = HDOP² + VDOP²` consistency check failing on **100%** of rows — which reads exactly like
+   a real and rather exciting finding about a broken vendor format, and was about to be written into
+   `ROADMAP.md` as one. **What caught it was physical plausibility**: no GPS receiver has 41
+   satellites in a fix. Re-indexed correctly, the triple is consistent on essentially every row and
+   `hdop` runs 0.5–5.4 — the figure `ROADMAP.md` had already recorded, which is the other thing that
+   should have raised an eyebrow when the first pass disagreed with it. **Sanity the units before
+   believing a measurement, and when a new measurement contradicts one already written down, suspect
+   the new one first.**
+
+**The lesson under all five: a full green gate proves the code does what it says, not that what it
 says is true.** Hand the diff to a fresh agent with no context before every push.
 
 ## Two checks that could not fail, and one that failed against correct code
