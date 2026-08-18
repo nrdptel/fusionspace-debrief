@@ -270,10 +270,14 @@ export const featherweightGpsGroundStationParser: Parser = {
       { kind: 'longitude', label: 'Longitude', unit: '°', values: col((r) => r.lon) },
     ];
     if (cFix >= 0) channels.push({ kind: 'gpsFixGrade', label: 'Fix', unit: '', values: col((r) => r.fix) });
-    // `#TOT` is the satellite count the tracker reported, binned by signal strength into
-    // the `>40`/`>32`/`>24` columns beside it — those three sum to it row by row. Satellites
-    // TRACKED, not satellites in the fix: this file carries ten rows whose FIX column says no fix
-    // while `#TOT` reads 16, 18 or 19. `kind: 'other'` for that reason — see the tracker variant.
+    // `#TOT` is the satellite count the tracker reported, banded by signal strength into the
+    // `>40`/`>32`/`>24` columns beside it. **They do NOT sum to it**, which this comment claimed
+    // until it was measured: over the 174 rows of the jan10 tracker log `>40 + >32 + >24 == #SATS`
+    // holds on **0** of them, and `<= #SATS` holds on **all 174** — three DISJOINT bands whose
+    // shortfall is the satellites weaker than 24 dB-Hz, which are in none of the three. Nor are
+    // they cumulative thresholds: `>32` exceeds `>24` on 127 of the 174 rows, so the bands do not
+    // nest either. Satellites TRACKED, not satellites in the fix: this file carries ten rows whose
+    // FIX column says no fix while `#TOT` reads 16, 18 or 19. `kind: 'other'` for that reason — see the tracker variant.
     if (cSats >= 0) channels.push({ kind: 'other', label: 'Satellites tracked', unit: '', values: col((r) => r.sats) });
     if (cBatt >= 0) channels.push({ kind: 'voltage', label: 'Battery', unit: 'V', values: col((r) => r.batt) });
 
