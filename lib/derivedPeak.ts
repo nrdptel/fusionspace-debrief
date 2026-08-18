@@ -69,7 +69,7 @@ export interface DerivedPeakPair {
  * | a TeleMetrum's CSV export against its own `.eeprom` | no instrument differs — one device, one flight, two exports; the binary carries no velocity column so the analysis differentiates the altitude instead | +4% |
  * | a Blue Raven's measured speed against a Featherweight GPS on the same flight | + a coarse 2.1 Hz altitude | +5% |
  * | the same Blue Raven against an Eggtimer Quantum baro | + a second barometer | +23% |
- * | an EasyMega against a second recording of the stargazer flight | + a second barometer | +66% |
+ * | an EasyMega's CSV export against its own `.eeprom` | no instrument differs — the second same-device pair, and it was filed here for a year as "a second barometer" | +66% |
  * | the same Blue Raven against an Eggtimer Proton baro | + a barometer through the transonic push | +110% |
  * | a TeleMetrum against the sg1.1 PerfectFlite StratoLogger | + a second barometer, reading the other way | **−14%** |
  *
@@ -81,16 +81,31 @@ export interface DerivedPeakPair {
  * a well-meant correction to "reads high" would have been a regression on the one claim a flyer
  * acts on. It is recorded at this length because the wrong version was already written once.
  *
- * **+4% is the closest thing here to the cost of the method alone**, and it is still a floor rather
- * than that cost exactly: the CSV's speed is AltOS's own barometer-plus-accelerometer solution,
- * while the `.eeprom` read differentiates the altitude and ignores the axial accelerometer it also
- * carries. So it measures "differentiate AND drop the accelerometer".
+ * **TWO pairs isolate the method, and they read +4% and +66% — which is the correction this file
+ * most needed.** For a year the second was filed as "an EasyMega against a second recording of the
+ * stargazer flight … + a second barometer", and on that basis the validation page told a flyer
+ * *"the cleanest pair is one device's CSV export against its own binary download — same flight,
+ * same sensor — and it reads +4%"*. **Both stargazer recordings report `serial 5581` and
+ * `product EasyMega-v2.0`**: it is one board, one flight, two exports, exactly like the sg1.1
+ * TeleMetrum pair beside it. So the cost of the method alone was published as a single flattering
+ * number sixteen times smaller than the other measurement of the same thing — which is precisely
+ * what `MAINTAINING.md`'s spine forbids: *"accuracy claims are a range with their basis, not a
+ * flattering single number."*
+ *
+ * Either figure is still a FLOOR on the method rather than the method exactly: the CSV's speed is
+ * AltOS's own barometer-plus-accelerometer solution, while the `.eeprom` read differentiates the
+ * altitude and ignores the axial accelerometer it also carries. So each measures "differentiate AND
+ * drop the accelerometer".
+ *
+ * **`isolatesMethod` is no longer a remembered flag.** `lib/derivedPeak.test.ts` reads the device
+ * serial out of both recordings of every pair's flight and fails if the flag disagrees with what
+ * the files say — which is what would have caught this on the day it was written.
  */
 export const DERIVED_PEAK_PAIRS: readonly DerivedPeakPair[] = [
   { group: 'iss-sg1.1-20231001', from: 'the same device’s own binary download', isolatesMethod: true, speedPct: 4, machPct: 4 },
   { group: 'trf-lemiv-l3-20250412', from: 'a GPS altitude at 2.1 Hz', isolatesMethod: false, speedPct: 5, machPct: 8 },
   { group: 'trf-lemiv-l3-20250412', from: 'a barometric altitude', isolatesMethod: false, speedPct: 23, machPct: 27 },
-  { group: 'iss-stargazer1-20230507', from: 'a barometric altitude', isolatesMethod: false, speedPct: 66, machPct: 66 },
+  { group: 'iss-stargazer1-20230507', from: 'the same device’s own binary download', isolatesMethod: true, speedPct: 66, machPct: 66 },
   { group: 'trf-lemiv-l3-20250412', from: 'a barometric altitude', isolatesMethod: false, speedPct: 110, machPct: 116 },
   { group: 'iss-sg1.1-20231001', from: 'a second barometer, reading the other way', isolatesMethod: false, speedPct: -14, machPct: -17 },
 ] as const;
@@ -120,6 +135,27 @@ export function derivedPeakList(basis: 'speed' | 'mach'): string {
   const pcts = DERIVED_PEAK_PAIRS.map((p) => (basis === 'speed' ? p.speedPct : p.machPct)).sort((a, b) => a - b);
   return pcts.map((p) => `${p > 0 ? '+' : ''}${p}%`).reduce((acc, s, i, arr) => (i === 0 ? s : `${acc}${i === arr.length - 1 ? ' and ' : ', '}${s}`), '');
 }
+
+/**
+ * The pairs where NO INSTRUMENT DIFFERS, as a phrase — `"+4% and +66%"`.
+ *
+ * Exported because the validation page quoted one of them as "the cleanest pair" and there are two.
+ * A page that names a single figure for the cost of a method is making the claim this whole module
+ * exists to stop; deriving the phrase here means the page cannot go back to naming one.
+ */
+export function derivedPeakMethodOnly(basis: 'speed' | 'mach' = 'speed'): string {
+  const pcts = DERIVED_PEAK_PAIRS.filter((p) => p.isolatesMethod)
+    .map((p) => (basis === 'speed' ? p.speedPct : p.machPct))
+    .sort((a, b) => a - b);
+  const fmt = (p: number) => `${p > 0 ? '+' : ''}${p}%`;
+  if (pcts.length === 0) return 'none';
+  if (pcts.length === 1) return fmt(pcts[0]);
+  return `${pcts.slice(0, -1).map(fmt).join(', ')} and ${fmt(pcts[pcts.length - 1])}`;
+}
+
+/** How many pairs isolate the method — the count the phrase above is built from, so a surface can
+ *  say "two pairs" without counting them itself and drifting. */
+export const DERIVED_PEAK_METHOD_PAIRS = DERIVED_PEAK_PAIRS.filter((p) => p.isolatesMethod).length;
 
 /** The clause a surface prints beside a mixed-source cross-check: the direction, the range, and
  *  the basis it rests on — all three, because any two of them without the third is a claim Debrief

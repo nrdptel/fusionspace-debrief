@@ -4,7 +4,7 @@ import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import { Section } from '@/components/ui';
 import { SITE_URL } from '@/lib/links';
-import { derivedPeakList } from '@/lib/derivedPeak';
+import { derivedPeakList, DERIVED_PEAK_METHOD_PAIRS, derivedPeakMethodOnly } from '@/lib/derivedPeak';
 
 export const metadata: Metadata = {
   title: 'How Debrief is validated — Debrief',
@@ -258,10 +258,13 @@ export default function ValidationPage() {
               <strong>{derivedPeakList('speed')}</strong> on the speeds ({derivedPeakList('mach')}{' '}
               comparing the Mach numbers, which is a different ratio and is quoted here under its own
               name). Most run high; <strong>one reads 14% low</strong>, which is why a derived peak
-              cannot be treated as a ceiling any more than as a floor. The cleanest pair is one
-              device&apos;s CSV export against its own binary download — same flight, same sensor —
-              and it reads <strong>+4%</strong>; the widest is a different barometer through the
-              transonic push, at <strong>+110%</strong>. From about Mach&nbsp;0.9 up a baro trace
+              cannot be treated as a ceiling any more than as a floor. <strong>
+                {DERIVED_PEAK_METHOD_PAIRS} of them isolate the method</strong> — one device&apos;s
+              CSV export against its own binary download, same flight and same sensor, so no
+              instrument differs — and they read <strong>{derivedPeakMethodOnly('speed')}</strong>.
+              Two measurements of the same thing, sixteen times apart, which is why this states both
+              rather than the flattering one. The widest pair of all is a different barometer
+              through the transonic push, at <strong>+110%</strong>. From about Mach&nbsp;0.9 up a baro trace
               stops being a reading of the speed at all, so a peak there is flagged and never counted
               as proof of a supersonic flight. Only a speed the device itself measured settles that.
             </li>
