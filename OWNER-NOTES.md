@@ -325,6 +325,20 @@ present, label or withhold a GPS-derived value, and the honest finding is that e
 them states horizontal fix quality at all. That reorders the last slice: a coarse-GPS sample
 demonstrates a capability, and the capability it would demonstrate is thinner than this milestone
 assumed. `COMPETITION.md` row 47 carries the measured version.
+
+TRIAGED 2026-08-18 — **still open, and this run took the SURFACE half the last one said to take
+first.** D10's remaining capability is the coarse-GPS flight, and `ROADMAP.md` had already recorded
+the reason to build the surface before the sample: *a sample demonstrates a capability, and this
+capability is thin*. It was thinner than that entry knew. `COMPETITION.md` row 47 named one thing to
+settle first — AltOS 2D fixes keep their position while Featherweight 2D rows are dropped whole — and
+that is **settled and shipped this run** (`0df7eea`): one rule in `lib/gpsFix.ts`, read by all four
+parsers, with the grade a file states carried as a `gpsFixGrade` channel. Two thresholds were wrong
+on the way and are corrected; no fix moved across the 12 corpus recordings carrying a position.
+
+What that buys this note: a coarse-GPS sample now has something to demonstrate. It also removes the
+reason the sample could not be written — `lib/synthetic.ts` still cannot emit a GPS column, but the
+model can now carry the quality signal such a file would state, which is the half that had no home.
+**Still open: the coarse-GPS log itself, the last of the *done when*'s six capabilities.**
 ---
 
 **CORRECTION, 2026-08-08, and it changes the answer to the owner's actual question.** The verdict
@@ -417,6 +431,13 @@ because this note is about explanation arriving where the reading is: the channe
 statistics table gained a `scope` line — an explanation of what stretch of the flight a figure was
 read over, rendered beside the figure rather than a page away. That is this note's instinct applied
 to a different control, and the field is general rather than one-off.
+
+TRIAGED 2026-08-18 — **read, not moved, and P8 remains the answer.** Nothing this run touched the
+`?` affordance. One thing adjacent to it moved again, in the same direction the 2026-08-17 entry
+above records: the explorer's `scope` line now carries a per-flight MEASUREMENT rather than a fixed
+sentence — where an altitude trace tops the headline apogee it says by how much, sized, beside the
+figure. That is this note's instinct (the explanation comes to the reading) applied to a number
+rather than to a control, and it is the second surface to take the field.
 ---
 
 ---
@@ -497,6 +518,11 @@ UNREPRODUCED and the tip control remains a deliberate colour divergence, both fo
 2026-08-17 entry above records. The motor-finder repo is still not attached to this session, so the
 cheaper direction — that repo adopting the neutral treatment its own shared `DESIGN.md` specifies —
 remains the owner's to take, and stays parked below.
+
+TRIAGED 2026-08-18 — **unchanged, and nothing this run touched either control.** Stated so the
+count stays honest: the theme control remains UNREPRODUCED and the tip control remains a deliberate
+colour divergence. The motor-finder repo is still not attached to this session, so the cheaper
+direction remains the owner's and stays parked below.
 ---
 
 **ON-B2 · the GitHub repo page is a surface too · SOURCE: owner, 2026-08-08 · BOTH REPOS**
@@ -545,6 +571,13 @@ can: the GitHub tool surface available here exposes `create_repository` and no u
 call of any kind, so **a repository's description, topics and pinned links cannot be set from a
 session** — it is owner-level, not merely unglamorous. That is worth having established once. The
 README half remains doable and remains undone; this run spent itself on a Sev-1 and its review.
+
+TRIAGED 2026-08-18 — **read, and the README half is still the doable half.** Nothing this run
+changed it; the run went to a D-track milestone slice, two P-track craft fixes and a Sev-1. The
+blocking half stays as the 2026-08-17 entry established it by measurement — no update-repository
+call exists in this session's GitHub surface, so description, topics and pinned links are the
+owner's. This is the FOURTH consecutive run to leave the README, which is worth saying plainly
+rather than repeating the reason.
 ---
 
 **ON-5 · dark mode is not being checked · SOURCE: cross-applied from loft `ON-1` — NOT the owner's words**
@@ -639,6 +672,14 @@ rather than extended.** One new state shipped this run — the explorer's `scope
 neighbour, precisely so the contrast census can see it. The note's one unclosed limit is unchanged:
 the tone tables in `ui.tsx` are `const` object literals rather than opening tags, so the source
 census still cannot see them.
+
+TRIAGED 2026-08-18 — **read, and the check it produced was exercised rather than extended.** Two
+new pieces of visible text shipped this run and both were chosen against §2's token table rather than
+by copying a neighbour: the logbook's per-figure labels (`zinc-500` / `dark:zinc-400`, §2's tertiary)
+and the altitude trace's `scope` line, which reuses the token the explorer's existing scope already
+wears. The rendered contrast audit ran green over all 26 audits. The note's one unclosed limit is
+unchanged: the tone tables in `ui.tsx` are `const` object literals rather than opening tags, so the
+source census still cannot see them.
 ---
 
 **ON-6 · the phone should be vertical · SOURCE: cross-applied from loft `ON-3` — NOT the owner's words**
@@ -693,6 +734,23 @@ TRIAGED 2026-08-17 (second run this date) — **no phone work this run, and noth
 one.** Said plainly rather than dressed up: the run went to a Sev-1 on the analysis side and its
 review, and neither touched a layout. The note stays open on its own terms and P4 remains where it
 is answered.
+
+TRIAGED 2026-08-18 — **phone work SHIPPED, and it is this note's own complaint on a surface the
+note did not name.** The logbook row shows a top speed and an apogee side by side and nothing named
+either of them — no header row exists at any width, and the only thing that ever said which was which
+was a `title`, i.e. a hover, i.e. nothing on a phone. Measured at 390x844: a filename, `412 mph`,
+`8,022 ft` and a date. Each figure carries its name now, in the layout below `sm` and in the
+accessibility tree everywhere (`0df7eea`).
+
+Two more phone gaps closed with it: `/changelog`'s pinned strip had no scroll clearance, so a release
+jumped to from it landed **at y=0 against a 62 px strip**, and `/changelog` turned out to be the one
+route of seven that no phone sweep in the suite ever visited — which is why nothing had caught it.
+Both checks now enumerate what they find rather than a hand-written list.
+
+**P4 is marked SHIPPED and this note stays open against it deliberately**, per the rule that a
+shipped milestone is not re-opened: the gap becomes the next milestone's starting point. The desktop
+half of the logbook finding is filed rather than fixed — real column headers mean making that row a
+grid — and that is the next thing this note buys.
 ---
 
 ## Awaiting the owner
@@ -700,26 +758,18 @@ is answered.
 Owner-level decisions that are NOT blocking anything. Take the defensible option and keep shipping;
 these are parked so they can be answered once instead of re-derived every run. Newest first.
 
-- **2026-08-17 — CI's `frontend` job can no longer fetch the private corpus: `GitHub API 403 for
-  release v1.1.0`. Only you can fix this, and it is one setting.** `FIXTURES_TOKEN` is still SET
-  (the runner masks it as `***`), so this is not a missing secret — it is a **403**, which for a
-  fine-grained token on a private repo means the grant no longer covers
-  `nrdptel/debrief-fixtures` (or the token has expired). Measured rather than guessed: the same
-  step **succeeded in 2 s** on run `32034845483` (main, `7a888d8`) and on `32033856248`, then
-  **failed twice, 35 minutes apart**, on a commit that changed only three markdown files. The
-  script maps 404 → "not found" and 401 → "token rejected" and leaves 403 unexplained, which is
-  why it took a log read to tell apart.
-  **What it costs while it stands:** the `frontend` job dies at step 5 of 7, so `Test` and `Build`
-  are SKIPPED and **zero tests run on CI** — the 116-test corpus half that is the whole reason this
-  secret exists. The `e2e` job is unaffected and still passes. A session with the fixtures repo
-  attached as a second source still runs the corpus locally (this run did: 1,450 tests, 37
-  recordings analysing end to end), so work is still verifiable — but **the protection a fortnight
-  of unreviewed merges actually rests on is off**, and a future run whose container lacks the
-  fixtures repo would have neither.
-  **The fix:** re-issue or re-scope `FIXTURES_TOKEN` with `Contents: read` on
-  `nrdptel/debrief-fixtures`, in this repository's Actions secrets. Filed in `BACKLOG.md` is the
-  separate, session-fixable half: the script should retry a 403 with backoff and print the response
-  body, so the next occurrence reads as a rate limit or a permission loss without a log dive.
+- ~~**2026-08-17 — CI's `frontend` job can no longer fetch the private corpus: `GitHub API 403 for
+  release v1.1.0`.**~~ **RESOLVED, measured 2026-08-18 — nothing was needed from you, and that is
+  worth saying rather than quietly deleting the entry.** The fetch works again: run
+  `32096594423`'s `frontend` job logs `resolving nrdptel/debrief-fixtures@v1.1.0`,
+  `downloading corpus-v1.1.0.zip (26.1 MB)`, `sha256 verified`, `corpus ready`, and then runs
+  **1,448 passed / 7 skipped of 1,455** — the corpus half that is the whole reason the secret
+  exists. Whether the token was re-issued, the grant re-propagated, or the 403 was transient on
+  GitHub's side is not knowable from here, and the entry is kept in struck-through form for that
+  reason: if it recurs, the next session should read this as "it has come back before" rather than
+  as a fresh fault. **The session-fixable half stays open in `BACKLOG.md`** — `fetch-fixtures.mjs`
+  still maps 404 and 401 to messages and leaves 403 unexplained, so a repeat costs a log dive
+  again.
 
 - **2026-08-17 — may a GPL-3 file be published from this MIT repo? One question, one line of
   answer, and it decides D10's design sample and nothing else.** `debrief-fixtures` holds

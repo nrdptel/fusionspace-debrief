@@ -311,7 +311,19 @@ export default function ChannelExplorer({
     // Every column here is one flight's, x included — unlike the comparison's shared clock — so a
     // made-up flight marks the whole file: the header of each column, and a `Provenance` cell on
     // every row for a block pasted without its headers.
-    const x = { label: xName, unit: xUnit, values: xVals, synthetic };
+    // **The x column carries its own note too, and it did not until 2026-08-18.** A flyer can put
+    // any channel on the x axis — altitude against velocity is a plot this panel offers — and the
+    // header written for it was bare while the SAME channel as a y column carried its caveat and
+    // its scope. One channel, two accounts, decided by which axis it happened to be on. `xChan` is
+    // the plot channel behind a non-time x axis; time has neither and needs neither.
+    const x = {
+      label: xName,
+      unit: xUnit,
+      values: xVals,
+      synthetic,
+      ...(xChan?.caveat ? { caveat: xChan.caveat } : {}),
+      ...(xChan?.scope ? { scope: xChan.scope } : {}),
+    };
     // `caveat` travels with the column, so the file says what the clipboard already said. Without
     // it, `Copy these stats` wrote "Dynamic pressure — drawn over the ascent only…" while the .csv
     // beside it wrote a bare "Dynamic pressure (kPa)" over a column that stops at apogee.

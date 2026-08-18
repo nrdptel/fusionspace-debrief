@@ -497,7 +497,10 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           where the same file&apos;s inertial altitude and the flight&apos;s three other recordings
           (11,731, 11,734 and 12,001&nbsp;ft) all put it; time-to-apogee across the four went from
           a 4.6&nbsp;s spread to 0.7&nbsp;s. The transient itself is never edited out — it stays in
-          the raw trace you can plot — it just isn&apos;t read as the summit. Two things keep this
+          the raw trace you can plot — it just isn&apos;t read as the summit. Where a trace does
+          top the apogee, the channel explorer says so beside the figure, so a maximum lifted out
+          of that table into a document isn&apos;t mistaken for the apogee; on most flights the two
+          are the same number and it says nothing. Two things keep this
           from touching a sound flight: the search for the descent starts only once the climb has
           passed half the height it reached, so a velocity wobbling either side of zero on the pad
           can&apos;t look like one, and a trace whose ascent velocity swings well negative is

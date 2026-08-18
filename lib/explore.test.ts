@@ -168,6 +168,100 @@ describe('buildPlotChannels', () => {
       for (const c of altitudeChannels()) expect(c.caveat).toBeUndefined();
     });
 
+    it('says an altitude trace tops the headline apogee, and says nothing when it does not', () => {
+      // The Sev-1 this closes, at the scale it was found: on `blueraven__trf-lemiv-l3` the stats
+      // table published 12,060 ft as the altitude `max` — into `Copy these stats` and the `.csv` —
+      // while the Apogee tile, the board's own summary, its GPS, an Eggtimer on the same flight and
+      // the L3 cert paperwork all read 11,765.5 ft. 295 ft, and nothing on the panel said the
+      // maximum was not the apogee, because `apogeeIsQualified` is false on that flight so the
+      // existing caveat could never fire.
+      const spiky: FlightSeries = {
+        ...series,
+        time: Float64Array.from([0, 1, 2, 3]),
+        altitude: Float64Array.from([0, 50, 100, 110]),
+        altitudeRaw: Float64Array.from([0, 50, 100, 120]),
+        velocity: Float64Array.from([0, 40, 0, -5]),
+        acceleration: Float64Array.from([0, 9.80665, -9.80665, -9.80665]),
+      };
+      const spikyChans = buildPlotChannels(flight, spiky, {
+        maxVelocityWithheld: null,
+        apogeeAltitude: 100,
+      }).filter((c) => c.key.startsWith('d-altitude'));
+      expect(spikyChans.length, 'both altitude traces are offered').toBe(2);
+      for (const c of spikyChans) {
+        expect(typeof c.scope, `${c.key} carries a scope at all`).toBe('string');
+        expect(c.scope).toContain('take the apogee from the report');
+      }
+
+      // **NO NUMBER, and this is the assertion that keeps it that way.** The table this annotates
+      // is WINDOWED — `windowStats` recomputes every figure for the current zoom and the heading
+      // flips to "In the selected window" — so a sentence quoting a whole-record gap would sit
+      // beside a number it is not about the moment a reader drags across the chart, which is the
+      // same one-value-two-accounts defect this scope exists to close. A first version stated the
+      // gap as a percentage and a review caught exactly that.
+      for (const c of spikyChans) {
+        expect(c.scope, `${c.key} states no figure, so it survives any zoom`).not.toMatch(/[0-9]/);
+      }
+
+      // …and it states DEBRIEF'S RULE rather than naming a cause it has not measured. A deployment
+      // transient is the usual reason a trace tops its apogee; this function establishes that on no
+      // particular flight, and a measurement instrument does not assert a mechanism it did not
+      // measure.
+      for (const c of spikyChans) {
+        expect(c.scope, `${c.key} does not assert a cause`).not.toMatch(/transient|deployment|charge/i);
+        expect(c.scope).toContain('last peak the record descends from');
+      }
+
+      // The half that makes the above able to fail. `series` climbs 0 → 100 and its apogee IS 100,
+      // so nothing is said — on the corpus that is 36 of 39 analysable records.
+      for (const c of altitudeChannels({ maxVelocityWithheld: null, apogeeAltitude: 100 })) {
+        expect(c.scope, `${c.key} says nothing when the trace and the headline agree`).toBeUndefined();
+      }
+      // …and a caller with no apogee at all cannot be told a gap it has no basis for.
+      for (const c of altitudeChannels({ maxVelocityWithheld: null })) expect(c.scope).toBeUndefined();
+
+      // Half a metre is the floor: below it the two are one reading printed twice.
+      const hair: FlightSeries = { ...series, altitude: Float64Array.from([0, 50, 100.4]), altitudeRaw: Float64Array.from([0, 50, 100.4]) };
+      for (const c of buildPlotChannels(flight, hair, { maxVelocityWithheld: null, apogeeAltitude: 100 }).filter((c) => c.key.startsWith('d-altitude'))) {
+        expect(c.scope, `${c.key} says nothing about 0.4 m`).toBeUndefined();
+      }
+    });
+
+    it('keeps the scope and the caveat as separate claims on one channel', () => {
+      // The assertion this replaces could not fail: it asserted `caveat` was undefined on metrics
+      // where `apogeeIsQualified` is false, so `altitudeCaveat` was unconditionally undefined and
+      // deleting the whole scope helper left it green. It was the only case claiming "a scope, not
+      // a refusal" and it pinned nothing.
+      //
+      // Driven from metrics where BOTH fire, which is reachable: `apogeeIsFloor` zeroes the gap on
+      // the CLEANED trace and not on the raw one, so `d-altitude-raw` genuinely carries a caveat
+      // and a scope at once. They must be two fields with two meanings — §2's warning hue is a
+      // refusal, and this scope is not one — and they must not contradict each other in the cell.
+      const spiky: FlightSeries = {
+        ...series,
+        time: Float64Array.from([0, 1, 2, 3]),
+        altitude: Float64Array.from([0, 50, 100, 110]),
+        altitudeRaw: Float64Array.from([0, 50, 100, 120]),
+        velocity: Float64Array.from([0, 40, 0, -5]),
+        acceleration: Float64Array.from([0, 9.80665, -9.80665, -9.80665]),
+      };
+      const both = buildPlotChannels(flight, spiky, {
+        maxVelocityWithheld: null,
+        apogeeAltitude: 100,
+        apogeeIsFloor: true,
+      }).filter((c) => c.key.startsWith('d-altitude'));
+
+      for (const c of both) {
+        expect(typeof c.caveat, `${c.key} carries the apogee's qualification`).toBe('string');
+        expect(typeof c.scope, `${c.key} carries the scope too`).toBe('string');
+        // Two fields, never one string: a reader has to be able to tell a refusal from a domain,
+        // and the panel renders them in different hues for that reason.
+        expect(c.caveat).not.toBe(c.scope);
+        expect(c.scope, 'the scope is not written into the caveat').not.toContain(c.caveat!);
+        expect(c.caveat, 'the caveat is not written into the scope').not.toContain(c.scope!);
+      }
+    });
+
     it('does not put the apogee’s qualification on any other channel', () => {
       // `caveat` is per channel; a floor apogee says nothing about the battery trace.
       const all = buildPlotChannels(flight, series, { maxVelocityWithheld: null, apogeeIsFloor: true });

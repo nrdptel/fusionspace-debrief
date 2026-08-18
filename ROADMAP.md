@@ -2084,6 +2084,38 @@ the app's own refusal to publish a railed peak, and as of 2026-08-17 so does the
 overlay. **Five of the *done when*'s six capabilities now have a sample; what is left is the
 coarse-GPS flight.**
 
+**2026-08-18 — the SURFACE half of the last capability SHIPPED, which is the order the entry below
+said to take and the first time this milestone has moved on the coarse-GPS flight.** `0df7eea`.
+The entry below asked for the surface before the sample because *a sample demonstrates a capability,
+and this capability is thin*. It was thinner than that: `COMPETITION.md` row 47 named one thing to
+settle first — AltOS 2D fixes kept their position while Featherweight 2D rows were dropped whole,
+one rule and two answers, with nothing downstream able to say which had happened — and that is now
+one rule in `lib/gpsFix.ts` read by all four parsers, with the grade a file states carried as a
+`gpsFixGrade` channel (Featherweight reads its receiver's own `FIX` column; AltOS derives it from the
+satellite count and the label says which).
+
+**Measured: no fix moved** across the 12 corpus recordings carrying a position. Two thresholds were
+wrong and are corrected — u-blox `fixType 5` is *time only*, a solved clock and no position, and was
+graded a full 3D fix; and one or two satellites were graded `2d`, a KEPT position, where a
+two-dimensional solution takes three.
+
+**Three things this slice turned up that the map above did not know, and each is worth more than the
+slice.** (a) **Featherweight's satellite count is not satellites in the fix.** A first version of
+this work re-kinded it to `satellites`; the ground-station recording carries **ten rows whose own
+`FIX` column says NO FIX while that count reads 16, 18 or 19**, so under a kind whose contract is
+*0 means the position beside it is held over* a held-over position would have claimed to be measured.
+It stays `other`, labelled *Satellites tracked*. (b) **The `>40`/`>32`/`>24` dB-Hz columns are not
+what this repo's own comment said.** Over 174 rows: `>40 + >32 + >24 == #SATS` on **0** of them and
+`<= #SATS` on **all 174** — disjoint bands whose shortfall is the satellites below 24 dB-Hz — and not
+cumulative thresholds either, since `>32` exceeds `>24` on 127 of the 174. (c) **`pdop`/`hdop`/`vdop`
+carry an INT32_MAX sentinel** on 2 of the 8 AltOS CSVs that have them, so a naive read publishes a
+dilution of precision of two billion. All three are filed.
+
+**What is left on this milestone is the coarse-GPS LOG itself** — the sixth capability. The generator
+still cannot emit a GPS column (`SynthSample` is `{t, altitude, velocity, accel?}` and no writer emits
+one), but the model can now carry the quality a coarse-GPS file would state, which was the half with
+no home.
+
 **2026-08-17 (second run this date) — NO D-track slice shipped, and the reason is the rule working
 rather than the milestone stalling.** A Sev-1 came out of the opening corpus sweep and preempted
 both tracks: the max-Q a flyer sizes an airframe from was being republished on four surfaces at up
@@ -2984,6 +3016,36 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**2026-08-18 — two craft fixes SHIPPED, both of them the same defect class on different surfaces:
+a value whose identity or scope was available only through a hover, or not at all.** `0df7eea`.
+
+- **The logbook's two figures say which is which.** A remembered flight's row shows a top speed and
+  an apogee side by side and nothing named either — there is no header row at any width, and the
+  only thing that ever said which was which was a `title`. Measured at 390x844: a filename,
+  `412 mph`, `8,022 ft`, a date. Each figure carries its name now, in the layout below `sm` and in
+  the accessibility tree everywhere (`sr-only`, not `hidden`, because this list has no header cells
+  to inherit a name from). **The desktop half is filed rather than fixed** and is the next thing
+  here: real column headers mean making that row a grid, since `sm:contents` dissolves it into a
+  flex line whose figures do not align between rows.
+- **`/changelog`'s pinned strip got the clearance its two siblings have.** A release jumped to from
+  its own strip landed **at y=0 against a 62 px strip** — fully behind it, where `/methods` carried
+  the same defect at 14 px and was fixed in August. Both checks that should have caught it now
+  enumerate what they find rather than a hand-written list: the strip walk asks each route whether
+  it renders one, and a new case reads the app's routes off disk and holds them against the phone
+  sweep's array. `/changelog` was the only route of seven that no phone sweep ever visited.
+
+**§9, measured on the shipped tree:** radius drift **0** (target 0) · off-scale spacing **0** (0) ·
+off-scale type **1** (0, honest floor 1 — the brand wordmark) · card treatments **3** · half-steps
+**41** in the shell count · inverted files **10 of 51** · components importing `./ui` **40 of 51**.
+Nothing moved the wrong way and `lib/design-system.test.ts` is green at 31.
+
+**Re-verified this run, so the audit list below is not read as staler than it is:** rows 5, 7, 9 and
+10 are still open, row 5's blocker has HALVED (`Card` now takes a `ref`; `Figure`'s own heading is
+the one thing left in the way), and row 9 shipped inside `ChannelExplorer` while the CLASS relocated
+to `CompareView` and `RecentFlights` rather than closing. A verifier also established that putting
+`aria-sort` on row 10's tables would be a REGRESSION rather than a fix, since it is only valid on a
+sortable header. All filed with lines.
 
 **2026-08-17 — audit row 5's caveat half SHIPPED, and the explorer stops giving a different answer
 from the report about one curve.** The channel explorer plotted a `velocityUnusable` trace with the
