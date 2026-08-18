@@ -2910,34 +2910,58 @@ instead of a constant. What is missing is everything downstream of the position.
 ### The slices, ranked by what a flyer can check
 
 1. **A GPS apogee says how many SOLUTIONS it rests on, and is qualified when they collapse near the
-   peak. BUILT 2026-08-18, MEASURED, and DELIBERATELY NOT SHIPPED — read this before rebuilding it.**
+   peak. REFUSED TWICE 2026-08-18 — and the second refusal is about the SLICE, not the
+   implementation. Read this before building it a third time.**
 
-   **The gap it targets is real and bigger than the milestone assumed.** On `SG1.1-Booster` the GPS
-   apogee reads **2,251 ft against a barometric 2,502 ft — 10% low — on BOTH of its exports**, and
-   the cross-check panel calls that "differ" without ever saying the GPS figure is a lower BOUND
-   rather than merely a different reading. That flight spends 13 distinct solutions on three
-   satellites, whose heights are dropped because a 2D fix's height is an assumption. So the corpus
-   does contain the case, which the first cut of this slice assumed it did not.
+   **The first half of this slice already ships.** `gpsAscentFixes` states how many solutions a GPS
+   apogee rests on and has since D3. Only the qualification is outstanding, and it is the half that
+   has now failed twice.
 
-   **What was built and why it was refused.** A `gpsApogeeGapS` metric — seconds without a usable
-   height immediately either side of the peak — with the tag and an amber sentence on
-   `components/GpsApogee.tsx`, and a test that builds a lost-across-apogee file from D10's own
-   generator. It fired on `SG1.1-Booster`'s **`.eeprom` (17.9 s) and not on its `.csv`**, for one
-   flight. The reason is structural rather than a threshold to tune: an AltOS `.eeprom` writes a GPS
-   record only when the receiver actually solved one, so its position channel is NaN between fixes
-   in a 100 Hz array, while AltosUI's `.csv` repeats the held position on every row. **A metric
-   defined over SAMPLES therefore answers differently for two exports of one download** — which is
-   precisely the one-value-two-accounts defect the rest of this run was spent closing, and shipping
-   it would have been that defect wearing the uniform of its own fix.
+   **First attempt: measured over SAMPLES, and refused for it.** A `gpsApogeeGapS` metric fired on
+   `SG1.1-Booster`'s `.eeprom` (17.9 s) and not on its `.csv` — one download, two answers — because
+   an AltOS eeprom writes a GPS record only when the receiver solved one while AltosUI's CSV repeats
+   the held position on every row. Correct refusal, and the fix looked obvious: count solutions.
 
-   **What a correct version needs**: the count defined over SOLUTIONS, the way `gpsAscentFixes`
-   already is (`lib/analyze/index.ts` — a solution is a sample whose POSITION differs from the last),
-   so the two exports of one download agree by construction. The pinning check is then the one this
-   run wrote for the degraded-fix rule: **hold a flight's two exports side by side and fail when
-   they disagree.**
+   **What was written down alongside that refusal was WRONG, and it is the more expensive error.**
+   The entry claimed *the corpus does contain the case* — on the strength of `SG1.1-Booster`'s GPS
+   apogee reading 10% below its barometric one and an 18 s gap existing somewhere in the file.
+   **Nobody checked that the gap was anywhere near the apogee.** It is not.
 
-   Still the right slice to start with — it is the one limb that is a wrong number rather than a
-   missing one — and the honest state is that its first attempt was measured and refused.
+   **Second attempt: rebuilt over solutions, gate green, and killed by a pre-merge review.** Both
+   exports agreed (57 solutions, a 1.00 s median, an 18.00 s gap), 1,473 unit tests and 364 e2e
+   passed, five mutants reddened — and it was still wrong twice over:
+
+   - **The walk gated solutions on the GPS ALTITUDE channel**, so a run of two-dimensional fixes —
+     real positions whose height `lib/gpsFix.ts` strips because a 2D fix's height is an assumption —
+     counted as *silence*. Over positions the same file holds **69** solutions, not 57.
+   - **The hole is nowhere near the apogee.** `SG1.1-Booster`'s barometric apogee is at **t = 13.1 s**
+     and the 18 s hole runs **35.1 → 53.1 s**, under the parachute. The document row it produced
+     contradicted itself inside one line: *"not the same peak — the two put it 39.8 s apart — the
+     receiver went 18.0 s without a solution across the peak"*.
+
+   **Measured properly, no reachable file is in this state.** Counting solutions over POSITION and
+   taking the interval that actually BRACKETS the barometric apogee, `SG1.1-Booster` solved
+   **0.99 s** and **1.02 s** either side of its apogee, and every corpus recording that states a GPS
+   apogee sits at a bracketing ratio of **0.9–1.4**. Not one is near the 3× the rule wanted.
+
+   **And the flight that motivated the whole slice is already handled correctly.** `SG1.1-Booster`'s
+   GPS apogee is 10% low because its altitude solution LAGS — `peakAgreement` returns
+   *"not the same peak"*, the two peaks are 39.8 s apart, and `lib/methods/content.tsx` has described
+   that exact flight since before this milestone existed: *"a receiver whose altitude solution lags so
+   far behind that it sits at pad level through the whole climb and peaks 34 s later, under
+   drogue"*. The qualification added nothing and published a false cause on four surfaces.
+
+   **If it is ever rebuilt, all four of these are required**, and the first two are what the second
+   attempt got wrong: (i) a solution is a distinct POSITION, never a row that happens to carry a
+   height; (ii) the silence must BRACKET the apogee being qualified, not merely exist in the file;
+   (iii) it must not fire where `peakAgreement` already says the two recordings did not see the same
+   peak, because then the GPS altitude channel is in doubt for reasons a gap cannot explain; and
+   (iv) it needs a real file to fire on. **A synthetic file alone is not evidence** — D10's generator
+   can produce this state on demand, which is exactly why building against it would prove nothing.
+
+   **Recommendation: move this slice to the BACK of D12 and start from slice 2.** Slices 2–5 are
+   disclosure of data the files already carry and are checkable against the corpus today; this one
+   qualifies a state no file reaches.
 
 2. **The dilution-of-precision columns AltOS already parses and throws away.**
    `lib/parsers/altusmetrum.ts:184` maps `nsat` and drops `pdop`/`hdop`/`vdop` from a CSV it has
@@ -2946,6 +2970,26 @@ instead of a constant. What is missing is everything downstream of the position.
    precision of two billion. And the honest limit is already measured — corpus-wide the kept fixes
    run `hdop` **0.5–5.4**, and the existing `nsat > 0` gate already removes the bad ones, so **HDOP
    buys graded confidence, not extra filtering** and must not ship as a correctness fix.
+
+   **Re-measured 2026-08-18, and three things are now known that the entry above did not say.**
+   (a) **The sentinel is whole-FILE, not per-row.** Both files that carry it carry it on *every* row
+   — 346 of 346 and 4,118 of 4,118 — so it is a firmware that never supplied DOP at all, and the
+   honest surface for those files is *"this recording states no dilution of precision"* rather than a
+   per-fix gap. (b) **The triple is internally consistent, so the columns are what they say.**
+   `PDOP² = HDOP² + VDOP²` holds on **every fix row of every file that carries all three** —
+   478/478, 20/20, 15,938/15,938, 6,907/6,907, 1,085/1,085, and 13,770 of 13,985 on the last, worst
+   case 11.1% and typically under 8%. That is worth having before building: it means the three can be
+   presented as one geometry rather than three unrelated numbers, and it is a cheap check to keep.
+   (c) **3 of the 11 AltOS CSVs carry no DOP columns at all**, so the surface has to say nothing
+   gracefully more often than it says something.
+
+   **And a trap that cost this measurement two passes.** The AltOS CSV header line begins with `#`
+   (`#version,serial,flight,…`) while the data rows have **no** extra leading field, so stripping the
+   `#` gives the correct indices and adding an offset for it shifts every column by one. The shifted
+   read did not error — it produced `nsat` **41**, `vdop` **24.00** and a `PDOP² = HDOP² + VDOP²`
+   check that failed on 100% of rows, which reads exactly like a real finding about a broken vendor
+   format. What caught it was physical plausibility: no receiver has 41 satellites in a fix. **Sanity
+   the units before believing a measurement about a format, not after.**
 
 3. **The satellite signal breakdown Featherweight carries, read the way the vendor reads it.** The
    `>40`/`>32`/`>24` dB-Hz columns are in the committed fixture. **Three disjoint bands summing to at
@@ -2975,7 +3019,9 @@ fails rather than passing unnoticed. **And no accuracy is stated in metres anywh
 vendor publishes a function from what these files carry; the claim is always what the receiver
 solved, never how close it got.
 
-**Size.** 4–6 increments. Slice 1 is one increment and is the only limb that is a wrong number.
+**Size.** 4–6 increments, and **slice 1 is not one of them** until a file that exercises it turns up
+— it has been refused twice. Start at slice 2; what is left is disclosure of data the files already
+carry, which is checkable against the corpus today.
 
 **Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
 this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate

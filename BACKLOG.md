@@ -14,18 +14,45 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-- **2026-08-18 — a GPS apogee 10% below the barometer is called "differ" and never called a BOUND.**
-  Measured on `SG1.1-Booster`, on both of its exports: GPS **2,251 ft** against a barometric
-  **2,502 ft** (`.csv`) and **2,512 ft** (`.eeprom`). That flight spends 13 distinct solutions on
-  three satellites, whose heights are dropped because a 2D fix's height is an assumption — so the
-  surviving peak under-reads and `components/GpsApogee.tsx` presents it as a disagreement between
-  two instruments rather than as one instrument's floor. This supersedes the earlier entry that said
-  no corpus recording is in that state: none is in the EXTREME state a lost-across-apogee sample
-  reaches, but this one is in the ordinary one. **A first fix was built and refused — see
-  `ROADMAP.md` D12 slice 1** — because a gap defined over SAMPLES answers differently for an
-  `.eeprom` (17.9 s) and the `.csv` of the same download (nothing), the eeprom writing a GPS record
-  only when the receiver solved one while AltosUI's CSV repeats the held position. Define it over
-  SOLUTIONS and hold the two exports side by side.
+- **2026-08-18 — NO shipped sample reaches `components/GpsApogee.tsx`, so the e2e suite has never
+  seen the GPS cross-check panel.** Measured by analysing all ten parseable files in
+  `public/samples/`: **not one produces a `gpsApogeeAltitude`**, which is what the panel needs to
+  render at all. That includes `sample-gps-tracker.csv`, D10's own coarse-GPS sample — a tracker
+  carries no barometer, so its GPS height lands on the primary `altitude` channel and there is no
+  second recording to cross-check. The panel therefore has **no automated coverage of any kind**:
+  this repo tests components through Playwright, and Playwright drives the samples. Found while
+  building D12 slice 1, which added a qualification to that panel and could pin it only through
+  `lib/report.ts`'s document surfaces — the slice was then withdrawn (see below), but the coverage
+  hole it exposed is real and outlives it. **What it needs is one
+  sample carrying a barometer AND a GPS altitude** — the corpus has several, and the licensing
+  question for shipping one publicly is the same one D10's generator was built to sidestep, so a
+  synthetic pair is likelier than a corpus file. Filed as coverage rather than a defect: nothing is
+  known to be wrong on that panel, which is exactly what nobody can currently check.
+
+- **~~2026-08-18 — a GPS apogee 10% below the barometer is called "differ" and never called a
+  BOUND.~~ WITHDRAWN 2026-08-18 — the entry was wrong about the cause, and two builds were spent
+  before anybody measured it.**
+
+  **What is true**: on `SG1.1-Booster`, on both exports, the GPS apogee reads **2,251 ft** against a
+  barometric **2,502 ft** (`.csv`) and **2,512 ft** (`.eeprom`).
+
+  **What this entry claimed and got wrong**: that the cause is the receiver going quiet across the
+  peak, and therefore that the GPS figure is a lower BOUND the panel fails to label. It is not. The
+  receiver solved a position **0.99 s** before and **1.02 s** after that flight's barometric apogee
+  (t = 13.1 s); the 18 s hole the entry rested on runs **35.1 → 53.1 s**, under the parachute. The
+  claim was inferred from *a low GPS apogee* plus *a gap somewhere in the file*, and nobody checked
+  that the two were in the same place.
+
+  **What actually causes it, and Debrief already says so**: that receiver's altitude solution LAGS.
+  The two peaks are **39.8 s** apart, `peakAgreement` returns *"not the same peak"*, and
+  `lib/methods/content.tsx` has documented that exact flight for milestones — *"sits at pad level
+  through the whole climb and peaks 34 s later, under drogue"*. There is no missing qualification
+  here; there was a missing measurement in this ledger.
+
+  **Cost**: two builds of D12 slice 1, the second of which went green under a full gate (1,473 unit,
+  364 e2e, five mutants red) and published a false cause on four surfaces before a pre-merge review
+  caught it. See `ROADMAP.md` D12 slice 1 for what a third attempt would need — starting with a real
+  file to fire on, which the corpus does not contain.
 
 - **2026-08-18 — `padDataLikely` can NEVER be true on a ~1 Hz log, so every GPS tracker recording is
   told it "doesn't appear to start on the pad".** `lib/analyze/index.ts:401-412` sets
