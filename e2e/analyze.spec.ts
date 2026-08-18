@@ -3601,9 +3601,11 @@ test('the sample that demonstrates a refusal says the peak is a floor, not the t
  * them published its apogee twice, once qualified and once not.
  *
  * Walked on a hand-built log that STOPS AT ITS OWN PEAK, which is what `apogeeIsFloor` means and
- * which no committed fixture is — the same builder `e2e/compare.spec.ts` needed for the same
- * reason. The four written exports are pinned in `lib/report.test.ts`; this is the SCREEN, which a
- * unit test cannot reach.
+ * which no committed fixture is. `e2e/compare.spec.ts` builds one the same way for the same reason
+ * — a SECOND builder rather than a shared one, which is worth saying plainly: two specs needing an
+ * identical fixture is the argument for hoisting it, and it is filed rather than done here so this
+ * change stays one Sev-1 wide. The four written exports are pinned in `lib/report.test.ts`; this is
+ * the SCREEN, which a unit test cannot reach.
  */
 function climbOnlyLog(peakM: number): string {
   const lines = ['time,altitude'];
@@ -3643,8 +3645,10 @@ test('the events table states the apogee the same way the reading does', async (
   await expect(events.getByText(/Apogee/).first(), 'the events section has an apogee row').toBeVisible();
   await expect(events.getByText(/\(at least\)/).first(), 'the apogee event row carries the tag').toBeVisible();
 
-  // And only the apogee row: a liftoff or a landing is not a summit reading. Counted over the WHOLE
-  // page, because the grid states its qualification as the full sentence rather than this tag, so a
-  // second `(at least)` anywhere would be a second event wearing it.
-  await expect(page.getByText(/\(at least\)/), 'exactly one place wears the short tag').toHaveCount(1);
+  // And only the apogee row: a liftoff or a landing is not a summit reading. **Scoped to the events
+  // section**, not counted page-wide — the first draft asserted exactly one `(at least)` on the
+  // whole page, which passed only because another surface on that same screen was still untagged.
+  // A check that goes green because a second defect exists is pinning the defect; a pre-push review
+  // found the surface (`RecordingPicker`) and this assertion would have reddened when it was fixed.
+  await expect(events.getByText(/\(at least\)/), 'exactly one event row wears the tag').toHaveCount(1);
 });

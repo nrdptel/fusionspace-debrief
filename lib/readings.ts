@@ -345,11 +345,40 @@ export function apogeeCaveatFlags(m: FlightMetrics): { floor?: boolean; unproven
  * and it points at the caveat the same document already states in full beside the reading.
  *
  * Takes the event TYPE rather than matching its label, so a renamed label cannot silently drop the
- * tag; `'apogee'` is the one type this can fire on.
+ * tag.
+ *
+ * **The two flags have different reach, and the first version of this got that wrong by treating
+ * them as one.** `apogeeIsFloor` is a fact about the APOGEE — the log ends at its own peak, so that
+ * one reading is a lower bound; a liftoff or a landing height is not. `altitudeUnproven` is a fact
+ * about the CHANNEL — Debrief has disowned the altitude the whole file is read from — so it is true
+ * of every height in it, and the report's own "worth knowing" block says as much. Gating both on
+ * `type === 'apogee'` left a document reading `Liftoff 2.9 s 11 ft` beside
+ * `Apogee 33.8 s 31 ft (unproven)`: the commit's own defect, one row up, on the very corpus record
+ * it cites. Caught by a pre-push review.
  */
+/**
+ * The same judgement as `eventAltitudeTag`, as DATA rather than as a string — for `analysisJson`,
+ * whose consumer parses `altitude` as a number and cannot be handed a tag.
+ *
+ * One function beside the other so the two forms cannot disagree about which events are qualified
+ * or by what. `undefined` where there is nothing to say, so an ordinary event serialises no member.
+ */
+export function eventQualification(
+  type: EventType,
+  m: ApogeeCaveatFacts,
+): { floor?: boolean; unproven?: boolean } | undefined {
+  const floor = type === 'apogee' && m.apogeeIsFloor;
+  const unproven = !!m.altitudeUnproven;
+  if (!floor && !unproven) return undefined;
+  // Key order matches `apogeeCaveatFlags`, which is what the logbook persists — two JSON artifacts
+  // of one app should not serialise one fact pair two ways.
+  return { ...(floor ? { floor: true } : {}), ...(unproven ? { unproven: true } : {}) };
+}
+
 export function eventAltitudeTag(type: EventType, m: ApogeeCaveatFacts): string {
-  if (type !== 'apogee' || !apogeeIsQualified(m)) return '';
-  return `${m.altitudeUnproven ? APOGEE_TAG_UNPROVEN : ''}${m.apogeeIsFloor ? APOGEE_TAG_FLOOR : ''}`;
+  const floor = type === 'apogee' && m.apogeeIsFloor ? APOGEE_TAG_FLOOR : '';
+  const unproven = m.altitudeUnproven ? APOGEE_TAG_UNPROVEN : '';
+  return `${unproven}${floor}`;
 }
 
 export function apogeeIsQualified(m: ApogeeCaveatFacts): boolean {
