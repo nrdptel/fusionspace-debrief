@@ -6,6 +6,7 @@ import type { RawFlight, Channel, ChannelKind, ReportedValue } from './types';
 import { isDateRole, type ColumnRole, type DateRole } from './columns';
 import { flownAtFromMapping, type DateColumns, type FlownAt } from './flownAt';
 import { resolveUnit, CANONICAL } from '../units';
+import { applySatelliteFixQuality, dropNeverSupplied } from '../gpsFix';
 import { parseNumber } from '../csv';
 
 export interface ColumnMapping {
@@ -170,7 +171,19 @@ export function buildFlight(opts: BuildOptions): RawFlight {
   // the calendar day is a property of the file, not of the window the analysis keeps.
   const flownAt = opts.flownAt ?? flownAtFromMapping(opts.dataRows, dateColumnsOf(opts.mappings)) ?? undefined;
 
-  return {
+  // **The GPS fix rules, applied HERE so that every route a file arrives by gets the same answer.**
+  // They used to sit inside the Altus Metrum parser, so a flyer whose own spreadsheet carried a
+  // satellite count got a position with no grading and no held-over-fix blanking, while the
+  // identical data through a named parser got both — one file, two answers, decided by which route
+  // it came in on. `MAINTAINING.md`'s architecture invariant is that every importer AND the
+  // column-mapper is a thin producer of ONE model; a rule that lives in one importer is a rule the
+  // mapper does not have.
+  //
+  // Order matters and is the parser's own: blank the held-over values FIRST, then drop a dilution
+  // column that turns out to hold nothing real — otherwise a column whose only values sat on
+  // no-fix rows survives as a channel of NaN. Both are no-ops on a file that gives them nothing to
+  // judge, so nothing changes for the eight formats that carry no satellite count.
+  const built: RawFlight = {
     source: opts.source,
     format: opts.format,
     formatLabel: opts.formatLabel,
@@ -181,6 +194,9 @@ export function buildFlight(opts: BuildOptions): RawFlight {
     ...(opts.reported?.length ? { reported: opts.reported } : {}),
     ...(flownAt ? { flownAt } : {}),
   };
+  applySatelliteFixQuality(built);
+  dropNeverSupplied(built);
+  return built;
 }
 
 /** The date columns a mapping nominates, first of each — the mapper warns about a role

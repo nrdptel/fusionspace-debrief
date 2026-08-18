@@ -6,10 +6,10 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **PR #211 merged as `d1002da` and CONFIRMED LIVE** — `version.json?cb=…` returned `d1002da`, built `13:14:24Z`, read at `13:15:56Z`. Four increments. **#210 was CLOSED, not merged** — its commit is inside #211 byte for byte, with its claims corrected. Do not read this line next run: measure with `git fetch --prune origin && git log --oneline origin/main \| head -3` then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **PR #212, one commit** — the channel explorer's peak-speed / Mach / acceleration scope. Full local gate green (1,479 unit, build, 365 e2e); merge it on green CI. |
+| **Shipped to production** | **PR #211 (`d1002da`, confirmed live) and PR #212 (`6c7d4bd`) merged**. `d1002da` was confirmed live by fetching `version.json?cb=…` (built `13:14:24Z`, read at `13:15:56Z`). **#210 was CLOSED, not merged** — its commit is inside #211 byte for byte, with its claims corrected. Do not read this line next run: measure with `git fetch --prune origin && git log --oneline origin/main \| head -3` then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **PR #213, one commit** — D12 slice 4. Full local gate green (1,482 unit / 97 files, build, 365 e2e); merge it on green CI. |
 | **Sev-1** | **None inherited** — the baseline gate was green before anything was touched (unit 1,467 / 95 files WITH the corpus, build clean, e2e 364). **One FOUND, reproduced, and deliberately NOT fixed**: max-Q's air density. See below; it is the first thing to pick up. |
-| **D — capability** | **D12 slice 2 SHIPPED** (it arrived as an unmerged PR from the previous run and this run corrected four of its claims before merging). **Next: D12 slice 3**, the Featherweight dB-Hz bins. |
+| **D — capability** | **D12 slices 2 AND 4 SHIPPED.** Slice 2 arrived as an unmerged PR from the previous run and this run corrected four of its claims before merging it. Slice 4 moved the satellite-count fix rule out of one parser and into `buildFlight`, so the column mapper grades a GPS spreadsheet the same way a named parser does. **Next: D12 slice 3**, the Featherweight dB-Hz bins. |
 | **P — product & craft** | **P1: the logbook's desktop half SHIPPED** — the thing the previous run filed and named as "the next thing here". e2e 364 → 365. |
 
 ## The explorer finding, and why its FIRST reproduction mattered
@@ -29,6 +29,22 @@ The second half: `d-altitude` and `d-q` were each given this exact sentence earl
 identical defect was found on each. Speed, Mach and acceleration were never revisited. **When a
 qualification is added to a reading, enumerate the FAMILY** — the gap was four readings wide and
 each was closed one at a time, months apart.
+
+## D12 slice 4 moved a rule, and the corpus proved it moved nothing else
+
+Worth knowing before touching `buildFlight` again. The satellite-count fix rule lived inside
+`lib/parsers/altusmetrum.ts`; it is `applySatelliteFixQuality` in `lib/gpsFix.ts` now and
+`buildFlight` applies it, so **every route a file arrives by gets the same answer** — a named
+parser, the column mapper, and a reopened flight. The picker gained `altitudeGps`, `satellites` and
+the three dilution roles, all of which were already legal roles and legal kinds and none of which
+was offered.
+
+**The check that made this safe to do late in a run was the corpus digest snapshot: 149/149,
+including the digests, means no reading about any real flight moved.** Run it before believing any
+refactor of the analysis or the parsers.
+
+The guard worth preserving: it will not run twice. A `gpsFixGrade` channel already present means a
+parser read a real fix-type column, and a STATED grade outranks a DERIVED one.
 
 ## Start here: the Sev-1 this run reproduced and could not honestly fix
 
@@ -119,7 +135,7 @@ never the number — and a future session trusting the old sentence would get th
 
 ## Next, in order
 
-0. **Merge #212 if it is still open** — it is verified and green locally; only CI stood between it
+0. **Merge #213 if it is still open** — it is verified and green locally; only CI stood between it
    and production.
 1. **The max-Q Sev-1** above — it is a wrong structural load case on a surface a flyer acts on, and
    it is the highest-value thing in the repo right now. It needs the cross-source altitude check.

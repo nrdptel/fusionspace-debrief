@@ -23,6 +23,27 @@ export const ROLE_GROUPS: { label: string; options: { value: ColumnRole; label: 
       { value: 'voltage', label: 'Voltage' },
       { value: 'latitude', label: 'GPS latitude' },
       { value: 'longitude', label: 'GPS longitude' },
+      // **Everything below was a legal `ColumnRole` and a legal `ChannelKind` and was missing
+      // from this list**, so a flyer with their own GPS spreadsheet got a position and no way to
+      // say how good it was — while the identical data through a named parser came back graded.
+      // One file, two answers, decided by which route it came in on.
+      { value: 'altitudeGps', label: 'GPS altitude' },
+      // **The label carries the contract, because the wrong column here is a wrong number that
+      // looks right.** This kind means satellites IN THE FIX: zero says the position beside it is
+      // held over, and `buildFlight` blanks that row on the strength of it. Featherweight's file
+      // carries a different quantity under a similar name — satellites the receiver can HEAR,
+      // which reads 16, 18 or 19 on rows whose own FIX column says NO FIX — and mapping that here
+      // would make a held-over position claim to be measured. `COMPETITION.md` row 47 records the
+      // measurement; this parenthesis is what stops a flyer walking into it.
+      { value: 'satellites', label: 'GPS satellites (in the fix)' },
+      // Dilution of precision: unitless, and deliberately never converted to metres anywhere —
+      // that needs the receiver's own ranging error, which no file carries and no vendor
+      // publishes. Offered as three because a file that states all three lets Debrief check them
+      // against each other (`PDOP² = HDOP² + VDOP²`), which is the cheapest guard there is against
+      // a column picked one place out of line.
+      { value: 'dopHorizontal', label: 'GPS dilution — horizontal (HDOP)' },
+      { value: 'dopVertical', label: 'GPS dilution — vertical (VDOP)' },
+      { value: 'dopPosition', label: 'GPS dilution — position (PDOP)' },
     ],
   },
   {
@@ -65,6 +86,12 @@ const UNIT_OPTIONS: Partial<Record<ColumnRole, string[]>> = {
   // supporting radians means adding an `angle` quantity to the converter first.
   temperature: ['C', 'F', 'K'],
   voltage: ['V'],
+  // The receiver's own height, so it takes the same lengths the barometric one does.
+  altitudeGps: ['ft', 'm'],
+  // `satellites` and the three dilution roles deliberately have NO entry, for the reason
+  // `rollAngle` and `tilt` do not: they are counts and ratios, there is no quantity to convert
+  // between, and offering a unit menu on a unitless column invites a choice that can only be
+  // wrong. A dilution of 1.6 is 1.6 whatever the rest of the file is written in.
 };
 
 export function unitOptionsFor(role: ColumnRole): string[] {
