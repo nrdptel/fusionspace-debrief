@@ -2890,6 +2890,99 @@ exports.
 
 ---
 
+## D12 — How good the fix was, wherever a GPS value is read
+
+**Decomposed 2026-08-18, the run D10 shipped and the D-track went dry.** `ROADMAP.md`'s own rule
+applies: when a track's last milestone ships, decompose the next area rather than falling back to
+the defect ledger. This one is not chosen from a list — **every piece of it was measured this run**,
+by the work that made a coarse-GPS fix legible at all, and each is filed in `BACKLOG.md` with the
+number that makes it actionable.
+
+**Outcome.** A flyer reading any GPS-derived value in Debrief can tell how good the fixes behind it
+were — and Debrief withholds or qualifies the ones the fixes cannot support, on every surface,
+rather than on the one where somebody happened to look.
+
+**What is already true, so this starts from a real base rather than from zero.** `lib/gpsFix.ts`
+states one rule for a degraded fix and all four parser families read it; `gpsFixGrade` carries what
+the receiver solved each fix in; and the recovery view states the fix quality behind the coordinate
+instead of a constant. What is missing is everything downstream of the position.
+
+### The slices, ranked by what a flyer can check
+
+1. **A GPS apogee says how many SOLUTIONS it rests on, and is qualified when they collapse near the
+   peak. BUILT 2026-08-18, MEASURED, and DELIBERATELY NOT SHIPPED — read this before rebuilding it.**
+
+   **The gap it targets is real and bigger than the milestone assumed.** On `SG1.1-Booster` the GPS
+   apogee reads **2,251 ft against a barometric 2,502 ft — 10% low — on BOTH of its exports**, and
+   the cross-check panel calls that "differ" without ever saying the GPS figure is a lower BOUND
+   rather than merely a different reading. That flight spends 13 distinct solutions on three
+   satellites, whose heights are dropped because a 2D fix's height is an assumption. So the corpus
+   does contain the case, which the first cut of this slice assumed it did not.
+
+   **What was built and why it was refused.** A `gpsApogeeGapS` metric — seconds without a usable
+   height immediately either side of the peak — with the tag and an amber sentence on
+   `components/GpsApogee.tsx`, and a test that builds a lost-across-apogee file from D10's own
+   generator. It fired on `SG1.1-Booster`'s **`.eeprom` (17.9 s) and not on its `.csv`**, for one
+   flight. The reason is structural rather than a threshold to tune: an AltOS `.eeprom` writes a GPS
+   record only when the receiver actually solved one, so its position channel is NaN between fixes
+   in a 100 Hz array, while AltosUI's `.csv` repeats the held position on every row. **A metric
+   defined over SAMPLES therefore answers differently for two exports of one download** — which is
+   precisely the one-value-two-accounts defect the rest of this run was spent closing, and shipping
+   it would have been that defect wearing the uniform of its own fix.
+
+   **What a correct version needs**: the count defined over SOLUTIONS, the way `gpsAscentFixes`
+   already is (`lib/analyze/index.ts` — a solution is a sample whose POSITION differs from the last),
+   so the two exports of one download agree by construction. The pinning check is then the one this
+   run wrote for the degraded-fix rule: **hold a flight's two exports side by side and fail when
+   they disagree.**
+
+   Still the right slice to start with — it is the one limb that is a wrong number rather than a
+   missing one — and the honest state is that its first attempt was measured and refused.
+
+2. **The dilution-of-precision columns AltOS already parses and throws away.**
+   `lib/parsers/altusmetrum.ts:184` maps `nsat` and drops `pdop`/`hdop`/`vdop` from a CSV it has
+   already tokenised. **Read the sentinel first**: `2147483647` means *never supplied* and appears on
+   2 of the 8 corpus AltOS CSVs that carry the columns, so a naive read publishes a dilution of
+   precision of two billion. And the honest limit is already measured — corpus-wide the kept fixes
+   run `hdop` **0.5–5.4**, and the existing `nsat > 0` gate already removes the bad ones, so **HDOP
+   buys graded confidence, not extra filtering** and must not ship as a correctness fix.
+
+3. **The satellite signal breakdown Featherweight carries, read the way the vendor reads it.** The
+   `>40`/`>32`/`>24` dB-Hz columns are in the committed fixture. **Three disjoint bands summing to at
+   most the tracked total** — measured over 174 rows: `sum == #SATS` on 0 of them, `<=` on all 174,
+   and `>32` exceeds `>24` on 127, so they are neither a partition of the total nor cumulative
+   thresholds. `COMPETITION.md` row 47 has the vendor's own published legend. **The honest limit is
+   in the vendor's manual and outranks the feature**: Featherweight explicitly says not to read the
+   weakest satellites as an accuracy signal, and no vendor publishes a dB-Hz→metres function — so
+   this is a diagnostic to SHOW, never a number to compute an accuracy from.
+
+4. **The mapper can declare a quality column.** `lib/flight/mappingOptions.ts:24` offers latitude and
+   longitude and nothing else; `satellites` and `altitudeGps` are legal `ColumnRole`s and legal
+   `ChannelKind`s and are absent from the picker. So a flyer with their own GPS spreadsheet gets a
+   position and no way to say how good it was, while the same data through a named parser is graded
+   — one file, two answers, decided by which route it came in on.
+
+5. **The tracks a flyer walks to carry it.** GPX reserves `<sat>`, `<hdop>` and `<fix>` and Debrief
+   writes none of them; KML has `ExtendedData` per point. `lib/gps.ts` already skips a fix whose
+   height was withheld rather than putting it on the ground (fixed 2026-08-18) — this is the other
+   half: saying, in the file a handheld navigates by, which fixes were good.
+
+**Done when** every GPS-derived value a flyer can read or export states the quality of the fixes
+behind it or is withheld — the ground track, the landing coordinate, the GPS apogee and its
+cross-check, the drift and wind readings, and the `.gpx`, `.kml`, `.csv` and `.json` exports — and a
+check enumerates those sinks from the same registry the exporters are registered in, so a new one
+fails rather than passing unnoticed. **And no accuracy is stated in metres anywhere**, because no
+vendor publishes a function from what these files carry; the claim is always what the receiver
+solved, never how close it got.
+
+**Size.** 4–6 increments. Slice 1 is one increment and is the only limb that is a wrong number.
+
+**Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
+this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate
+that could be tightened already is. A slice that quietly starts dropping fixes on a DOP threshold
+would be a correctness change dressed as a disclosure, and the corpus would not catch it because the
+`nsat > 0` gate has already removed the rows a DOP filter would take.
+
 ## D11 (from ON-4) — One canonical file, out and back in
 
 **Status:** SHIPPED 2026-08-09 — all five slices, and every clause of the *done when* is met and

@@ -20,10 +20,10 @@ weaker gate rather than the only gate.
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **`0df7eea` (#204) is LIVE** — confirmed by fetching `version.json?cb=…`. **`21641b2` (#205) merged and its deploy was still in flight at handoff time.** Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -3`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **One PR open: `feature/coarse-gps-sample`** — D10's last capability, full local gate green. Merging it on green is pre-authorised. |
+| **Shipped to production** | **FOUR merged this run: `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207).** `feeded2` was confirmed LIVE by fetching `version.json?cb=…`; `992a6d0`'s deploy was in flight at handoff time. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -4`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **One PR open: `docs/d12-decomposition` (#208)** — documentation only, full local gate green (1,467 unit / 364 e2e) and **CI green on both jobs**: `frontend` 2m25s with the corpus fetched, `e2e` 7m36s. An earlier version of this row said its `e2e` job had HUNG and told you to re-run it. **It had not** — see the fourth item below, which is the more useful half. |
 | **Sev-1** | **None inherited** (baseline green before anything was touched: unit 1,450 / 94 files with the corpus, build clean, e2e 359). **Two FOUND and FIXED this run**, both the same shape. **Two more FOUND, reproduced and FILED** — see below. |
-| **D — capability** | **D10 is SHIPPED** — all six capabilities in its *done when* now have a named sample. Its last one, the coarse-GPS flight, needed the SURFACE built first (one rule for a degraded fix across four parsers, and the grade a file states carried as a `gpsFixGrade` channel), and both landed this run. **The next D milestone has to be written**: `ROADMAP.md`'s D-track is dry, and extending it IS one increment's work rather than a reason to go to the defect ledger. |
+| **D — capability** | **D10 SHIPPED, and D12 decomposed to replace it.** All six capabilities in D10's *done when* have a named sample; the last needed the surface built first, and both landed. **D12 slice 1 was then built, measured and REFUSED** — see below; it is the next session's first increment, with the reason it failed already written down. |
 | **P — product & craft** | **Two craft fixes shipped**, both a value whose identity was hover-only or absent: the logbook's two figures, and `/changelog`'s pinned strip. §9 counts all at or better than the last run's. |
 
 ## The shape both Sev-1s shared, and it is the transferable part
@@ -64,29 +64,35 @@ reproduce-before-you-scope rule cutting in the direction nobody expects.
    12-slot cache with Export/Import behind it, so **it is not a Sev-1 preemption**. The grouped-row
    case (several recordings, one press) is the half still unreproduced.
 
-## Then: the D-track is DRY, and extending it is the work
+## Then: D12 slice 1, which this run built, measured and REFUSED
 
-D10 shipped, and `ROADMAP.md` says plainly what to do about that: *"When the last milestone ships,
-decompose the next area yourself, in the order given at the bottom of `ROADMAP.md`, to the same
-shape. Do not ask which. Do not fall back to the defect ledger because the roadmap looks finished;
-extending it IS the work in that case, and it takes one increment."*
+D10 shipped, the D-track went dry, and `ROADMAP.md`'s rule applied: decompose the next area rather
+than fall back to the ledger. **D12 — How good the fix was, wherever a GPS value is read** — is
+written up with five slices, every one measured by this run rather than chosen from a list.
 
-**One gap D10 opened rather than closed is the obvious seed**, and it is filed with its measurement:
-a **GPS apogee resting on fewer solutions than the trace suggests is published bare**. An early
-draft of the coarse-GPS generator made a 5,466 ft flight report **1,312 ft**, unqualified, because
-the heights around its peak were dropped and neither `apogeeIsFloor` nor `altitudeUnproven` fires on
-that shape. No corpus recording is in that state, which is why a sample found it and four runs of
-sweeps did not. `metrics.gpsAscentFixes` already counts the solutions and `GpsApogee` already prints
-the count; the missing half is a qualification when it collapses near the peak.
+**Slice 1 is the next increment, and the reason its first attempt failed is already written down.**
 
-**And the mapper cannot express GPS quality at all** — `mappingOptions.ts:24` offers latitude and
-longitude and no way to declare a satellite count beside them, so a flyer with their own GPS
-spreadsheet gets a position and nothing about how good it was, while the same data through a named
-parser is graded. Filed; it is a real capability gap rather than a defect.
+The gap is real and BIGGER than the milestone first assumed: on `SG1.1-Booster` the GPS apogee reads
+**2,251 ft against a barometric 2,502 ft — 10% low — on BOTH exports**, and the cross-check panel
+calls that "differ" without ever saying the GPS figure is a lower BOUND. That flight spends 13
+distinct solutions on three satellites, whose heights are dropped. So the corpus DOES contain the
+case; the first cut assumed it did not.
 
-## Three things this run got WRONG first, and the reviews that caught them
+**Why the build was refused.** A `gpsApogeeGapS` metric — seconds without a usable height beside the
+peak — fired on that flight's **`.eeprom` (17.9 s) and not on its `.csv`**. An AltOS eeprom writes a
+GPS record only when the receiver actually solved one, so its position channel is NaN between fixes
+in a 100 Hz array, while AltosUI's CSV repeats the held position on every row. **A metric defined
+over SAMPLES answers differently for two exports of one download** — the exact one-value-two-accounts
+defect the rest of this run was spent closing.
 
-Kept because each was green under a full gate and only a second pair of eyes killed it.
+**What a correct version needs:** the count defined over SOLUTIONS, the way `gpsAscentFixes` already
+is, pinned by the check this run wrote for the degraded-fix rule — hold a flight's two exports side
+by side and fail when they disagree.
+
+## Four things this run got WRONG first, and what caught them
+
+Kept because each survived the thing that should have stopped it — three were green under a full
+gate, and the fourth was written down as fact.
 
 1. **Featherweight's satellite count published as `satellites`.** That kind means satellites IN the
    fix, where 0 says the position beside it is held over. The column is satellites the receiver can
@@ -101,7 +107,24 @@ Kept because each was green under a full gate and only a second pair of eyes kil
    The methods page teaches exactly this about the ascent-fix count, two paragraphs below where the
    row count had been written in.
 
-**The lesson under all three: a full green gate proves the code does what it says, not that what it
+4. **A CI hang that never happened, published in this very file.** The Pending row above said this
+   pull request's `e2e` job was *"stuck in E2E (headless browser) for 50+ minutes against an
+   8-minute suite"*, called it a CI-infrastructure finding, and told the next session to re-run the
+   job. **GitHub's own record refutes every part of it.** The pull request was opened at
+   **06:47:36 UTC**, its first workflow run was created at **06:47:40**, and the commit publishing
+   the 50-minute claim was authored at **06:52:48** — there was no 50-minute window for it to
+   happen in. The job then finished **green in 7m36s**, and `frontend` in 2m25s. Nothing was wrong
+   with CI.
+
+   **The elapsed time was never measured. It was asserted.** A job's `started_at` came off the API
+   and was subtracted from a "now" carried in context rather than read off a clock — which is the
+   same error as quoting a figure without its basis, committed against the one artifact whose whole
+   job is telling the next session what is true. **A duration is a measurement: read `date -u` at
+   the moment you read `started_at`, and subtract those two.** If you have only one of the pair,
+   say only what the record says — *"started at X, still running when I looked"* — which is both
+   honest and enough to act on.
+
+**The lesson under all four: a full green gate proves the code does what it says, not that what it
 says is true.** Hand the diff to a fresh agent with no context before every push.
 
 ## Two checks that could not fail, and one that failed against correct code
