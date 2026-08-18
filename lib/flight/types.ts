@@ -45,6 +45,21 @@ export type ChannelKind =
   //   The GRADE is not the accuracy: it says what a fix may be used for, never how many metres it
   //   is good to.
   //
+  // The three below are DILUTION OF PRECISION, unitless: how much the satellite GEOMETRY at that
+  // instant multiplies the receiver's own ranging error. Lower is better geometry; 1 is the floor
+  // a perfect spread would give. They are a quality signal and NOT an accuracy in metres — turning
+  // one into metres needs the receiver's ranging error, which no file here carries and no vendor
+  // publishes (`COMPETITION.md` row 47). `dopPosition² = dopHorizontal² + dopVertical²` where a
+  // file supplies all three, which is a cheap check that the columns are what they say.
+  //
+  // NaN where the receiver never supplied it. AltOS writes `2147483647` — INT32_MAX — for that,
+  // and it is a PER-COLUMN statement rather than a per-file one: one corpus recording supplies
+  // `pdop` at 1.60–1.70 while marking `hdop` and `vdop` never-supplied on all 346 of its rows. A
+  // column that is never supplied carries no channel at all rather than a channel of NaN.
+  | 'dopHorizontal' // HDOP — the geometry behind latitude and longitude
+  | 'dopVertical' // VDOP — the geometry behind the receiver's own height
+  | 'dopPosition' // PDOP — the two together, in three dimensions
+  //
   // The three below are SENSOR-FRAME channels: one axis of a board's own inertial package,
   // named by the axis the board wrote rather than by what the airframe was doing. They are
   // deliberately NOT `accelAxial` / `rollRate`, even on a record where the long axis has been

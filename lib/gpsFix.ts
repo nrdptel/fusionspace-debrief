@@ -1,3 +1,5 @@
+import type { Channel, ChannelKind } from './flight/types';
+
 /**
  * How good a GPS fix was, and what it is therefore allowed to say — one rule, written once,
  * for every logger family that records one.
@@ -184,5 +186,110 @@ export function fixQualitySentence(q: FixQuality): string | null {
     `${share} ${q.twoD === q.kept ? 'fix on this track was' : 'fixes on this track were'} solved in TWO dimensions — ` +
     'latitude and longitude on a height the receiver assumed rather than measured, which is a worse ' +
     `position than the rest, not a wrong one.${lastClause}`
+  );
+}
+
+/**
+ * What AltOS writes in a dilution-of-precision column it never had a value for: `2147483647`,
+ * which is INT32_MAX — the sentinel a signed 32-bit field uses to mean *not supplied*.
+ *
+ * Read naively it is not a missing value, it is a **dilution of precision of two billion**, and it
+ * would be the worst-quality reading in every corpus flight that carries it.
+ */
+export const DOP_NEVER_SUPPLIED = 2147483647;
+
+const DOP_KINDS = new Set<ChannelKind>(['dopHorizontal', 'dopVertical', 'dopPosition']);
+
+/**
+ * Turn every never-supplied sentinel into NaN, and drop a dilution channel the file never supplied
+ * at all.
+ *
+ * **The sentinel is a PER-COLUMN statement, not a per-file one, and that is measured rather than
+ * assumed.** `altusmetrum__…intrepid2…telemetrum_data.csv` supplies `pdop` at **1.60–1.70** on all
+ * 346 of its rows while marking `hdop` and `vdop` never-supplied on every one of them; a second
+ * recording marks all three on all 4,118. So a file cannot be judged by one of its columns, and
+ * the two are handled apart: a sentinel VALUE becomes NaN, and only a column that is sentinel (or
+ * absent) THROUGHOUT loses its channel.
+ *
+ * Dropping the channel rather than keeping one full of NaN is what makes the absence legible. An
+ * all-NaN trace in the explorer is an empty chart a reader has to interpret; no channel is a
+ * question the surface never asks. `lib/canonical.ts` round-trips presence as presence, so the
+ * distinction survives an export.
+ *
+ * **Nothing here filters on quality.** Only the sentinel is removed, and it is not a reading. A DOP
+ * of 12.1 — the worst real value in the corpus — is kept exactly as the receiver wrote it, because
+ * `COMPETITION.md` row 47's standing rule for this milestone is that fix quality buys graded
+ * confidence, never extra filtering.
+ */
+export function dropNeverSupplied(flight: { channels: Channel[] }): void {
+  flight.channels = flight.channels.filter((c) => {
+    if (!DOP_KINDS.has(c.kind)) return true;
+    let real = false;
+    for (let i = 0; i < c.values.length; i++) {
+      if (c.values[i] === DOP_NEVER_SUPPLIED) c.values[i] = NaN;
+      else if (Number.isFinite(c.values[i])) real = true;
+    }
+    return real;
+  });
+}
+
+/** The satellite geometry behind a track's kept positions — a range and a middle, never one number. */
+export interface DopSummary {
+  /** Kept positions that state an HDOP at all. */
+  n: number;
+  lo: number;
+  hi: number;
+  median: number;
+}
+
+/**
+ * Summarise the horizontal dilution of precision over the fixes a flyer is actually looking at.
+ *
+ * Counted over KEPT positions for the same reason `trackFixQuality` is: the question this answers
+ * is *what am I looking at on this map*, so a repeated position is a point on the track a flyer can
+ * see and walk to. That is the opposite basis from the corpus counts, which ask how much
+ * independent evidence is behind a figure and must not let repeats inflate it. Both are right for
+ * their own question.
+ */
+export function trackDop(
+  hdop: Float64Array | undefined,
+  lat: Float64Array,
+  lon: Float64Array,
+): DopSummary | null {
+  if (!hdop) return null;
+  const kept: number[] = [];
+  const n = Math.min(lat.length, lon.length, hdop.length);
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
+    if (!Number.isFinite(hdop[i])) continue;
+    kept.push(hdop[i]);
+  }
+  if (kept.length === 0) return null;
+  kept.sort((a, b) => a - b);
+  return { n: kept.length, lo: kept[0], hi: kept[kept.length - 1], median: kept[kept.length >> 1] };
+}
+
+/**
+ * That summary as the sentence every surface prints, or `null` where the file states no HDOP.
+ *
+ * **A RANGE and a middle, never a single flattering number** — `MAINTAINING.md`'s measurement spine
+ * asks for exactly that of any accuracy-shaped claim, and one corpus recording runs 0.80 to 23.10
+ * across a single flight, so a median alone would hide an order of magnitude.
+ *
+ * **And no metres, which is the load-bearing half.** Dilution of precision multiplies the
+ * receiver's own ranging error; it is not that error. Converting one to a distance takes a figure
+ * no file here carries and no vendor publishes — `COMPETITION.md` row 47 records that the search
+ * for it came up empty at both Featherweight and Altus Metrum. So this states the geometry the
+ * receiver had and stops, which is a claim a flyer can check against the number beside it.
+ */
+export function dopSentence(d: DopSummary | null): string | null {
+  if (!d) return null;
+  const n = (v: number) => v.toFixed(2);
+  const spread = d.lo === d.hi ? `HDOP ${n(d.lo)}` : `HDOP ${n(d.lo)} to ${n(d.hi)}, middling ${n(d.median)}`;
+  return (
+    `Satellite geometry behind these positions: ${spread} — lower is a better spread of satellites, ` +
+    'and 1 is about as good as it gets. It says how much the geometry multiplied whatever ranging ' +
+    'error the receiver already had, so it is a quality signal and not a distance; turning it into ' +
+    'metres needs that error, which this file does not carry.'
   );
 }

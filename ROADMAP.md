@@ -2963,33 +2963,58 @@ instead of a constant. What is missing is everything downstream of the position.
    disclosure of data the files already carry and are checkable against the corpus today; this one
    qualifies a state no file reaches.
 
-2. **The dilution-of-precision columns AltOS already parses and throws away.**
-   `lib/parsers/altusmetrum.ts:184` maps `nsat` and drops `pdop`/`hdop`/`vdop` from a CSV it has
-   already tokenised. **Read the sentinel first**: `2147483647` means *never supplied* and appears on
-   2 of the 8 corpus AltOS CSVs that carry the columns, so a naive read publishes a dilution of
-   precision of two billion. And the honest limit is already measured — corpus-wide the kept fixes
-   run `hdop` **0.5–5.4**, and the existing `nsat > 0` gate already removes the bad ones, so **HDOP
-   buys graded confidence, not extra filtering** and must not ship as a correctness fix.
+2. **The dilution-of-precision columns AltOS already parses and throws away. SHIPPED 2026-08-18.**
 
-   **Re-measured 2026-08-18, and three things are now known that the entry above did not say.**
-   (a) **The sentinel is whole-FILE, not per-row.** Both files that carry it carry it on *every* row
-   — 346 of 346 and 4,118 of 4,118 — so it is a firmware that never supplied DOP at all, and the
-   honest surface for those files is *"this recording states no dilution of precision"* rather than a
-   per-fix gap. (b) **The triple is internally consistent, so the columns are what they say.**
-   `PDOP² = HDOP² + VDOP²` holds on **every fix row of every file that carries all three** —
-   478/478, 20/20, 15,938/15,938, 6,907/6,907, 1,085/1,085, and 13,770 of 13,985 on the last, worst
-   case 11.1% and typically under 8%. That is worth having before building: it means the three can be
-   presented as one geometry rather than three unrelated numbers, and it is a cheap check to keep.
-   (c) **3 of the 11 AltOS CSVs carry no DOP columns at all**, so the surface has to say nothing
-   gracefully more often than it says something.
+   `lib/parsers/altusmetrum.ts` mapped `nsat` and dropped `pdop`/`hdop`/`vdop` from a CSV it had
+   already tokenised. All three are now channels — `dopHorizontal`, `dopVertical`, `dopPosition`,
+   unitless — and the recovery view and every saved document state the horizontal spread behind the
+   positions a flyer is looking at. **6 corpus recordings carry them, 16 channels in all, 5 with a
+   position track to state it against.**
 
-   **And a trap that cost this measurement two passes.** The AltOS CSV header line begins with `#`
-   (`#version,serial,flight,…`) while the data rows have **no** extra leading field, so stripping the
-   `#` gives the correct indices and adding an offset for it shifts every column by one. The shifted
-   read did not error — it produced `nsat` **41**, `vdop` **24.00** and a `PDOP² = HDOP² + VDOP²`
-   check that failed on 100% of rows, which reads exactly like a real finding about a broken vendor
-   format. What caught it was physical plausibility: no receiver has 41 satellites in a fix. **Sanity
-   the units before believing a measurement about a format, not after.**
+   **Two "no value" conventions, both found by measurement rather than assumed.**
+
+   - **`2147483647` — INT32_MAX — means never supplied, and it is a PER-COLUMN statement.** The
+     first draft of this entry called it per-file and that was wrong:
+     `intrepid2/telemetrum_data.csv` supplies `pdop` at **1.60–1.70** on all 346 of its rows while
+     marking `hdop` and `vdop` never-supplied on every one of them. A file-level rule gets that
+     recording wrong in one direction or the other. A sentinel VALUE becomes NaN; only a column
+     that is sentinel throughout loses its channel, so absence reads as absence rather than as an
+     empty chart.
+   - **`23.10` in all three, beside a zero-satellite row, is the receiver having nothing to say** —
+     and this one was not in the milestone at all. `endurance`'s TeleMetrum log writes it on **all
+     112** of its no-fix rows: one repeated value, ten times worse than anything else in the file.
+     Left in, the recovery view would have read *"HDOP 0.80 to 23.10"* and a flyer would have taken
+     23.10 as that flight's worst geometry. The parser already blanks latitude, longitude and the
+     GPS altitude on exactly those rows; the dilution columns now go with them.
+
+   **What makes the second removal defensible rather than a filter**: `PDOP² = HDOP² + VDOP²` held
+   on 22,199 of 22,307 rows before it, and on **22,199 of 22,199 — every single one, worst case
+   7.96%** — after. The 108 exceptions *were* the placeholder. Removing a non-reading closed the
+   invariant instead of loosening it, which is the whole difference between this and a threshold.
+
+   **The line this slice did not cross.** Nothing anywhere looks at how BAD a dilution is. Setting
+   the placeholder aside, the corpus's worst real value is 12.10 and it is published exactly as the
+   receiver wrote it. Row 47's rule holds: fix quality buys graded confidence, never extra
+   filtering, and the existing `nsat > 0` gate had already removed the rows a DOP threshold would.
+
+   **And no metres, anywhere.** Dilution multiplies the receiver's own ranging error; it is not that
+   error, and no file here carries it. The sentence states a RANGE and a middle, because a single
+   flattering number is what `MAINTAINING.md`'s measurement spine forbids.
+
+   **A defect this slice found and fixed on the way past.** `fixQualitySentence` was **screen-only**:
+   `components/GroundTrack.tsx` stated how many of a track's positions were solved in two dimensions
+   and nothing carried it into a saved report, so a flyer who filed the document and walked off the
+   map took the coordinate without the sentence qualifying it. Same shape this repo has now found
+   five runs running, and introduced by this run's own earlier work. Both sentences now ride
+   `howRead`, which reaches `.txt`, `.md`, `.html` and the JSON at once.
+
+   **A trap that cost the scouting pass two attempts.** The AltOS CSV header line begins with `#`
+   while the data rows have no matching extra field, so stripping the `#` gives the correct indices
+   and adding an offset shifts every column by one. The shifted read did not error — it produced
+   `nsat` **41**, `vdop` **24.00**, and a consistency check failing on 100% of rows, which reads
+   exactly like a finding about a broken vendor format. **Sanity the units before believing a
+   measurement about a format, not after** — no receiver has 41 satellites in a fix.
+   `lib/dop.test.ts` keeps that consistency check for the same reason.
 
 3. **The satellite signal breakdown Featherweight carries, read the way the vendor reads it.** The
    `>40`/`>32`/`>24` dB-Hz columns are in the committed fixture. **Three disjoint bands summing to at
@@ -3019,9 +3044,9 @@ fails rather than passing unnoticed. **And no accuracy is stated in metres anywh
 vendor publishes a function from what these files carry; the claim is always what the receiver
 solved, never how close it got.
 
-**Size.** 4–6 increments, and **slice 1 is not one of them** until a file that exercises it turns up
-— it has been refused twice. Start at slice 2; what is left is disclosure of data the files already
-carry, which is checkable against the corpus today.
+**Size.** 4–6 increments. **Slice 2 is shipped**; slice 1 is not counted until a file that exercises
+it turns up, having been refused twice. **Next: slice 3** (the Featherweight signal breakdown), then
+4 and 5 — all three are disclosure of data the files already carry, checkable against the corpus.
 
 **Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
 this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate

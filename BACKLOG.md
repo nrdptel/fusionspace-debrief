@@ -14,6 +14,17 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **~~2026-08-18 — `fixQualitySentence` is SCREEN-ONLY: the saved report drops the sentence that
+  qualifies the coordinate a flyer walks to.~~ RESOLVED 2026-08-18 (found and fixed inside D12
+  slice 2).** `components/GroundTrack.tsx` was the only caller — the `.txt`, `.md`, `.html` and JSON
+  exports carried the landing coordinate with nothing saying how many of the track's positions were
+  solved in two dimensions on an assumed height. A flyer who files the document and walks off the
+  map takes the number without its qualification. **The same shape this ledger has recorded five
+  runs running, and introduced by this run's own earlier work** (#204) — which is the useful part:
+  the defect is not a legacy of old code, it is what happens by default when a qualification is
+  written where it is first noticed. Both that sentence and the new dilution one now ride
+  `lib/report.ts`'s `howRead`, so one call reaches all four documents.
+
 - **2026-08-18 — NO shipped sample reaches `components/GpsApogee.tsx`, so the e2e suite has never
   seen the GPS cross-check panel.** Measured by analysing all ten parseable files in
   `public/samples/`: **not one produces a `gpsApogeeAltitude`**, which is what the panel needs to
@@ -152,7 +163,10 @@ wild, ideas too big for one pass. One line each, newest first.
   which cut you are holding cannot answer it, and a session comparing the two reads a mismatch that
   is bookkeeping rather than drift.
 
-- **2026-08-18 — AltOS `pdop`/`hdop`/`vdop` carry an INT32_MAX sentinel meaning "never supplied".**
+- **~~2026-08-18 — AltOS `pdop`/`hdop`/`vdop` carry an INT32_MAX sentinel meaning "never
+  supplied".~~ RESOLVED 2026-08-18 (D12 slice 2), and the entry understated it: the sentinel is
+  PER-COLUMN, and there is a SECOND placeholder it never mentioned — `23.10` in all three beside a
+  zero-satellite row, on all 112 no-fix rows of `endurance`'s TeleMetrum log.**
   `2147483647.0` appears on 2 of the 8 corpus AltOS CSVs that have the columns (measured: `hdop`
   min = p50 = max = 2147483647 on `intrepid2` and `SG1.1-Booster`). Whoever reads those columns —
   `COMPETITION.md` row 47 proposes it — must map the sentinel to "not stated" first, or the app

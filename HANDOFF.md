@@ -21,9 +21,9 @@ weaker gate rather than the only gate.
 | track | where it is |
 |---|---|
 | **Shipped to production** | **FIVE merged this run: `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207), `fc08365` (#208).** `fc08365` was confirmed LIVE by fetching `version.json?cb=…` at 07:13:30Z. A sixth PR (#209) is documentation only — the capability it originally carried was withdrawn before merge. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -6`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **One PR open (#209), documentation only.** It began as D12 slice 1 rebuilt over solutions; a pre-merge review killed it and the code is reverted. What it carries is the REFUSAL, written up with the measurement, plus two findings worth more than the feature was. |
+| **Pending** | **One PR open: `feature/gps-dop`** — D12 slice 2, shipped. Gate green (1,475 unit / 96 files **exit 0**, build clean, 364 e2e). |
 | **Sev-1** | **None inherited** (baseline green before anything was touched: unit 1,450 / 94 files with the corpus, build clean, e2e 359). **Two FOUND and FIXED this run**, both the same shape. **Two more FOUND, reproduced and FILED** — see below. |
-| **D — capability** | **D10 SHIPPED and D12 decomposed. D12 slice 1 was then built TWICE and refused twice**, and the second refusal is about the slice rather than the code: the state it qualifies does not occur in any file within reach, and the flight that motivated it is already handled correctly by `peakAgreement`. **Start the next run at D12 slice 2.** See below. |
+| **D — capability** | **D10 SHIPPED, D12 decomposed, slice 1 refused TWICE and slice 2 SHIPPED.** The dilution-of-precision columns AltOS writes and Debrief dropped are now read, with two separate "no value" conventions handled and neither of them in the milestone as written. **Next: D12 slice 3.** See below. |
 | **P — product & craft** | **Two craft fixes shipped**, both a value whose identity was hover-only or absent: the logbook's two figures, and `/changelog`'s pinned strip. §9 counts all at or better than the last run's. |
 
 ## The shape both Sev-1s shared, and it is the transferable part
@@ -113,6 +113,43 @@ this state on demand.
 re-running the snapshot with *only those two keys excluded* reproduced the committed hashes exactly —
 which proved the change moved no reading about any real flight. Do that whenever
 `corpus-digests.json` goes red on a metrics addition, rather than regenerating on the assumption.
+
+## D12 slice 2 — shipped, and the milestone was under-specified in two places
+
+`lib/parsers/altusmetrum.ts` mapped `nsat` and threw away `pdop`/`hdop`/`vdop` from a CSV it had
+already tokenised. All three are channels now, and the recovery view **and every saved document**
+state the horizontal spread behind the positions a flyer is looking at. 6 corpus recordings carry
+them, 16 channels, 5 with a track to state it against.
+
+**The milestone named one "no value" convention. There are two, and the second is in no manual.**
+
+1. **`2147483647` (INT32_MAX) means never supplied — PER COLUMN, not per file.** The entry said
+   per-file and that was wrong: `intrepid2/telemetrum_data.csv` supplies `pdop` at 1.60–1.70 on all
+   346 rows while marking `hdop` and `vdop` never-supplied on every one. A sentinel VALUE becomes
+   NaN; only a column that is sentinel throughout loses its channel, so absence reads as absence.
+2. **`23.10` in all three, beside a zero-satellite row.** `endurance`'s TeleMetrum log writes it on
+   **all 112** of its no-fix rows — one repeated value, ten times worse than anything real in the
+   file. Left in, the recovery view would have said *"HDOP 0.80 to 23.10"* and a flyer would have
+   read 23.10 as that flight's worst geometry. Dropped with the position it belonged to.
+
+**What makes the second removal a disclosure and not a filter, and it is checkable**:
+`PDOP² = HDOP² + VDOP²` held on 22,199 of 22,307 rows before it and on **22,199 of 22,199 after —
+every single row, worst case 7.96%**. The 108 exceptions *were* the placeholder. Taking out a
+non-reading closed the invariant rather than loosening it. Nothing anywhere looks at how BAD a
+dilution is; the worst real value in the corpus, 12.10, is published as written.
+
+**A Sev-1-shaped defect found and fixed on the way past.** `fixQualitySentence` was **screen-only**
+— the exports carried the landing coordinate with nothing saying how many of the track's positions
+rested on an assumed height. Fifth run running for that shape, and **introduced by this run's own
+#204**, which is the useful part: it is not legacy, it is what happens by default when a
+qualification is written where it is first noticed. Both sentences now ride `howRead`, one call
+reaching `.txt`, `.md`, `.html` and the JSON.
+
+**A red gate that reads exactly like a green one, worth knowing about.** The new test first walked
+the corpus once per case; five walks took the run past vitest's own `onTaskUpdate` RPC timeout on
+this four-CPU box, and **an unhandled reporter error exits non-zero while every test still prints as
+passed**. `npm test | tail` said *1,475 passed*; `echo $?` said **1**. Parse the corpus once per
+file. And check the exit code, not the summary line.
 
 ## Six things this run got WRONG first, and what caught them
 

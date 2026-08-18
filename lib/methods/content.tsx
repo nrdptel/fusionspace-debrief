@@ -313,6 +313,41 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           receiver&apos;s altitude and its satellite count are both in
           the explorer, so you can plot either against the barometric line.
         </p>
+        <p>
+          <strong>How good the satellite geometry was, where the file says.</strong> Altus Metrum
+          logs carry three dilution-of-precision columns — horizontal, vertical and the two together
+          — and Debrief now reads all three and states the horizontal spread beside the track you
+          walk to. Dilution is unitless: it says how much the arrangement of satellites in the sky
+          multiplied whatever ranging error the receiver already had. Lower is a better spread, and
+          about 1 is as good as it gets. <strong>It is not a distance</strong>, and Debrief will not
+          turn it into one — that conversion needs the receiver&apos;s own ranging error, which none
+          of these files carries and no vendor publishes. A range is stated rather than one number,
+          because a single flight can run from 0.80 to 1.90.
+        </p>
+        <p>
+          <strong>Two things in those columns are not readings, and both had to be measured to
+          find.</strong> The first is documented: AltOS writes <strong>2,147,483,647</strong> —
+          the largest value a signed 32-bit field holds — for a column it never had a value for, so
+          reading it naively publishes a dilution of precision of two billion. It is a{' '}
+          <em>per-column</em> statement, not a per-file one: one corpus recording supplies the
+          position dilution at 1.60–1.70 while marking the other two never-supplied on all 346 of
+          its rows. The second is in no manual. One recording writes <strong>23.10 into all three
+          columns on every one of its 112 rows that report zero satellites</strong> — a single
+          repeated value, ten times worse than anything real in the file, sitting beside positions
+          that are held-over rather than measured. Left in, it would have been quoted as that
+          flight&apos;s worst geometry. It is dropped with the position it belonged to, on the same
+          rule that already drops the latitude and longitude there.
+        </p>
+        <p>
+          The check that the three columns are what they claim is their own arithmetic: the position
+          dilution is the horizontal and vertical ones combined in quadrature. Across every corpus
+          row that states all three, that holds on <strong>every single one</strong> — 22,199 of
+          22,199, worst case 8%, which is what rounding to two decimals costs. It held on 108 fewer
+          before the no-fix placeholder was removed, and those 108 rows were the placeholder:
+          taking out something that was never a reading closed the check rather than loosening it.
+          Nothing here filters on quality. A dilution of 12.10 is published exactly as the receiver
+          wrote it.
+        </p>
       </>
     ),
   },

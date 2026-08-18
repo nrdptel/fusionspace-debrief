@@ -13,7 +13,7 @@
 import type { Parser, ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
 import { getChannel } from '../flight/types';
-import { fixAllows, gradeFromSatellites, gradeValue } from '../gpsFix';
+import { dropNeverSupplied, fixAllows, gradeFromSatellites, gradeValue } from '../gpsFix';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 import { flownAtFromColumns } from '../flight/flownAt';
@@ -183,6 +183,13 @@ export const altusMetrumParser: Parser = {
     // nothing — it holds its last position and altitude — so this is what separates a
     // measurement from a stale value.
     add(col('nsat'), 'satellites', null);
+    // How good the satellite GEOMETRY was — the columns AltOS has always written and Debrief has
+    // always dropped. Unitless, and deliberately NOT turned into metres anywhere: that conversion
+    // needs the receiver's own ranging error, which no file here carries. Read `dropNeverSupplied`
+    // below for the sentinel these arrive with.
+    add(col('hdop'), 'dopHorizontal', null);
+    add(col('vdop'), 'dopVertical', null);
+    add(col('pdop'), 'dopPosition', null);
 
     const meta: Record<string, string | number> = {};
     for (let i = 0; i < headerIdx; i++) {
@@ -227,6 +234,9 @@ export const altusMetrumParser: Parser = {
       // column — AltOS writes no fix-type field. The label says so, because a value Debrief
       // worked out and one the instrument stated are not the same claim.
       const gradeVals = new Float64Array(lat.values.length).fill(NaN);
+      const dops = (['dopHorizontal', 'dopVertical', 'dopPosition'] as const)
+        .map((k) => getChannel(flight, k))
+        .filter((c): c is NonNullable<typeof c> => !!c);
       for (let i = 0; i < lat.values.length; i++) {
         const la = lat.values[i];
         const lo = lon.values[i];
@@ -258,6 +268,17 @@ export const altusMetrumParser: Parser = {
           lon.values[i] = NaN;
         } else any = true;
         if (gpsAlt && (!ok || !allows.altitude)) gpsAlt.values[i] = NaN;
+        // The dilution columns are held over exactly like the position beside them, and this
+        // file proves it: on `endurance`'s TeleMetrum log, **all 112 rows that report zero
+        // satellites carry `23.10` in all three** — one value, repeated, on every row with no
+        // fix, and the worst number in the file by a factor of ten. Left in, the recovery view
+        // would quote it as this flight's worst geometry, which is a reading it is not.
+        //
+        // Not a quality filter, and the distinction matters because row 47 forbids one: nothing
+        // here looks at how BAD a dilution is. It applies the rule the lines above already
+        // apply — with no satellites in the fix, the values beside it are the last ones the
+        // receiver had — to one more column of the same fix.
+        if (!allows.position) for (const d of dops) d.values[i] = NaN;
       }
       if (any) {
         flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');
@@ -272,6 +293,11 @@ export const altusMetrumParser: Parser = {
       }
     }
 
+    // OUTSIDE the `lat && lon` guard on purpose. A dilution column is written by the same
+    // receiver but is not conditional on this file having a usable position — and the failure of
+    // getting that wrong is not a missing channel, it is a published dilution of precision of two
+    // billion on a record whose track Debrief happened to reject.
+    dropNeverSupplied(flight);
     return flight;
   },
 };

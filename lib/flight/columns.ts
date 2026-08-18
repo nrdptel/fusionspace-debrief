@@ -43,6 +43,9 @@ export type ColumnRole =
   | 'longitude'
   | 'altitudeGps'
   | 'satellites'
+  | 'dopHorizontal'
+  | 'dopVertical'
+  | 'dopPosition'
   | DateRole
   | 'ignore';
 

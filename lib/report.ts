@@ -2,6 +2,7 @@
 // into a forum post or save next to the log. Mirrors what the report shows.
 
 import type { RawFlight, ReportedValue } from './flight/types';
+import { getChannel } from './flight/types';
 import type { FlightAnalysis, FlightMetrics } from './analyze/types';
 import { renderCaveats } from './caveatUnits';
 import { repeatedSpanNote } from './highRateRepeats';
@@ -44,6 +45,7 @@ import { derivedPeakCaveat } from './derivedPeak';
 import { buildFields, buildLine } from './buildInfo';
 import { accelIsClipped, ACCEL_TAG_CLIPPED, apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, eventAltitudeTag, eventQualification, avgBoostSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
+import { dopSentence, fixQualitySentence, trackDop, trackFixQuality } from './gpsFix';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
 import { formulaGuard } from './csv';
@@ -495,6 +497,29 @@ export function extentNote(analysis: FlightAnalysis): string | null {
     : `Read ${stretch} — the flight Debrief segmented out of a record that holds more than one.`;
 }
 
+/**
+ * What the GPS track's own quality was, for the documents.
+ *
+ * **This exists because the screen was saying it alone.** `components/GroundTrack.tsx` states the
+ * fix quality behind a coordinate — how many of the positions were solved in two dimensions rather
+ * than three — and nothing carried that into a saved report. A flyer who files the document and
+ * walks off the map takes the coordinate without the sentence that qualifies it. That is the same
+ * defect this repo has now found five runs running, one surface qualifying a figure another
+ * publishes bare, and it was introduced by this run's own earlier work.
+ *
+ * Both sentences come from `lib/gpsFix.ts` rather than being written again here, so the screen and
+ * the document cannot drift into two accounts of one track.
+ */
+function gpsQualityNotes(flight: RawFlight): string[] {
+  const lat = getChannel(flight, 'latitude')?.values;
+  const lon = getChannel(flight, 'longitude')?.values;
+  if (!lat || !lon) return [];
+  return [
+    fixQualitySentence(trackFixQuality(lat, lon, getChannel(flight, 'gpsFixGrade')?.values)),
+    dopSentence(trackDop(getChannel(flight, 'dopHorizontal')?.values, lat, lon)),
+  ].filter((n): n is string => !!n);
+}
+
 /** The provenance list a document prints under "How this file was read": what the parser
  *  wanted the reader to know, with the stretch that was read at the head of it. */
 function howRead(flight: RawFlight, analysis: FlightAnalysis, sys: UnitChoice): string[] {
@@ -504,7 +529,7 @@ function howRead(flight: RawFlight, analysis: FlightAnalysis, sys: UnitChoice): 
   // analysis decided to read. See `lib/highRateRepeats.ts`. It rides `howRead` so every export
   // — .txt, .md, .html and the JSON's `howRead` — carries it without each writer remembering to.
   const repeat = repeatedSpanNote(flight.repeatedSpans, analysis.extent);
-  return renderCaveats([note, repeat, ...flight.notes].filter((n): n is string => !!n), sys);
+  return renderCaveats([note, repeat, ...flight.notes, ...gpsQualityNotes(flight)].filter((n): n is string => !!n), sys);
 }
 
 export function summaryText(
