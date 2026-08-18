@@ -113,8 +113,15 @@ test('the measure does not get WORSE as the screen gets wider', async ({ page })
 });
 
 /**
- * The other surface that carries a `SectionNav` strip, and the one that took the primitive
- * without its contract.
+ * EVERY surface that carries a `SectionNav` strip, walked as a set rather than named one at a time.
+ *
+ * **This test used to name `/methods` alone, and that is exactly how `/changelog` shipped broken.**
+ * A third surface took the primitive without its contract — a pinned strip, and `<Section>`s with
+ * no clearance class — so every release jumped to on it landed under the strip, and nothing here
+ * could see it, because the walk enumerated the surfaces somebody had remembered. It enumerates
+ * the STRIPS now: each route is loaded, asked whether it renders a `SectionNav`, and every id that
+ * strip links to is jumped to and measured. A fourth surface is covered the day it is added to the
+ * list of routes, and a strip that appears on a route already in the list is covered for free.
  *
  * `SectionNav`'s own docblock says *"targets need a `scroll-margin-top` so a heading lands below
  * the strip rather than under it"*; `app/globals.css` states that clearance once, for the report's
@@ -129,44 +136,72 @@ test('the measure does not get WORSE as the screen gets wider', async ({ page })
  * pointer at any viewport width, so a walk that only narrows the window measures the wrong strip
  * and passes over the defect.
  */
-test('a subject jumped to on the methods page lands clear of the pinned strip, on a phone', async ({
-  browser,
-}) => {
+/** The static routes a strip can appear on. The flight report's strip needs a dropped file, so it
+ *  keeps its own walk in `e2e/a11y.spec.ts`; these are the ones a stranger reaches by URL. */
+const STRIP_ROUTES = ['/methods', '/changelog', '/validation', '/privacy'];
+
+test('every subject jumped to from a pinned strip lands clear of it, on a phone', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const page = await ctx.newPage();
+  let stripsFound = 0;
+  let idsChecked = 0;
   try {
-    await page.goto('/methods');
-    const nav = page.locator('nav[aria-label="Jump to a subject on this page"]');
-    await expect(nav).toBeVisible();
     expect(
-      await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches),
+      await (async () => {
+        await page.goto('/');
+        return page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
+      })(),
       'this context is a touch device — the strip is only at its tallest here',
     ).toBe(true);
 
-    const ids = await page.locator('h3[id]').evaluateAll((els) => els.map((e) => e.id));
-    expect(ids.length, 'the page still has a subject list worth jumping into').toBeGreaterThan(20);
+    for (const route of STRIP_ROUTES) {
+      await page.goto(route);
+      // Any strip, however it is labelled. Matching the LABEL is what made this walk specific to
+      // one page; matching the primitive is what makes it find the next one.
+      const nav = page.locator('nav[aria-label^="Jump to"]');
+      if ((await nav.count()) === 0) continue;
+      await expect(nav.first()).toBeVisible();
+      stripsFound++;
 
-    // Three targets across the page rather than one: the first is above the strip's resting
-    // place, and the deep ones are the ones a reader actually jumps to.
-    for (const id of [ids[0], ids[Math.floor(ids.length / 2)], ids[ids.length - 1]]) {
-      await page.evaluate((target) => {
-        window.location.hash = `#${target}`;
-      }, id);
-      await page.waitForTimeout(250);
-      const m = await page.evaluate((target) => {
-        const el = document.getElementById(target)!;
-        const strip = document.querySelector('nav[aria-label="Jump to a subject on this page"]')!;
-        const sb = strip.getBoundingClientRect();
-        const eb = el.getBoundingClientRect();
-        return { stripH: Math.round(sb.height), stripBottom: Math.round(sb.bottom), top: Math.round(eb.top) };
-      }, id);
-      // At or below the strip's bottom edge. Stated as the same comparison the report's walk
-      // makes, so the two surfaces are held to one rule rather than to two numbers.
-      expect(
-        m.top,
-        `#${id} lands clear of the pinned strip (heading at ${m.top}, strip ${m.stripH} px ending at ${m.stripBottom})`,
-      ).toBeGreaterThanOrEqual(m.stripBottom);
+      const hrefs = await nav
+        .first()
+        .getByRole('link')
+        .evaluateAll((as) => as.map((a) => a.getAttribute('href') ?? '').filter((h) => h.startsWith('#')));
+      expect(hrefs.length, `${route}: the strip lists somewhere to go`).toBeGreaterThan(1);
+
+      // Three targets across the page rather than all of them: the first is above the strip's
+      // resting place, and the deep ones are the ones a reader actually jumps to.
+      const picks = [hrefs[0], hrefs[Math.floor(hrefs.length / 2)], hrefs[hrefs.length - 1]];
+      for (const href of picks) {
+        const id = href.slice(1);
+        await page.evaluate((target) => {
+          window.location.hash = `#${target}`;
+        }, id);
+        await page.waitForTimeout(250);
+        const m = await page.evaluate((target) => {
+          const el = document.getElementById(target);
+          const strip = document.querySelector('nav[aria-label^="Jump to"]')!;
+          const sb = strip.getBoundingClientRect();
+          if (!el) return null;
+          const eb = el.getBoundingClientRect();
+          return { stripH: Math.round(sb.height), stripBottom: Math.round(sb.bottom), top: Math.round(eb.top) };
+        }, id);
+        expect(m, `${route}: #${id} is an element on the page`).not.toBeNull();
+        // At or below the strip's bottom edge. Stated as the same comparison the report's walk
+        // makes, so every surface is held to one rule rather than to a number each.
+        expect(
+          m!.top,
+          `${route} #${id} lands clear of the pinned strip (heading at ${m!.top}, strip ${m!.stripH} px ending at ${m!.stripBottom})`,
+        ).toBeGreaterThanOrEqual(m!.stripBottom);
+        idsChecked++;
+      }
     }
+
+    // A walk that found no strip would pass every assertion above and prove nothing — the shape
+    // this file has recorded twice about other checks.
+    expect(stripsFound, 'routes carrying a pinned strip').toBeGreaterThan(1);
+    expect(idsChecked, 'strip targets measured').toBeGreaterThan(4);
+    console.log(`pinned-strip clearance: ${stripsFound} strips, ${idsChecked} targets measured`);
   } finally {
     await ctx.close();
   }
