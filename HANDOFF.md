@@ -20,10 +20,10 @@ weaker gate rather than the only gate.
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **SIX merged this run.** Five are named — `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207), `fc08365` (#208) — and `fc08365` was confirmed LIVE by fetching `version.json?cb=…` at 07:13:30Z. The sixth is D12 slice 1 (#209), whose squash sha cannot be written here because this file is inside it. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -6`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **Nothing, once #209 lands.** It carries D12 slice 1 with the full local gate green (1,473 unit / 96 files, build clean, 364 e2e in 8.8 m). Next increment: **D12 slice 2** — the dilution-of-precision columns AltOS already parses and throws away, with the `2147483647` *never supplied* sentinel read first. `ROADMAP.md` has it with the measurement. |
+| **Shipped to production** | **FIVE merged this run: `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207), `fc08365` (#208).** `fc08365` was confirmed LIVE by fetching `version.json?cb=…` at 07:13:30Z. A sixth PR (#209) is documentation only — the capability it originally carried was withdrawn before merge. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -6`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **One PR open (#209), documentation only.** It began as D12 slice 1 rebuilt over solutions; a pre-merge review killed it and the code is reverted. What it carries is the REFUSAL, written up with the measurement, plus two findings worth more than the feature was. |
 | **Sev-1** | **None inherited** (baseline green before anything was touched: unit 1,450 / 94 files with the corpus, build clean, e2e 359). **Two FOUND and FIXED this run**, both the same shape. **Two more FOUND, reproduced and FILED** — see below. |
-| **D — capability** | **D10 SHIPPED, D12 decomposed to replace it, and D12 SLICE 1 SHIPPED** — on its second attempt, the first having been built, measured and thrown away the same run. A GPS apogee that rests on a hole in the record is now labelled a bound on all three surfaces. See below. |
+| **D — capability** | **D10 SHIPPED and D12 decomposed. D12 slice 1 was then built TWICE and refused twice**, and the second refusal is about the slice rather than the code: the state it qualifies does not occur in any file within reach, and the flight that motivated it is already handled correctly by `peakAgreement`. **Start the next run at D12 slice 2.** See below. |
 | **P — product & craft** | **Two craft fixes shipped**, both a value whose identity was hover-only or absent: the logbook's two figures, and `/changelog`'s pinned strip. §9 counts all at or better than the last run's. |
 
 ## The shape both Sev-1s shared, and it is the transferable part
@@ -64,60 +64,64 @@ reproduce-before-you-scope rule cutting in the direction nobody expects.
    12-slot cache with Export/Import behind it, so **it is not a Sev-1 preemption**. The grouped-row
    case (several recordings, one press) is the half still unreproduced.
 
-## D12 slice 1 — refused, rebuilt, shipped, all in one run
+## D12 slice 1 — built twice, refused twice, and the second refusal is the useful one
 
-D10 shipped, the D-track went dry, and `ROADMAP.md`'s rule applied: decompose the next area rather
-than fall back to the ledger. **D12 — How good the fix was, wherever a GPS value is read** — is
-written up with five slices, every one measured by this run rather than chosen from a list. **Slice
-1 is now shipped, and the two attempts are worth reading in order.**
+**Start the next run at slice 2.** Slice 1's first half already ships (`gpsAscentFixes`); its second
+half qualifies a state no reachable file is in.
 
-**The gap is real and BIGGER than the milestone first assumed.** On `SG1.1-Booster` the GPS apogee
-reads **2,251 ft against a barometric 2,502 ft — 10% low — on BOTH exports**, and the cross-check
-panel called that "differ" without ever saying the GPS figure is a lower BOUND. That flight spends
-13 distinct solutions on three satellites, whose heights are dropped. So the corpus DOES contain
-the case; the first cut assumed it did not.
+**What happened, in order.** D10 shipped, the D-track went dry, D12 was decomposed, and slice 1 was
+built. It measured the receiver's silence around the GPS peak over SAMPLES, so it fired on
+`SG1.1-Booster`'s `.eeprom` (17.9 s) and not on its `.csv` — one download, two answers — and was
+refused. Correct refusal. **The note written alongside it was not**: it claimed *the corpus does
+contain the case*, inferred from that flight's GPS apogee reading 10% below barometric plus an 18 s
+gap existing somewhere in the file. **Nobody checked the two were in the same place.**
 
-**Why the first build was refused.** A `gpsApogeeGapS` metric — seconds without a usable height
-beside the peak — fired on that flight's **`.eeprom` (17.9 s) and not on its `.csv`**. An AltOS
-eeprom writes a GPS record only when the receiver actually solved one, so its position channel is
-NaN between fixes in a 100 Hz array, while AltosUI's CSV repeats the held position on every row. **A
-metric defined over SAMPLES answers differently for two exports of one download** — the exact
-one-value-two-accounts defect the rest of this run was spent closing.
+Slice 1 was then rebuilt over solutions. Both exports agreed (57 solutions, 1.00 s median, 18.00 s
+gap), the full gate went green — **1,473 unit, 364 e2e, five mutants reddened** — and a pre-merge
+review killed it on two counts at once:
 
-**What shipped instead.** `gpsApogeeGap` and `gpsSolutionInterval` walked over SOLUTIONS the way
-`gpsAscentFixes` already is, and `peakRestsOnAGap` in `lib/gpsFix.ts` as the ONE gate the panel, the
-three documents and `analysisJson` all ask. Both SG1.1 exports now read **57 solutions, a 1.00 s
-median interval and an 18.00 s gap**; the Kairos pair agrees to 10 ms. The figure is tagged
-`(at least)` and explained — **never dropped**, which is row 47's standing rule for every quality
-signal in this milestone.
+1. **The walk gated solutions on the GPS ALTITUDE channel.** A run of two-dimensional fixes — real
+   positions whose height `lib/gpsFix.ts` strips, because a 2D fix's height is an assumption — was
+   counted as *silence*. Over positions the same file holds **69** solutions, not 57.
+2. **The hole is nowhere near the apogee.** Barometric apogee is at **t = 13.1 s**; the 18 s hole
+   runs **35.1 → 53.1 s**, under the parachute. The document row it produced contradicted itself
+   inside one line: *"not the same peak — the two put it 39.8 s apart — the receiver went 18.0 s
+   without a solution across the peak"*.
 
-**The threshold is not fitted, and that is checkable.** Across every corpus recording that states a
-GPS apogee the gap-to-cadence ratio is **1.0, 1.1, 1.1, 1.1, 1.4 and 18.0** — an order of magnitude
-of empty space, so nothing turns on where in it the line sits. The rule is *three times the record's
-own cadence AND at least two seconds*, and **both clauses are load-bearing against a real file**: the
-ratio clause is what keeps `endurance` quiet, which carries the corpus's second-largest absolute gap
-at 7.0 s on a 5 s receiver and whose GPS apogee reads ABOVE the barometric one.
+**Then measured properly, which is what settles the slice.** Solutions over POSITION, and the
+interval that actually BRACKETS the barometric apogee: `SG1.1-Booster` solved **0.99 s** before and
+**1.02 s** after its apogee, and every corpus recording that states a GPS apogee sits at a
+bracketing ratio of **0.9–1.4**. **Not one file fires.** And the flight that motivated the whole
+slice is already handled: its altitude solution LAGS, the peaks are 39.8 s apart, `peakAgreement`
+returns *"not the same peak"*, and `lib/methods/content.tsx` has described that exact flight since
+before D12 existed. The qualification added nothing and published a false cause on four surfaces.
 
-**Five mutants, all red**: sample-counting, each threshold clause alone, the document tag removed,
-the JSON flag removed. Sample-counting is killed by the CORPUS cases rather than by a unit case —
-which is the whole point, because the first attempt passed a full green gate.
+`ROADMAP.md` carries the four conditions a third attempt would need. The first is a real file to
+fire on — **a synthetic one is not evidence here**, precisely because D10's generator can produce
+this state on demand.
 
-**What it could not pin, and it is filed.** `components/GpsApogee.tsx` has **no automated coverage of
-any kind**: not one of the ten parseable files in `public/samples/` produces a `gpsApogeeAltitude`,
-so no e2e run has ever rendered that panel. The screen half is held by a source-level check that it
-asks the shared rule rather than carrying its own thresholds. `BACKLOG.md`'s newest entry has the
-measurement and what a fix needs.
+**Two things worth more than the feature was, both kept:**
 
-**The corpus snapshot moved on all 50 flights, and that was proved benign before it was
-regenerated.** Two new metric keys change every digest by construction. Re-running the snapshot with
-only those two keys excluded reproduced the committed hashes exactly, so no reading about any real
-flight moved — worth repeating whenever `corpus-digests.json` goes red on a metrics addition, rather
-than regenerating on the assumption.
+- **`components/GpsApogee.tsx` has no automated coverage of any kind.** Not one of the ten parseable
+  files in `public/samples/` produces a `gpsApogeeAltitude`, so Playwright has never rendered that
+  panel. In `BACKLOG.md` with what a fix needs.
+- **D12 slice 2 re-measured**, in `ROADMAP.md`: the `2147483647` sentinel is whole-FILE rather than
+  per-row (346/346 and 4,118/4,118), `PDOP² = HDOP² + VDOP²` holds on essentially every fix row of
+  every file carrying all three, and 3 of the 11 AltOS CSVs carry no DOP columns at all.
 
-## Five things this run got WRONG first, and what caught them
+**One process note that is worth keeping.** When two new metric keys made all 50 corpus digests move,
+re-running the snapshot with *only those two keys excluded* reproduced the committed hashes exactly —
+which proved the change moved no reading about any real flight. Do that whenever
+`corpus-digests.json` goes red on a metrics addition, rather than regenerating on the assumption.
 
-Kept because each survived the thing that should have stopped it — three were green under a full
-gate, the fourth was written down as fact, and the fifth produced numbers rather than an error.
+## Six things this run got WRONG first, and what caught them
+
+Kept because each survived the thing that should have stopped it. Three were green under a full
+gate; the fourth was written down as fact; the fifth produced numbers rather than an error; and the
+sixth was **both** — green under a full gate AND written down as fact, a run earlier.
+
+**Two of the six are the same error, and it is the one to carry forward: an inference published as
+a measurement.** Read the last two together before trusting anything this run wrote down.
 
 1. **Featherweight's satellite count published as `satellites`.** That kind means satellites IN the
    fix, where 0 says the position beside it is held over. The column is satellites the receiver can
@@ -162,8 +166,32 @@ gate, the fourth was written down as fact, and the fifth produced numbers rather
    believing a measurement, and when a new measurement contradicts one already written down, suspect
    the new one first.**
 
-**The lesson under all five: a full green gate proves the code does what it says, not that what it
-says is true.** Hand the diff to a fresh agent with no context before every push.
+6. **"The corpus does contain the case" — a claim never measured, which then cost a second build
+   of D12 slice 1.** When slice 1's first attempt was refused, the ledger entry beside it recorded
+   that `SG1.1-Booster` demonstrates the defect the slice targets. The basis was two facts that are
+   both true — its GPS apogee reads 10% below barometric, and there is an 18 second gap in the file
+   — and one step that was never taken: **checking they were in the same place.** They are not. The
+   apogee is at t = 13.1 s and the gap runs 35.1 → 53.1 s, under the parachute. Measured over
+   POSITION solutions, that receiver solved 0.99 s before and 1.02 s after its own apogee, and no
+   corpus recording sits above a bracketing ratio of 1.4.
+
+   **What makes it worth six paragraphs rather than one line**: the flight is 10% low for a reason
+   Debrief has always stated correctly — its altitude solution lags, `peakAgreement` says *"not the
+   same peak"*, and the methods page has described that exact flight for milestones. So the second
+   build layered a false cause on top of a correct verdict and shipped a self-contradicting sentence
+   into four surfaces, under a green gate with five mutants reddened. **A pre-merge review caught
+   it. The gate could not have.**
+
+**The lesson under all six: a full green gate proves the code does what it says, not that what it
+says is true.** Hand the diff to a fresh agent with no context before every push — this run did, on
+its last change, and that review is the only reason a false claim did not reach production.
+
+**And the sharper half, from #4 and #6 together. Both were INFERENCES stated as MEASUREMENTS**, and
+both were published — one into this file, one into a merged pull request, a ROADMAP entry and a
+ledger entry. A 50-minute hang was inferred from a start time and a remembered "now". A corpus case
+was inferred from a low figure and a gap elsewhere in the same file. Neither took the one further
+step that would have killed it, and both read exactly like findings. **Before writing a number or a
+because down: name the two things you compared, and confirm you actually looked at both.**
 
 ## Two checks that could not fail, and one that failed against correct code
 

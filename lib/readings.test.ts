@@ -53,8 +53,6 @@ const EVERYTHING: FlightMetrics = {
   gpsApogeeAltitude: 2_795,
   gpsApogeeTime: 24.9,
   gpsAscentFixes: 24,
-  gpsApogeeGap: null,
-  gpsSolutionInterval: null,
 };
 
 const RECOVERY: RecoveryFigures = {

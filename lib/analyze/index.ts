@@ -2839,8 +2839,6 @@ function analyzeWhole(
   let gpsApogeeAltitude: number | null = null;
   let gpsApogeeTime: number | null = null;
   let gpsAscentFixes: number | null = null;
-  let gpsApogeeGap: number | null = null;
-  let gpsSolutionInterval: number | null = null;
   const gpsAltCh = getChannel(flight, 'altitudeGps');
   if (gpsAltCh && gpsAltCh.values.length === n) {
     const g = gpsAltCh.values;
@@ -2902,54 +2900,6 @@ function analyzeWhole(
         gpsApogeeAltitude = peak;
         gpsApogeeTime = liftoffFound ? time[peakIdx] - liftoffTime : time[peakIdx] - time[0];
         gpsAscentFixes = fixes;
-
-        // **How long the receiver was silent across the top**, and its own cadence to read that
-        // against. A second walk rather than a branch inside the one above, because the counter
-        // there deliberately stops at the barometric apogee — the gap needs the solution AFTER
-        // the peak, which lies past it, and folding the two together made both harder to read
-        // than either is apart.
-        //
-        // Everything here is measured between SOLUTIONS. A receiver with nothing new to say does
-        // not fall silent in the file: AltosUI's CSV repeats the last position on every row while
-        // the eeprom that CSV was made from writes no GPS record at all, so the same silence is
-        // invisible in one export and a run of NaN in the other. Counted in rows this metric read
-        // 17.9 s from `SG1.1-Booster`'s eeprom and nothing from its CSV — one flight, two answers,
-        // which is why the first version of it was thrown away. Counted between solutions the two
-        // agree exactly: 57 solutions, a 1.00 s median and an 18.00 s gap, from both files.
-        const solT: number[] = [];
-        let sg = NaN;
-        let sla = NaN;
-        let slo = NaN;
-        let peakOrd = -1;
-        let peakVal = -Infinity;
-        for (let i = 0; i < n; i++) {
-          const v = g[i];
-          if (!Number.isFinite(v)) continue;
-          const moved =
-            v !== sg ||
-            (latCh != null && latCh[i] !== sla) ||
-            (lonCh != null && lonCh[i] !== slo);
-          sg = v;
-          if (latCh != null) sla = latCh[i];
-          if (lonCh != null) slo = lonCh[i];
-          if (!moved) continue;
-          if (v > peakVal) {
-            peakVal = v;
-            peakOrd = solT.length;
-          }
-          solT.push(time[i]);
-        }
-        // Three is the floor: two solutions have one interval between them, which is both the
-        // median and the gap, so the comparison the rule makes would be a tautology.
-        if (solT.length >= 3 && peakOrd >= 0) {
-          const iv: number[] = [];
-          for (let k = 1; k < solT.length; k++) iv.push(solT[k] - solT[k - 1]);
-          iv.sort((a, b) => a - b);
-          gpsSolutionInterval = iv[iv.length >> 1];
-          const before = peakOrd > 0 ? solT[peakOrd] - solT[peakOrd - 1] : 0;
-          const after = peakOrd < solT.length - 1 ? solT[peakOrd + 1] - solT[peakOrd] : 0;
-          gpsApogeeGap = Math.max(before, after);
-        }
       }
     }
   }
@@ -3036,8 +2986,6 @@ function analyzeWhole(
     gpsApogeeAltitude,
     gpsApogeeTime,
     gpsAscentFixes,
-    gpsApogeeGap,
-    gpsSolutionInterval,
   };
 
   if (accelClipped) {

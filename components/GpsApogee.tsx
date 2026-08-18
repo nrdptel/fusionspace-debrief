@@ -8,8 +8,6 @@
 import type { FlightMetrics } from '@/lib/analyze/types';
 import { fmtLength, type UnitChoice } from '@/lib/display';
 import { peakAgreement, peakTimeTolerance } from '@/lib/crossPeak';
-import { peakRestsOnAGap } from '@/lib/gpsFix';
-import { APOGEE_TAG_FLOOR } from '@/lib/readings';
 import { Card, Chip, DataTable } from './ui';
 
 /** The verdict as words, so the clipboard carries the judgement and not just two numbers a
@@ -32,11 +30,6 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
   // instant, and then a close pair of heights is a coincidence rather than corroboration —
   // so the badge must not say "agree" on the strength of the numbers alone.
   const verdict = peakAgreement({ value: gps, time: gpsT }, { value: baro, time: baroT });
-  // The receiver went quiet across the top, so its highest fix is the highest one it happened to
-  // SOLVE. Tagged on the figure and explained below rather than dropped — the reading is still the
-  // receiver's own, it is just a bound. Both numbers are stated, because a claim about a gap that
-  // does not say what the cadence was is a claim a reader cannot check.
-  const gpsFloor = peakRestsOnAGap(metrics.gpsApogeeGap, metrics.gpsSolutionInterval);
   const timeApart =
     verdict === 'different-peak' && gpsT != null && Number.isFinite(baroT)
       ? Math.abs(gpsT - baroT)
@@ -55,20 +48,15 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
       <DataTable
         caption="Apogee as the GPS recorded it, beside the barometric read"
         copyLabel="Copy the GPS cross-check"
-        rows={[{ gps, baro, verdict, deltaPct, gpsFloor }]}
+        rows={[{ gps, baro, verdict, deltaPct }]}
         rowKey={() => 'apogee'}
         columns={[
           { key: 'reading', header: 'Reading', cell: () => 'Apogee', text: () => 'Apogee' },
           {
             key: 'gps',
             header: 'GPS',
-            cell: (r) => (
-              <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
-                {fmtLength(r.gps, sys)}
-                {r.gpsFloor && APOGEE_TAG_FLOOR}
-              </span>
-            ),
-            text: (r) => `${fmtLength(r.gps, sys)}${r.gpsFloor ? APOGEE_TAG_FLOOR : ''}`,
+            cell: (r) => <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">{fmtLength(r.gps, sys)}</span>,
+            text: (r) => fmtLength(r.gps, sys),
           },
           {
             key: 'baro',
@@ -116,20 +104,6 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
         )}
         A GPS altitude is coarse (metres, and worse vertically than horizontally) but owes nothing
         to the weather or to the air around the airframe.
-        {gpsFloor && metrics.gpsApogeeGap != null && metrics.gpsSolutionInterval != null && (
-          <>
-            {' '}
-            <strong className="font-medium text-amber-700 dark:text-amber-400">
-              The receiver went {metrics.gpsApogeeGap.toFixed(1)}&nbsp;s without a new solution
-              across the peak
-            </strong>{' '}
-            — against the {metrics.gpsSolutionInterval.toFixed(1)}&nbsp;s it was managing on the
-            rest of this flight. The highest fix in a recording is the highest one the receiver
-            happened to solve, so with a hole that size the real peak may sit inside it and the GPS
-            figure is a lower bound rather than a different reading. That is one direction these
-            two can differ without either being wrong.
-          </>
-        )}
         {timeApart != null && (
           <>
             {' '}

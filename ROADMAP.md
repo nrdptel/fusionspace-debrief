@@ -2910,50 +2910,58 @@ instead of a constant. What is missing is everything downstream of the position.
 ### The slices, ranked by what a flyer can check
 
 1. **A GPS apogee says how many SOLUTIONS it rests on, and is qualified when they collapse near the
-   peak. SHIPPED 2026-08-18, on the second attempt — the first was built the same day, measured and
-   thrown away, and that is the part worth reading.**
+   peak. REFUSED TWICE 2026-08-18 — and the second refusal is about the SLICE, not the
+   implementation. Read this before building it a third time.**
 
-   **The gap it targets is real and bigger than the milestone assumed.** On `SG1.1-Booster` the GPS
-   apogee reads **2,251 ft against a barometric 2,502 ft — 10% low — on BOTH of its exports**, and
-   the cross-check panel called that "differ" without ever saying the GPS figure is a lower BOUND
-   rather than merely a different reading. That flight spends 13 distinct solutions on three
-   satellites, whose heights are dropped because a 2D fix's height is an assumption. So the corpus
-   does contain the case, which the first cut of this slice assumed it did not.
+   **The first half of this slice already ships.** `gpsAscentFixes` states how many solutions a GPS
+   apogee rests on and has since D3. Only the qualification is outstanding, and it is the half that
+   has now failed twice.
 
-   **The first attempt, and why it was refused.** A `gpsApogeeGapS` metric — seconds without a
-   usable height immediately either side of the peak — measured over SAMPLES. It fired on
-   `SG1.1-Booster`'s **`.eeprom` (17.9 s) and not on its `.csv`**, for one flight. The reason is
-   structural rather than a threshold to tune: an AltOS `.eeprom` writes a GPS record only when the
-   receiver actually solved one, so its position channel is NaN between fixes in a 100 Hz array,
-   while AltosUI's `.csv` repeats the held position on every row. **A metric defined over SAMPLES
-   answers differently for two exports of one download** — precisely the one-value-two-accounts
-   defect the rest of that run was spent closing.
+   **First attempt: measured over SAMPLES, and refused for it.** A `gpsApogeeGapS` metric fired on
+   `SG1.1-Booster`'s `.eeprom` (17.9 s) and not on its `.csv` — one download, two answers — because
+   an AltOS eeprom writes a GPS record only when the receiver solved one while AltosUI's CSV repeats
+   the held position on every row. Correct refusal, and the fix looked obvious: count solutions.
 
-   **What shipped.** `gpsApogeeGap` and `gpsSolutionInterval` (`lib/analyze/index.ts`), both walked
-   over SOLUTIONS the way `gpsAscentFixes` already is, and `peakRestsOnAGap` in `lib/gpsFix.ts` as
-   the one gate all three surfaces ask — the panel, the `.txt`/`.md`/`.html` documents and
-   `analysisJson`, which now carries `gpsApogeeGapS`, `gpsSolutionIntervalS` and
-   `gpsApogeeIsFloor`. The figure is tagged `(at least)` and explained; it is never dropped.
+   **What was written down alongside that refusal was WRONG, and it is the more expensive error.**
+   The entry claimed *the corpus does contain the case* — on the strength of `SG1.1-Booster`'s GPS
+   apogee reading 10% below its barometric one and an 18 s gap existing somewhere in the file.
+   **Nobody checked that the gap was anywhere near the apogee.** It is not.
 
-   **Measured, and the numbers are what settled every choice.** Both SG1.1 exports now agree
-   exactly — **57 solutions, a 1.00 s median interval, an 18.00 s gap** — and the Kairos pair agrees
-   to 10 ms. Across every corpus recording that states a GPS apogee the gap-to-cadence ratio is
-   **1.0, 1.1, 1.1, 1.1, 1.4 and 18.0**, so the separation is an order of magnitude and the
-   threshold sits in empty space rather than being fitted. The rule is *three times the record's own
-   cadence AND at least two seconds*: the ratio clause is what keeps `endurance` quiet (7.0 s of
-   silence on a 5 s receiver, whose GPS apogee reads ABOVE the barometric one), and the absolute
-   clause is what would keep a 20 Hz receiver quiet, since three missed solutions there is 0.15 s
-   and an airframe sits within a metre of its apogee for far longer than that.
+   **Second attempt: rebuilt over solutions, gate green, and killed by a pre-merge review.** Both
+   exports agreed (57 solutions, a 1.00 s median, an 18.00 s gap), 1,473 unit tests and 364 e2e
+   passed, five mutants reddened — and it was still wrong twice over:
 
-   **Pinned by `lib/gpsApogeeGap.test.ts`**, whose first case is the one the suite did not have when
-   the first attempt passed its gate: *hold a flight's two exports side by side and fail when they
-   disagree.* Five mutants were run against it — sample-counting, each threshold clause alone, the
-   document tag removed, the JSON flag removed — and all five reddened. Sample-counting is killed by
-   the corpus cases, not merely by a unit case.
+   - **The walk gated solutions on the GPS ALTITUDE channel**, so a run of two-dimensional fixes —
+     real positions whose height `lib/gpsFix.ts` strips because a 2D fix's height is an assumption —
+     counted as *silence*. Over positions the same file holds **69** solutions, not 57.
+   - **The hole is nowhere near the apogee.** `SG1.1-Booster`'s barometric apogee is at **t = 13.1 s**
+     and the 18 s hole runs **35.1 → 53.1 s**, under the parachute. The document row it produced
+     contradicted itself inside one line: *"not the same peak — the two put it 39.8 s apart — the
+     receiver went 18.0 s without a solution across the peak"*.
 
-   **What this slice deliberately did NOT do.** It states a bound; it does not filter. The GPS
-   apogee is still published, still cross-checked, still the receiver's own reading — which is
-   `COMPETITION.md` row 47's standing rule for every quality signal in this milestone.
+   **Measured properly, no reachable file is in this state.** Counting solutions over POSITION and
+   taking the interval that actually BRACKETS the barometric apogee, `SG1.1-Booster` solved
+   **0.99 s** and **1.02 s** either side of its apogee, and every corpus recording that states a GPS
+   apogee sits at a bracketing ratio of **0.9–1.4**. Not one is near the 3× the rule wanted.
+
+   **And the flight that motivated the whole slice is already handled correctly.** `SG1.1-Booster`'s
+   GPS apogee is 10% low because its altitude solution LAGS — `peakAgreement` returns
+   *"not the same peak"*, the two peaks are 39.8 s apart, and `lib/methods/content.tsx` has described
+   that exact flight since before this milestone existed: *"a receiver whose altitude solution lags so
+   far behind that it sits at pad level through the whole climb and peaks 34 s later, under
+   drogue"*. The qualification added nothing and published a false cause on four surfaces.
+
+   **If it is ever rebuilt, all four of these are required**, and the first two are what the second
+   attempt got wrong: (i) a solution is a distinct POSITION, never a row that happens to carry a
+   height; (ii) the silence must BRACKET the apogee being qualified, not merely exist in the file;
+   (iii) it must not fire where `peakAgreement` already says the two recordings did not see the same
+   peak, because then the GPS altitude channel is in doubt for reasons a gap cannot explain; and
+   (iv) it needs a real file to fire on. **A synthetic file alone is not evidence** — D10's generator
+   can produce this state on demand, which is exactly why building against it would prove nothing.
+
+   **Recommendation: move this slice to the BACK of D12 and start from slice 2.** Slices 2–5 are
+   disclosure of data the files already carry and are checkable against the corpus today; this one
+   qualifies a state no file reaches.
 
 2. **The dilution-of-precision columns AltOS already parses and throws away.**
    `lib/parsers/altusmetrum.ts:184` maps `nsat` and drops `pdop`/`hdop`/`vdop` from a CSV it has
@@ -3011,8 +3019,9 @@ fails rather than passing unnoticed. **And no accuracy is stated in metres anywh
 vendor publishes a function from what these files carry; the claim is always what the receiver
 solved, never how close it got.
 
-**Size.** 4–6 increments; **slice 1 is shipped**, so 3–5 remain. It was the only limb that was a
-wrong number rather than a missing one; what is left is disclosure.
+**Size.** 4–6 increments, and **slice 1 is not one of them** until a file that exercises it turns up
+— it has been refused twice. Start at slice 2; what is left is disclosure of data the files already
+carry, which is checkable against the corpus today.
 
 **Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
 this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate

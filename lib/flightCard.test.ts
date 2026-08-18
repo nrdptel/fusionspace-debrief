@@ -49,8 +49,6 @@ const base: FlightMetrics = {
     gpsApogeeAltitude: null,
     gpsApogeeTime: null,
     gpsAscentFixes: null,
-    gpsApogeeGap: null,
-    gpsSolutionInterval: null,
 };
 
 describe('flightCardStats', () => {

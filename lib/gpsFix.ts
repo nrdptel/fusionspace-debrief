@@ -186,39 +186,3 @@ export function fixQualitySentence(q: FixQuality): string | null {
     `position than the rest, not a wrong one.${lastClause}`
   );
 }
-
-/**
- * Whether a GPS peak rests on a hole in the record rather than on a solution near the top.
- *
- * A receiver that stops solving does not stop being logged — it repeats its last position, or its
- * eeprom simply writes nothing — so the highest fix in a record is the highest fix the receiver
- * HAPPENED to solve, which is the apogee only if it was still solving as the rocket went over. When
- * it was not, the published GPS apogee is a lower bound, and the cross-check panel calling that
- * *"differ"* invites a flyer to conclude the barometer is wrong.
- *
- * **Both arguments are measured over SOLUTIONS, never over samples, and the first version of this
- * rule was refused for exactly that.** A gap counted in rows fired on `SG1.1-Booster`'s `.eeprom`
- * (17.9 s) and not on the `.csv` of the same download — one flight, two answers — because an AltOS
- * eeprom writes a GPS record only when the receiver solved one while AltosUI's CSV repeats the held
- * position on every row. Counted between solutions the two exports agree exactly: **57 solutions, a
- * 1.00 s median interval and an 18.00 s gap at the peak, from both files.**
- *
- * **Why two clauses, and what each one is holding off.** Measured over every corpus recording that
- * states a GPS apogee, the gap-to-interval ratio is 1.0, 1.1, 1.1, 1.1, 1.4 and 18.0 — so the
- * separation is an order of magnitude and no threshold in between is doing delicate work. The ratio
- * clause is what keeps the `endurance` TeleMetrum quiet: it has the second-largest absolute gap in
- * the corpus at 7.0 s, and on a 5 s receiver cadence that is one ordinary interval, not a hole — its
- * GPS apogee reads ABOVE the barometric one, so it plainly did not miss the peak. The absolute
- * clause is what would keep a fast receiver quiet: three missed solutions at 20 Hz is 0.15 s, and a
- * rocket sits within a metre of its apogee for far longer than that, so a hole that short cannot
- * hide a peak however bad the ratio looks.
- *
- * This states a bound; it does not filter. The GPS apogee is still published, still cross-checked,
- * and still the receiver's own reading — it is labelled as a floor rather than dropped, which is
- * `COMPETITION.md` row 47's standing rule for every quality signal in this module.
- */
-export function peakRestsOnAGap(gap: number | null, interval: number | null): boolean {
-  if (gap == null || interval == null) return false;
-  if (!Number.isFinite(gap) || !Number.isFinite(interval) || interval <= 0) return false;
-  return gap >= 2 && gap >= interval * 3;
-}
