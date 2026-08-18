@@ -2963,33 +2963,90 @@ instead of a constant. What is missing is everything downstream of the position.
    disclosure of data the files already carry and are checkable against the corpus today; this one
    qualifies a state no file reaches.
 
-2. **The dilution-of-precision columns AltOS already parses and throws away.**
-   `lib/parsers/altusmetrum.ts:184` maps `nsat` and drops `pdop`/`hdop`/`vdop` from a CSV it has
-   already tokenised. **Read the sentinel first**: `2147483647` means *never supplied* and appears on
-   2 of the 8 corpus AltOS CSVs that carry the columns, so a naive read publishes a dilution of
-   precision of two billion. And the honest limit is already measured — corpus-wide the kept fixes
-   run `hdop` **0.5–5.4**, and the existing `nsat > 0` gate already removes the bad ones, so **HDOP
-   buys graded confidence, not extra filtering** and must not ship as a correctness fix.
+2. **The dilution-of-precision columns AltOS already parses and throws away. SHIPPED 2026-08-18.**
 
-   **Re-measured 2026-08-18, and three things are now known that the entry above did not say.**
-   (a) **The sentinel is whole-FILE, not per-row.** Both files that carry it carry it on *every* row
-   — 346 of 346 and 4,118 of 4,118 — so it is a firmware that never supplied DOP at all, and the
-   honest surface for those files is *"this recording states no dilution of precision"* rather than a
-   per-fix gap. (b) **The triple is internally consistent, so the columns are what they say.**
-   `PDOP² = HDOP² + VDOP²` holds on **every fix row of every file that carries all three** —
-   478/478, 20/20, 15,938/15,938, 6,907/6,907, 1,085/1,085, and 13,770 of 13,985 on the last, worst
-   case 11.1% and typically under 8%. That is worth having before building: it means the three can be
-   presented as one geometry rather than three unrelated numbers, and it is a cheap check to keep.
-   (c) **3 of the 11 AltOS CSVs carry no DOP columns at all**, so the surface has to say nothing
-   gracefully more often than it says something.
+   `lib/parsers/altusmetrum.ts` mapped `nsat` and dropped `pdop`/`hdop`/`vdop` from a CSV it had
+   already tokenised. All three are now channels — `dopHorizontal`, `dopVertical`, `dopPosition`,
+   unitless — and the recovery view and every saved document state the horizontal spread behind the
+   positions a flyer is looking at. **6 corpus recordings carry them, 16 channels in all, 5 with a
+   position track to state it against.**
 
-   **And a trap that cost this measurement two passes.** The AltOS CSV header line begins with `#`
-   (`#version,serial,flight,…`) while the data rows have **no** extra leading field, so stripping the
-   `#` gives the correct indices and adding an offset for it shifts every column by one. The shifted
-   read did not error — it produced `nsat` **41**, `vdop` **24.00** and a `PDOP² = HDOP² + VDOP²`
-   check that failed on 100% of rows, which reads exactly like a real finding about a broken vendor
-   format. What caught it was physical plausibility: no receiver has 41 satellites in a fix. **Sanity
-   the units before believing a measurement about a format, not after.**
+   **Two "no value" conventions, both found by measurement rather than assumed.**
+
+   - **`2147483647` — INT32_MAX — means never supplied, and it is a PER-COLUMN statement.** The
+     first draft of this entry called it per-file and that was wrong:
+     `intrepid2/telemetrum_data.csv` supplies `pdop` at **1.60–1.70** on all 346 of its rows while
+     marking `hdop` and `vdop` never-supplied on every one of them. A file-level rule gets that
+     recording wrong in one direction or the other. A sentinel VALUE becomes NaN; only a column
+     that is sentinel throughout loses its channel, so absence reads as absence rather than as an
+     empty chart.
+   - **`23.10` in all three, beside a zero-satellite row, is the receiver having nothing to say** —
+     and this one was not in the milestone at all. `endurance`'s TeleMetrum log writes it on **all
+     112** of its no-fix rows: one repeated value, ten times worse than anything else in the file.
+     Left in, the recovery view would have read *"HDOP 0.80 to 23.10"* and a flyer would have taken
+     23.10 as that flight's worst geometry. The parser already blanks latitude, longitude and the
+     GPS altitude on exactly those rows; the dilution columns now go with them.
+
+   **What makes the second removal defensible rather than a filter**: `PDOP² = HDOP² + VDOP²` held
+   on 22,199 of 22,307 rows before it, and on **22,199 of 22,199 — every single one, worst case
+   7.96%** — after. The 108 exceptions *were* the placeholder. Removing a non-reading closed the
+   invariant instead of loosening it, which is the whole difference between this and a threshold.
+
+   **The line this slice did not cross.** Nothing anywhere looks at how BAD a dilution is. Setting
+   the placeholder aside, the worst dilution Debrief READS off any file in reach is **6.10** — a
+   position dilution on `irec_2023_telemega.csv` — and it is published exactly as the receiver wrote
+   it. Row 47's rule holds: fix quality buys graded confidence, never extra filtering, and the
+   existing `nsat > 0` gate had already removed the rows a DOP threshold would.
+
+   **That number was 12.10 in the version of this entry that first shipped, and correcting it is
+   worth more than the digit.** 12.10 is real — it is `Mega38-1_TeleMega.csv`'s worst position
+   dilution — which is exactly why it survived being written into `/methods`, into
+   `lib/gpsFix.ts`'s own comment and into this file. **But no named parser claims that file.**
+   `importFlight` returns `kind: 'mapping'` for it and the column mapper offers no dilution role at
+   all, so Debrief publishes nothing from it and the sentence *"is published exactly as the receiver
+   wrote it"* was false of the only file that could have made it true. **The corpus had already
+   written that down**: its `expected.json` entry is `"expect": {"kind": "mapping"}` with a
+   `knownIssue` reading *"TeleMega AltOS sheet-export column layout falls to mapping"* — the file is
+   a Google-Sheets export whose headers carry their units (`altitude (m)`, `speed (m/s)`), which
+   `col('altitude')` does not match. So the check that would have caught this was one directory
+   away, and reading the fixture's own contract is cheaper than re-deriving it.
+
+   A claim about the CORPUS had been written under a sentence about the PRODUCT. That is this repo's
+   own recorded failure mode — an inference published as a measurement — and it landed on a public
+   documentation page, which is the one place a green gate cannot see it. Two further figures went
+   the same way and are corrected with it: `/methods` said a single flight runs *0.80 to 1.90* (no
+   recording does; the widest is **0.70 to 3.10**), and `dopSentence`'s own comment argued for
+   stating a range by citing *0.80 to 23.10* — **a range the same change had just removed**, 23.10
+   being the no-fix placeholder.
+
+   **Pinned so it cannot drift back**: `lib/dop.test.ts` → *"the numbers the methods page quotes …
+   are the numbers the corpus actually produces"* asserts both figures EXACTLY (6.10 and 3.10)
+   rather than bounding them, because a bound goes quietly green the day the corpus or the parser
+   moves. Falsified with the two old values: it fails on each and names the file.
+
+   **The transferable rule: a figure in prose needs the same scope statement as a figure in a
+   table.** "The corpus's worst value" and "the worst value Debrief reads" are different quantities,
+   and this repo has already been caught once quoting a whole-record percentage beside a windowed
+   table. Prose is where that survives, because no assert reads it.
+
+   **And no metres, anywhere.** Dilution multiplies the receiver's own ranging error; it is not that
+   error, and no file here carries it. The sentence states a RANGE and a middle, because a single
+   flattering number is what `MAINTAINING.md`'s measurement spine forbids.
+
+   **A defect this slice found and fixed on the way past.** `fixQualitySentence` was **screen-only**:
+   `components/GroundTrack.tsx` stated how many of a track's positions were solved in two dimensions
+   and nothing carried it into a saved report, so a flyer who filed the document and walked off the
+   map took the coordinate without the sentence qualifying it. Same shape this repo has now found
+   five runs running, and introduced by this run's own earlier work. Both sentences now ride
+   `howRead`, which reaches `.txt`, `.md`, `.html` and the JSON at once.
+
+   **A trap that cost the scouting pass two attempts.** The AltOS CSV header line begins with `#`
+   while the data rows have no matching extra field, so stripping the `#` gives the correct indices
+   and adding an offset shifts every column by one. The shifted read did not error — it produced
+   `nsat` **41**, `vdop` **24.00**, and a consistency check failing on 100% of rows, which reads
+   exactly like a finding about a broken vendor format. **Sanity the units before believing a
+   measurement about a format, not after** — no receiver has 41 satellites in a fix.
+   `lib/dop.test.ts` keeps that consistency check for the same reason.
 
 3. **The satellite signal breakdown Featherweight carries, read the way the vendor reads it.** The
    `>40`/`>32`/`>24` dB-Hz columns are in the committed fixture. **Three disjoint bands summing to at
@@ -3019,9 +3076,9 @@ fails rather than passing unnoticed. **And no accuracy is stated in metres anywh
 vendor publishes a function from what these files carry; the claim is always what the receiver
 solved, never how close it got.
 
-**Size.** 4–6 increments, and **slice 1 is not one of them** until a file that exercises it turns up
-— it has been refused twice. Start at slice 2; what is left is disclosure of data the files already
-carry, which is checkable against the corpus today.
+**Size.** 4–6 increments. **Slice 2 is shipped**; slice 1 is not counted until a file that exercises
+it turns up, having been refused twice. **Next: slice 3** (the Featherweight signal breakdown), then
+4 and 5 — all three are disclosure of data the files already carry, checkable against the corpus.
 
 **Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
 this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate
@@ -3187,6 +3244,38 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**2026-08-18 (second entry, same day) — the logbook's DESKTOP half, which the entry below filed
+and named as the next thing here.** The row was a flex line whose every cell was `shrink-0`, so a
+figure began wherever the file name before it happened to end: `tabular-nums` lined the digits up
+INSIDE a cell and nothing lined the cells up with each other, on the one surface built to be
+scanned down a column. **Measured, by driving it: two seeded flights put their Max velocity at
+787.8 px and 621.0 px — 166.8 px apart.** And there was still no header row at any width, so the
+only thing that ever said which figure was which above `sm` was a `title`.
+
+Both halves close together, because they are one change: the row is a five-track grid above `sm`
+(`Flight · Logger · Max velocity · Apogee · Flown`) under a real header, with the two figures and
+the date right-aligned so the digits form a column. Below `sm` nothing moves — a five-column grid
+in 390 px is a squeeze, not a table, and the labelled block form already shipped for that width.
+
+Three things worth keeping:
+- **The header and the row read ONE template** (`ROW_COLS`, `LOGBOOK_COLUMNS` in
+  `components/RecentFlights.tsx`). This repo's rule for two lists that must agree is a shared
+  module rather than a resemblance, and a header hand-kept beside a row is the drift that rule
+  exists to stop.
+- **The synthetic tag had to stop being its own sibling.** It is conditional, so a made-up flight
+  had six cells where every other row had five — a grid would have shunted its figures one column
+  right on exactly the rows that carry a caveat. Logger and tag are one cell now, which is what
+  lets the template be fixed.
+- **The header is `aria-hidden`.** It is not a `<table>`, so nothing associates a header cell with
+  a data cell; the row's own `sr-only` names are what a screen reader uses, and leaving the header
+  in the tree would have read every column name twice per page.
+
+**Pinned by** `e2e/logbook.spec.ts` → *"the desktop logbook lines its figures up in columns, under
+headers that name them"*, which asserts GEOMETRY rather than class names — two flights seeded with
+deliberately different name lengths and figure widths, right edges agreeing to within 1 px.
+Falsified by putting the flex row back: it fails naming the two x positions, 166.8 px apart. e2e
+364 → 365.
 
 **2026-08-18 — two craft fixes SHIPPED, both of them the same defect class on different surfaces:
 a value whose identity or scope was available only through a hover, or not at all.** `0df7eea`.

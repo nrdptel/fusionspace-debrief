@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmtLength, fmtSpeed, fmtTime, lengthIn, unitsOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { groundTrack, recoveryStats, compass, trackGpx, trackKml, descentWind, ascentLean, windProfile } from '@/lib/gps';
-import { fixQualitySentence, trackFixQuality } from '@/lib/gpsFix';
+import { dopSentence, fixQualitySentence, trackDop, trackFixQuality } from '@/lib/gpsFix';
 import type { FlightEvent } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
@@ -67,6 +67,7 @@ export default function GroundTrack({
   landed,
   events,
   fixGrade,
+  hdop,
   synthetic,
   recordedBy,
 }: {
@@ -105,6 +106,8 @@ export default function GroundTrack({
    *  channel where the file states one. Optional, because most formats say nothing about their fix
    *  quality and the panel must say nothing rather than guess for them. */
   fixGrade?: Float64Array;
+  /** Horizontal dilution of precision, where the file states one. */
+  hdop?: Float64Array;
   /** Whether this is a flight Debrief MADE UP. Required with no default, for the reason
    *  `MetricGrid`'s and `FlightCard`'s are: on a panel whose three exports are coordinates
    *  somebody walks to, the safe-looking default is the defect value.
@@ -166,6 +169,10 @@ export default function GroundTrack({
     () => fixQualitySentence(trackFixQuality(lat, lon, fixGrade)),
     [lat, lon, fixGrade],
   );
+  // What the satellite GEOMETRY was behind those positions — a different question from what the
+  // receiver solved them IN, and the columns AltOS has always written and Debrief always dropped.
+  // Same function the saved report calls, so the two cannot drift apart.
+  const dop = useMemo(() => dopSentence(trackDop(hdop, lat, lon)), [hdop, lat, lon]);
   const wind = useMemo(
     () =>
       track && time && descentFromIndex != null
@@ -803,11 +810,13 @@ export default function GroundTrack({
           <>
             Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°), or put the coordinates into your
             phone/GPS — the cross marks the last fix.{fixQuality ? ` ${fixQuality}` : ''}
+            {dop ? ` ${dop}` : ''}
           </>
         ) : (
           <>
             This record ends before the ground, so the cross is the last fix Debrief has — not where the rocket came
             down, and not a direction to walk.{fixQuality ? ` ${fixQuality}` : ''}
+            {dop ? ` ${dop}` : ''}
           </>
         )}
         {lean && (

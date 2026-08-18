@@ -230,6 +230,15 @@ app, never counted in any accuracy or validation figure.** The surface audit is 
 than trusted from memory, because this repo's own history is that a caveat lands on one panel and a
 confident claim on another.
 
+PROGRESS · 2026-08-18 — **the milestone this note became is SHIPPED.** `ROADMAP.md`'s D10 is
+marked `SHIPPED 2026-08-18`, pinned by `lib/samples.test.ts`'s asymmetry check (every sink that can
+carry the claim out of the app is enumerated from the export registry rather than from a
+hand-written list, so a new sink fails rather than passing unnoticed). The note's hardest *done
+when* — the owner's own constraint, adopted verbatim — is the clause that is pinned: a made-up
+flight says so on every surface that can carry it out of the app, and is never counted in any
+accuracy or validation figure. **This note is answered; it stays Open only until a run collapses it
+into `## Resolved` with the owner's words carried across, per the lifecycle rule above.**
+
 PROGRESS · 2026-08-13 (second entry, same run) — **the sample is now OFFERED, which is the half of
 this note you can actually see.** `/` carries a fourth way in: *"A spreadsheet Debrief has to be
 told about"* — columns no parser recognises, mapped by hand into a flight, which is the answer to

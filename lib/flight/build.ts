@@ -33,6 +33,9 @@ const ROLE_TO_KIND: Record<Exclude<ColumnRole, 'time' | 'ignore' | DateRole>, Ch
   longitude: 'longitude',
   altitudeGps: 'altitudeGps',
   satellites: 'satellites',
+  dopHorizontal: 'dopHorizontal',
+  dopVertical: 'dopVertical',
+  dopPosition: 'dopPosition',
 };
 
 /** Kinds whose canonical unit is DEGREES, and which therefore never go through the unit

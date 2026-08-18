@@ -502,6 +502,63 @@ test('a phone can tell two similarly-named flights apart in the logbook', async 
   expect(new Set(visible).size, `both rows read the same on a phone: ${JSON.stringify(visible)}`).toBe(2);
 });
 
+/**
+ * The desktop logbook is a TABLE of flights, and a table's figures line up.
+ *
+ * The row was a flex line whose cells were each `shrink-0`, so every figure began wherever the
+ * file name before it happened to end: `tabular-nums` aligned the digits INSIDE a cell and
+ * nothing aligned the cells with each other. Two flights with names of different lengths put
+ * their apogees at two different x positions, on the one surface built to be scanned down a
+ * column — and there was no header row at any width, so the only thing that ever said which
+ * figure was which was a `title`, i.e. a hover, i.e. nothing on a touch screen.
+ *
+ * Asserted as GEOMETRY rather than as class names, because the claim is about what the screen
+ * does: seeded with names of deliberately different lengths and figures of different widths, the
+ * right edges of each column must agree across rows to within a pixel.
+ */
+test('the desktop logbook lines its figures up in columns, under headers that name them', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  // Different name lengths AND different figure widths — the two things that used to shift a
+  // column. A one-character difference would pass on the old markup by luck.
+  const seeds: [string, number][] = [
+    ['a.csv', 300],
+    ['a-considerably-longer-flight-name-for-this-row.csv', 2500],
+  ];
+  for (const [name, peak] of seeds) {
+    await page
+      .getByLabel('Choose a flight log file')
+      .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(eggtimerCsv(peak)) });
+    await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible();
+    await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  }
+  const rows = page.getByRole('list', { name: 'Your flights' }).getByRole('listitem');
+  await expect(rows).toHaveCount(2);
+
+  // The header exists and names every column, which is the half a hover could never do.
+  for (const label of ['Flight', 'Logger', 'Max velocity', 'Apogee', 'Flown']) {
+    await expect(page.getByText(label, { exact: true }).first()).toBeAttached();
+  }
+
+  // Each row's cells, by their titles — the two figures are what a flyer scans.
+  const edges = async (title: string) => {
+    const xs: number[] = [];
+    for (let i = 0; i < 2; i++) {
+      const box = await rows.nth(i).locator(`[title="${title}"]`).first().boundingBox();
+      expect(box, `${title} is painted on row ${i}`).not.toBeNull();
+      xs.push(box!.x + box!.width);
+    }
+    return xs;
+  };
+  for (const title of ['Max velocity', 'Apogee']) {
+    const [a, b] = await edges(title);
+    expect(
+      Math.abs(a - b),
+      `${title} starts at a different x on each row (${a.toFixed(1)} vs ${b.toFixed(1)}) — the columns do not line up`,
+    ).toBeLessThanOrEqual(1);
+  }
+});
+
 // The logbook keeps a bounded window of un-noted flights — every entry holds the whole file
 // text, so it has to be bounded. What it never did was SAY so: dropping 15 flights left 12,
 // and the three that went were named nowhere. A launch day is six files, so the third launch

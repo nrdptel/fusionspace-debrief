@@ -1535,6 +1535,7 @@ export default function FlightReport({
           apogeeAltitude={metrics.apogeeAltitude}
           events={events}
           fixGrade={getChannel(flight, 'gpsFixGrade')?.values}
+              hdop={getChannel(flight, 'dopHorizontal')?.values}
           synthetic={synthetic}
           recordedBy={recordedBy}
         />
