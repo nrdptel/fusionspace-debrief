@@ -42,7 +42,7 @@ import {
 } from './compare';
 import { derivedPeakCaveat } from './derivedPeak';
 import { buildFields, buildLine } from './buildInfo';
-import { accelIsClipped, ACCEL_TAG_CLIPPED, apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, avgBoostSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
+import { accelIsClipped, ACCEL_TAG_CLIPPED, apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, eventAltitudeTag, eventQualification, avgBoostSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -544,7 +544,10 @@ export function summaryText(
       // The snatch force a deployment charge put through the airframe — the recovery
       // hardware's load case, so it belongs in the report, not just the on-screen timeline.
       const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? `   ${fmtAccel(e.peakAccel, sys)} shock` : '';
-      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${fmtLength(e.altitude, sys)}${speed}${shock}${prov}`);
+      // The apogee row carries the qualification the Apogee reading above it carries. Without it
+      // this document stated one apogee twice, once "at least this high" and once flat.
+      const alt = fmtLength(e.altitude, sys) + eventAltitudeTag(e.type, analysis.metrics);
+      lines.push(`  ${e.label.padEnd(12)} ${fmtTime(e.time).padStart(8)}   ${alt}${speed}${shock}${prov}`);
     }
   }
 
@@ -631,7 +634,7 @@ export function summaryMarkdown(
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
       // The deployment snatch force — the recovery hardware's load case — where measured.
       const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel, sys) : '—';
-      out.push(`| ${cell(label)} | ${fmtTime(e.time)} | ${cell(fmtLength(e.altitude, sys))} | ${cell(speed)} | ${cell(shock)} |`);
+      out.push(`| ${cell(label)} | ${fmtTime(e.time)} | ${cell(fmtLength(e.altitude, sys) + eventAltitudeTag(e.type, analysis.metrics))} | ${cell(speed)} | ${cell(shock)} |`);
     }
   }
 
@@ -786,7 +789,7 @@ export function summaryHtml(
       const v = eventSpeed(analysis, e.index);
       const speed = Number.isFinite(v) ? fmtSpeed(v, sys) : '—';
       const shock = e.peakAccel != null && accelInG(e.peakAccel) >= 2 ? fmtAccel(e.peakAccel, sys) : '—';
-      return `<tr><td>${esc(lbl)}</td><td>${esc(fmtTime(e.time))}</td><td>${esc(fmtLength(e.altitude, sys))}</td><td>${esc(speed)}</td><td>${esc(shock)}</td></tr>`;
+      return `<tr><td>${esc(lbl)}</td><td>${esc(fmtTime(e.time))}</td><td>${esc(fmtLength(e.altitude, sys) + eventAltitudeTag(e.type, analysis.metrics))}</td><td>${esc(speed)}</td><td>${esc(shock)}</td></tr>`;
     })
     .join('');
 
@@ -1722,6 +1725,18 @@ export function analysisJson(
       label: e.label,
       time: sec(e.time),
       altitude: len(e.altitude),
+      // **A FLAG here and a tag on the four rendered surfaces, deliberately.** A consumer of this
+      // document parses `altitude` as a number, so appending " (at least)" to it would break the
+      // field to carry the caveat. The same facts the Apogee reading is qualified by, as data — so
+      // a script reading this file can refuse to quote a lower bound as a summit, which it could
+      // not do before.
+      //
+      // **Derived from `eventAltitudeTag` rather than re-stating its rule**, because the first
+      // version re-implemented the gate inline: the commit claimed one rule read by five surfaces
+      // and this one had its own copy, free to drift in silence. `apogeeCaveatFlags` is the shape
+      // the logbook already persists, so the two JSON artifacts of one app serialize one fact pair
+      // one way — and a third flag has one place to be added rather than two.
+      ...(eventAltitudeTag(e.type, m) ? { altitudeQualified: eventQualification(e.type, m) } : {}),
       speed: spd(eventSpeed(analysis, e.index)),
       provenance: e.provenance,
       ...(e.peakAccel != null ? { peakAcceleration: acc(e.peakAccel) } : {}),

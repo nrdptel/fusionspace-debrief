@@ -2,6 +2,7 @@
 
 import type { RecentMeta } from '@/lib/recents';
 import { fmtLength, fmtSpeed, type UnitChoice } from '@/lib/display';
+import { APOGEE_TAG_FLOOR, APOGEE_TAG_UNPROVEN } from '@/lib/readings';
 import { Card } from './ui';
 
 /**
@@ -20,6 +21,14 @@ import { Card } from './ui';
  *
  * Absent entirely on a flight recorded once, which is nearly every flight.
  */
+/** The apogee tag for a recording row, from the caveats the logbook already persists on it.
+ *  Mirrors `components/RecentFlights.tsx`'s helper of the same shape — the two lists render the
+ *  same rows and must not tag them differently. */
+function recordingApogeeTag(r: { apogeeCaveats?: { floor?: boolean; unproven?: boolean } }): string {
+  if (!r.apogeeCaveats) return '';
+  return `${r.apogeeCaveats.unproven ? APOGEE_TAG_UNPROVEN : ''}${r.apogeeCaveats.floor ? APOGEE_TAG_FLOOR : ''}`;
+}
+
 export default function RecordingPicker({
   recordings,
   currentId,
@@ -88,7 +97,18 @@ export default function RecordingPicker({
                   {here
                     ? 'the readings below'
                     : [
-                        showApogee ? (rec.apogeeM != null ? fmtLength(rec.apogeeM, sys) : '—') : null,
+                        // The tag the logbook's identical rows already carry, and this surface did
+                        // not — found by the pre-push review of the events-table fix, on the same
+                        // screen and in the same shape: one apogee, two accounts. `apogeeCaveats`
+                        // was already on the object being rendered (`lib/recents.ts`), so the fact
+                        // was in hand and simply not printed. A flyer picks WHICH RECORDING reports
+                        // the flight off this list, which makes an unqualified lower bound here
+                        // worse than most.
+                        showApogee
+                          ? rec.apogeeM != null
+                            ? fmtLength(rec.apogeeM, sys) + recordingApogeeTag(rec)
+                            : '—'
+                          : null,
                         showSpeed ? (rec.maxVelocityMs != null ? fmtSpeed(rec.maxVelocityMs, sys) : '—') : null,
                       ]
                         .filter(Boolean)

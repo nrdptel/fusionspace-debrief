@@ -4,7 +4,7 @@ import { analyzeFlight } from './analyze';
 import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasClippedAccel, compareHasFloorApogee, compareHasGpsDerivedSpeed, compareHasBaroDerived, LEGEND_FLOOR, recordingLine } from './report';
 import { buildComparison, type CompareInput } from './compare';
 import { PROVENANCE_COLUMN, provenanceCell } from './synthetic';
-import { landingRateIsWholeDescent } from './readings';
+import { APOGEE_TAG_FLOOR, APOGEE_TAG_UNPROVEN, eventAltitudeTag, eventQualification, landingRateIsWholeDescent } from './readings';
 
 function tinyFlight(): RawFlight {
   const dt = 0.05;
@@ -1232,6 +1232,157 @@ describe('the shareable card says which recording it is of', () => {
     // different things about the same flight.
     expect(recordingLine({ of: 2, reportedBy: 'primary.csv', isReportedBy: false })).toBe(
       'One of 2 recordings of this flight — reported by primary.csv',
+    );
+  });
+});
+
+describe('every document states one apogee, not one qualified and one bare', () => {
+  /**
+   * The Sev-1 this pins. The Apogee READING is qualified — "at least this high" when the log ends
+   * at its own peak, "(unproven)" when Debrief has disowned the altitude channel — and the EVENTS
+   * table printed the identical number flat, on five surfaces: the `.txt`, the `.md`, the `.html`,
+   * `analysisJson` and the screen. Measured over the corpus, **3 of 39 analysable records** carry a
+   * qualified apogee, and every one of them published it twice in one document.
+   *
+   * Driven through the real exports rather than through the helper, because the helper being right
+   * is not the claim — every sink reading it is.
+   */
+  function floorFlight(): RawFlight {
+    // A record that STOPS at its own peak: it never descends, so the apogee is a lower bound.
+    const dt = 0.05;
+    const time: number[] = [];
+    const alt: number[] = [];
+    for (let t = 0; t <= 18; t += dt) {
+      time.push(t);
+      const ft = t - 2;
+      alt.push(ft > 0 ? 300 * (1 - (1 - Math.min(ft, 16) / 16) ** 2) : 0);
+    }
+    return {
+      source: 'floor.csv',
+      format: 'test',
+      formatLabel: 'Test',
+      time: Float64Array.from(time),
+      channels: [{ kind: 'altitude', label: 'alt', unit: 'm', values: Float64Array.from(alt) }],
+      meta: {},
+      notes: [],
+    };
+  }
+
+  it('tags the apogee event wherever the apogee reading is tagged', () => {
+    const flight = floorFlight();
+    const a = analyzeFlight(flight);
+    expect(a.metrics.apogeeIsFloor, 'this record stops at its own peak').toBe(true);
+    const apogeeEvent = a.events.find((e) => e.type === 'apogee');
+    expect(apogeeEvent, 'it has an apogee event').toBeTruthy();
+
+    const txt = summaryText(flight, a, 'imperial');
+    const md = summaryMarkdown(flight, a, 'imperial');
+    const html = summaryHtml(flight, a, 'imperial');
+
+    // Asserted on the EVENT ROW itself rather than by counting occurrences in the document, and
+    // the reason is worth keeping: the `.txt` states the READING's qualification as the full
+    // sentence ("at least this high — the log ends at its own peak…") and the event row as the
+    // short tag, so a naive count of the tag finds one and reads as a failure against working
+    // code. Two forms of one claim, sized to two surfaces — which is the vocabulary §6 already
+    // has, not an inconsistency.
+    // **Split per FORMAT, because a line is not a row in all three.** `summaryHtml` joins its
+    // `<tr>`s with an empty string, so a line-based scan matches the whole events table at once —
+    // measured at 339 characters holding three `<tr>`s — and a build that tagged Liftoff instead of
+    // Apogee kept that assertion green. Caught by a pre-push review. The `.txt` and `.md` are
+    // genuinely line-per-row and keep the line scan.
+    // Scoped BELOW the `Events` heading, and this too was a second attempt: the readings block
+    // above it also has a line saying "Apogee", so a document-wide scan for the first such line
+    // found the READING — which states the qualification as the full sentence rather than the tag
+    // — and failed against working code.
+    for (const [name, doc] of [['txt', txt], ['md', md]] as const) {
+      const lines = doc.split(/\r?\n/);
+      const heading = lines.findIndex((l) => /^\s*(#+\s*)?Events\s*$/.test(l));
+      expect(heading, `${name} has an Events block`).toBeGreaterThan(-1);
+      const eventLines = lines.slice(heading + 1).filter((l) => /\d/.test(l) && /\s(s|ft|m)\b/.test(l));
+      const row = eventLines.find((l) => /apogee/i.test(l));
+      expect(row, `${name} has an apogee event row`).toBeTruthy();
+      expect(row, `${name} tags the apogee EVENT row`).toContain(APOGEE_TAG_FLOOR.trim());
+      // …and no OTHER event row wears the floor tag, which a document-wide count cannot say.
+      expect(
+        eventLines.filter((l) => !/apogee/i.test(l) && l.includes(APOGEE_TAG_FLOOR.trim())),
+        `${name} tags no event but the apogee`,
+      ).toEqual([]);
+      expect(doc, `${name} states the qualification in full as well`).toContain('at least this high');
+    }
+    // The `.html` is localised by its own row markup rather than by lines — and by the cell TAG,
+    // because the readings table above uses `<th>` for its label column while the events table uses
+    // `<td>`. Filtering on "contains a `<td>`" matched both and found the readings row first.
+    const htmlRows = html.split('<tr>').filter((r) => r.trimStart().startsWith('<td>'));
+    const htmlApogee = htmlRows.find((r) => /apogee/i.test(r));
+    expect(htmlApogee, 'the html has an apogee event row').toBeTruthy();
+    expect(htmlApogee, 'the html tags the apogee EVENT row').toContain(APOGEE_TAG_FLOOR.trim());
+    expect(
+      htmlRows.filter((r) => !/apogee/i.test(r) && r.includes(APOGEE_TAG_FLOOR.trim())),
+      'the html tags no row but the apogee',
+    ).toEqual([]);
+    expect(html, 'the html states the qualification in full as well').toContain('at least this high');
+
+    // The JSON gets a FLAG rather than a tag: a consumer parses `altitude` as a number, so the
+    // caveat cannot be appended to it.
+    const json = JSON.parse(analysisJson(flight, a, 'imperial')) as {
+      events: { type: string; altitude: unknown; altitudeQualified?: { floor?: boolean; unproven?: boolean } }[];
+    };
+    const jsonApogee = json.events.find((e) => e.type === 'apogee')!;
+    expect(jsonApogee.altitudeQualified, 'the JSON event carries the facts as data').toEqual({ floor: true });
+    expect(typeof jsonApogee.altitude, 'and its altitude is still a number a consumer can parse').toBe('number');
+    for (const e of json.events) {
+      if (e.type === 'apogee') continue;
+      expect(e.altitudeQualified, `${e.type} is not an apogee and carries no qualification`).toBeUndefined();
+    }
+  });
+
+  it('says nothing on an ordinary flight, and only ever on the apogee', () => {
+    // The half that makes the above able to fail — on the corpus this is 36 of 39 records.
+    const flight = tinyFlight();
+    const a = analyzeFlight(flight);
+    expect(a.metrics.apogeeIsFloor, 'this record comes back down').toBeFalsy();
+    expect(a.metrics.altitudeUnproven, 'and its altitude is not disowned').toBeFalsy();
+    for (const [name, doc] of [
+      ['txt', summaryText(flight, a, 'imperial')],
+      ['md', summaryMarkdown(flight, a, 'imperial')],
+      ['html', summaryHtml(flight, a, 'imperial')],
+    ] as const) {
+      expect(doc, `${name} says nothing about a floor`).not.toContain(APOGEE_TAG_FLOOR.trim());
+      expect(doc, `${name} says nothing about an unproven altitude`).not.toContain(APOGEE_TAG_UNPROVEN.trim());
+    }
+
+    // …and the rule is keyed on the event TYPE, so a renamed label cannot silently drop it and no
+    // other event can pick it up.
+    const qualified = { apogeeIsFloor: true, altitudeUnproven: false };
+    expect(eventAltitudeTag('apogee', qualified)).toBe(APOGEE_TAG_FLOOR);
+    for (const t of ['liftoff', 'burnout', 'drogue', 'main', 'landing'] as const) {
+      expect(eventAltitudeTag(t, qualified), `${t} is not an apogee`).toBe('');
+    }
+    expect(eventAltitudeTag('apogee', { apogeeIsFloor: false, altitudeUnproven: false }), 'nothing to say').toBe('');
+    expect(eventAltitudeTag('apogee', { apogeeIsFloor: false, altitudeUnproven: true })).toBe(APOGEE_TAG_UNPROVEN);
+  });
+
+  it('an unproven altitude CHANNEL taints every event height, not only the apogee', () => {
+    // The two flags have different reach and the first version of this work treated them as one.
+    // `apogeeIsFloor` is a fact about the apogee; `altitudeUnproven` disowns the CHANNEL, so every
+    // height read from it is in doubt — the report's own "worth knowing" block says so. Found by a
+    // pre-push review, on the same corpus record this work cites for unproven.
+    const unproven = { apogeeIsFloor: false, altitudeUnproven: true } as const;
+    for (const t of ['liftoff', 'burnout', 'apogee', 'drogue', 'main', 'landing'] as const) {
+      expect(eventAltitudeTag(t, unproven), `${t} rests on a disowned channel`).toBe(APOGEE_TAG_UNPROVEN);
+      expect(eventQualification(t, unproven), `${t}'s qualification, as data`).toEqual({ unproven: true });
+    }
+    // …while the floor stays on the apogee alone, because only that reading is a lower bound.
+    const floor = { apogeeIsFloor: true, altitudeUnproven: false } as const;
+    expect(eventAltitudeTag('apogee', floor)).toBe(APOGEE_TAG_FLOOR);
+    expect(eventQualification('apogee', floor)).toEqual({ floor: true });
+    for (const t of ['liftoff', 'burnout', 'drogue', 'main', 'landing'] as const) {
+      expect(eventAltitudeTag(t, floor), `${t} is not a lower bound`).toBe('');
+      expect(eventQualification(t, floor), `${t} carries no qualification`).toBeUndefined();
+    }
+    // Both at once render in one order, matching the reading and the logbook row.
+    expect(eventAltitudeTag('apogee', { apogeeIsFloor: true, altitudeUnproven: true })).toBe(
+      `${APOGEE_TAG_UNPROVEN}${APOGEE_TAG_FLOOR}`,
     );
   });
 });
