@@ -2077,8 +2077,40 @@ of numbers and `9322` occurs inside the soup by coincidence. Matching whole nume
 them too — `9322` and `1009` are both real values in those logs. Only the semantic rule works. Two
 mutants, each reddening with its own figure named, is the only reason this counts as a check.
 
-**Status:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c), TWO of (d)'s three logs, and the
-OPENROCKET DESIGN OVERLAY all SHIPPED.** Every sink the audit has found carries the claim
+**Status:** **SHIPPED 2026-08-18** — pinned by `lib/samples.test.ts`'s asymmetry check (every sink a
+made-up figure can leave through carries the claim, enumerated from the same registry the exporters
+are, so a new sink fails rather than passing unnoticed) plus, for the last capability, two cases
+holding the coarse-GPS sample byte-for-byte against its generator and asserting it reaches all three
+fix grades, and a walk in `e2e/analyze.spec.ts` that opens it from the front door and holds its
+reported apogee against the generator's own peak.
+
+**Every clause of the *done when* is met.** All SIX capabilities now have a named sample —
+multi-recording reconciliation, per-stage stitching, the column mapper, the OpenRocket design
+overlay, a saturated accelerometer and, as of this run, a coarse-GPS flight. Each opens through the
+same `ingest()` path a dropped file takes. Labelling is `todo: 0` across the enumerated sinks, and
+`/validation` counts no synthetic flight by construction.
+
+**What it delivered against the clause, stated rather than implied.** The last sample is not merely
+a seventh log: it is the first file in the app that exercises `lib/gpsFix.ts` at all, because every
+corpus recording carrying a position is locked throughout and no other sample carries a latitude.
+263 rows — 248 three-dimensional fixes, 5 two-dimensional, 10 with no fix; 253 positions kept and
+248 heights, so the rule is visible in the file's own arithmetic.
+
+**And one gap it opened rather than closed, which is the next session's starting point rather than a
+reason to reopen this milestone.** Building it found that **a GPS apogee resting on fewer solutions
+than the trace suggests is published bare** — a satellite profile that lost lock across apogee made
+a 5,466 ft flight report 1,312 ft with neither `apogeeIsFloor` nor `altitudeUnproven` firing. The
+sample deliberately does not demonstrate it (the receiver stays locked across the peak, so the
+sample's own reading is honest at 0.01%); the defect is filed in `BACKLOG.md`. No corpus recording
+is in that state, which is why a sample found it and four runs of sweeps did not.
+
+**The three thrown-away drafts of that generator are recorded in `lib/synthetic.ts`** and are worth
+more than the file: integrating at the sample rate turned a coarse RECORDING into a different
+FLIGHT; keying a lost-lock window on an altitude covered a third of the descent on a taller flight;
+and degrading the fix across apogee would have shipped a demonstration that lies.
+
+**Superseded status line, kept for the arc:** IN PROGRESS — **slices 1, 2, 3, 4, 5a–5l, (c), TWO of
+(d)'s three logs, and the OPENROCKET DESIGN OVERLAY all SHIPPED.** Every sink the audit has found carries the claim
 (`todo: 0`), the mapper sample is OFFERED, `/stitch` has a demonstration for the first time, so does
 the app's own refusal to publish a railed peak, and as of 2026-08-17 so does the predicted-versus-flown
 overlay. **Five of the *done when*'s six capabilities now have a sample; what is left is the
