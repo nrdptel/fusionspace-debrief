@@ -271,10 +271,61 @@ export function windowStats(
 
 /** Every channel worth plotting: Debrief's three derived series first (the cleaned
  * canonical altitude/velocity/acceleration), then each channel the file recorded. */
+/**
+ * Does this altitude trace rise above the apogee the report publishes — and if so, the sentence
+ * that says the maximum beside it is not that apogee.
+ *
+ * **Why a trace can top the apogee at all, and why that is not a bug in either.** The analysis
+ * reads apogee as the last peak the record actually descends from (`clampToDescent`), because a
+ * deployment charge puts a pressure spike through a static port and a rocket that never comes down
+ * never reached a summit. The TRACE keeps whatever the file held — the methods page says so in as
+ * many words, *"the transient itself is never edited out — it stays in the raw trace you can plot —
+ * it just isn't read as the summit"* — and the 0.3 s Hampel window is deliberately too narrow to
+ * remove a wide one. Both behaviours are right. What was wrong is that the stats table beside the
+ * plot published the trace's `max` as a bare number, into a table whose own comment calls these
+ * "the numbers a cert document quotes", into `Copy these stats`, and into the `.csv` — with nothing
+ * saying it is not the apogee. Measured over the corpus: on `blueraven__trf-lemiv-l3` that table
+ * published **12,060 ft against a headline of 11,765.5 ft**, 295 ft, while the board's own summary,
+ * its GPS, an Eggtimer on the same flight and the L3 cert paperwork all agree with the headline.
+ *
+ * A `scope` and not a `caveat`, on this file's own stated rule: the numbers are exactly right, they
+ * are simply drawn over a stretch that includes something the summit reading excludes. And
+ * CONDITIONAL, because *a caveat on every flight is a caveat nobody reads*.
+ *
+ * **It says NO NUMBER, and that is the correction that matters here rather than a nicety.** A first
+ * version stated the gap as a percentage — and the table this annotates is WINDOWED: `windowStats`
+ * recomputes every figure for the current zoom and the heading flips to *"In the selected window"*,
+ * so a fixed whole-record percentage would sit beside a number it was not about, on the same screen,
+ * which is the exact defect this scope exists to close arriving one level down. A sentence with no
+ * number in it is true under every window. The same reasoning is why it states DEBRIEF'S RULE — how
+ * the apogee is chosen — rather than naming a deployment transient as the cause: the transient is
+ * the usual cause and this function has not established it on any particular flight, and a
+ * measurement instrument does not assert a mechanism it did not measure.
+ *
+ * The floor is half a metre: below that the two numbers are the same reading printed twice.
+ */
+function traceTopsApogee(values: Float64Array, apogee: number | undefined): string | undefined {
+  if (apogee === undefined || !Number.isFinite(apogee) || apogee <= 0) return undefined;
+  let max = -Infinity;
+  for (let i = 0; i < values.length; i++) if (Number.isFinite(values[i]) && values[i] > max) max = values[i];
+  if (!Number.isFinite(max) || max - apogee <= 0.5) return undefined;
+  return (
+    'this trace rises above the apogee Debrief reports, which is read as the last peak the record ' +
+    'descends from — so take the apogee from the report rather than from a maximum read off here'
+  );
+}
+
 export function buildPlotChannels(
   flight: RawFlight,
   series: FlightSeries,
-  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'> & ApogeeCaveatFacts & AccelCaveatFacts,
+  // `apogeeAltitude` is PARTIAL like the caveat facts beside it, not part of the required Pick: a
+  // caller with partial metrics still gets every trace, and the scope below simply says nothing —
+  // the same "a caller that has none still gets the refusal rather than silence" shape this
+  // signature already takes for the withheld speed.
+  metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'> &
+    Partial<Pick<FlightMetrics, 'apogeeAltitude'>> &
+    ApogeeCaveatFacts &
+    AccelCaveatFacts,
 ): PlotChannel[] {
   // The peak speed the report refused, and why. `series.velocityUnusable` is the flag; the
   // REASON lives on the metrics, so the caveat is fuller when a caller has them — and a caller
@@ -303,11 +354,29 @@ export function buildPlotChannels(
   const accelerationCaveat = metrics && accelIsClipped(metrics) ? ACCEL_CLIPPED_CAVEAT : undefined;
 
   const out: PlotChannel[] = [
-    { key: 'd-altitude', label: 'Altitude (AGL)', group: 'Debrief', values: series.altitude, ...display('m'), caveat: altitudeCaveat },
+    {
+      key: 'd-altitude',
+      label: 'Altitude (AGL)',
+      group: 'Debrief',
+      values: series.altitude,
+      ...display('m'),
+      caveat: altitudeCaveat,
+      scope: traceTopsApogee(series.altitude, metrics?.apogeeAltitude),
+    },
     // The pre-filter altitude — overlay it with the cleaned line to see exactly
     // what spike-removal took out (e.g. an ejection charge's pressure pop). It carries the same
-    // caveat: a reader comparing the two lines is reading the same apogee off both.
-    { key: 'd-altitude-raw', label: 'Altitude (raw)', group: 'Debrief', values: series.altitudeRaw, ...display('m'), caveat: altitudeCaveat },
+    // caveat: a reader comparing the two lines is reading the same apogee off both — and its own
+    // scope, computed separately, because the un-filtered trace tops the headline by MORE than the
+    // cleaned one does and a shared sentence would understate one of the two.
+    {
+      key: 'd-altitude-raw',
+      label: 'Altitude (raw)',
+      group: 'Debrief',
+      values: series.altitudeRaw,
+      ...display('m'),
+      caveat: altitudeCaveat,
+      scope: traceTopsApogee(series.altitudeRaw, metrics?.apogeeAltitude),
+    },
     { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s'), caveat: velocityCaveat },
   ];
   // Acceleration is offered only when it was measured. A baro-derived acceleration is the
