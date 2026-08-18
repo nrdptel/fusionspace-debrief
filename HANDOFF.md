@@ -21,7 +21,7 @@ weaker gate rather than the only gate.
 | track | where it is |
 |---|---|
 | **Shipped to production** | **FOUR merged this run: `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207).** `feeded2` was confirmed LIVE by fetching `version.json?cb=…`; `992a6d0`'s deploy was in flight at handoff time. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -4`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **One PR open: `docs/d12-decomposition` (#208)** — documentation only, full local gate green (1,467 unit / 364 e2e), and **CI's `frontend` job green with the corpus fetched**. Its `e2e` job HUNG: stuck in *E2E (headless browser)* for 50+ minutes against an 8-minute suite, on both that run and the superseded one for the previous commit, with no failure reported. Not a red gate and not this diff — the same suite is green locally on this exact tree and was green on CI for `#207` twenty minutes earlier. **Re-run the job**; if it hangs again, that is a CI-infrastructure finding worth its own entry rather than a reason to touch the tests. |
+| **Pending** | **One PR open: `docs/d12-decomposition` (#208)** — documentation only, full local gate green (1,467 unit / 364 e2e) and **CI green on both jobs**: `frontend` 2m25s with the corpus fetched, `e2e` 7m36s. An earlier version of this row said its `e2e` job had HUNG and told you to re-run it. **It had not** — see the fourth item below, which is the more useful half. |
 | **Sev-1** | **None inherited** (baseline green before anything was touched: unit 1,450 / 94 files with the corpus, build clean, e2e 359). **Two FOUND and FIXED this run**, both the same shape. **Two more FOUND, reproduced and FILED** — see below. |
 | **D — capability** | **D10 SHIPPED, and D12 decomposed to replace it.** All six capabilities in D10's *done when* have a named sample; the last needed the surface built first, and both landed. **D12 slice 1 was then built, measured and REFUSED** — see below; it is the next session's first increment, with the reason it failed already written down. |
 | **P — product & craft** | **Two craft fixes shipped**, both a value whose identity was hover-only or absent: the logbook's two figures, and `/changelog`'s pinned strip. §9 counts all at or better than the last run's. |
@@ -89,9 +89,10 @@ defect the rest of this run was spent closing.
 is, pinned by the check this run wrote for the degraded-fix rule — hold a flight's two exports side
 by side and fail when they disagree.
 
-## Three things this run got WRONG first, and the reviews that caught them
+## Four things this run got WRONG first, and what caught them
 
-Kept because each was green under a full gate and only a second pair of eyes killed it.
+Kept because each survived the thing that should have stopped it — three were green under a full
+gate, and the fourth was written down as fact.
 
 1. **Featherweight's satellite count published as `satellites`.** That kind means satellites IN the
    fix, where 0 says the position beside it is held over. The column is satellites the receiver can
@@ -106,7 +107,24 @@ Kept because each was green under a full gate and only a second pair of eyes kil
    The methods page teaches exactly this about the ascent-fix count, two paragraphs below where the
    row count had been written in.
 
-**The lesson under all three: a full green gate proves the code does what it says, not that what it
+4. **A CI hang that never happened, published in this very file.** The Pending row above said this
+   pull request's `e2e` job was *"stuck in E2E (headless browser) for 50+ minutes against an
+   8-minute suite"*, called it a CI-infrastructure finding, and told the next session to re-run the
+   job. **GitHub's own record refutes every part of it.** The pull request was opened at
+   **06:47:36 UTC**, its first workflow run was created at **06:47:40**, and the commit publishing
+   the 50-minute claim was authored at **06:52:48** — there was no 50-minute window for it to
+   happen in. The job then finished **green in 7m36s**, and `frontend` in 2m25s. Nothing was wrong
+   with CI.
+
+   **The elapsed time was never measured. It was asserted.** A job's `started_at` came off the API
+   and was subtracted from a "now" carried in context rather than read off a clock — which is the
+   same error as quoting a figure without its basis, committed against the one artifact whose whole
+   job is telling the next session what is true. **A duration is a measurement: read `date -u` at
+   the moment you read `started_at`, and subtract those two.** If you have only one of the pair,
+   say only what the record says — *"started at X, still running when I looked"* — which is both
+   honest and enough to act on.
+
+**The lesson under all four: a full green gate proves the code does what it says, not that what it
 says is true.** Hand the diff to a fresh agent with no context before every push.
 
 ## Two checks that could not fail, and one that failed against correct code
