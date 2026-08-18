@@ -33,7 +33,17 @@ export type ChannelKind =
   //   barometric channel for cross-checking, never merged into it. NaN wherever the
   //   receiver had no fix: a GPS holds its last position rather than saying nothing.
   | 'satellites' // satellites in the fix — 0 means the position and GPS altitude beside
-  //   it are held-over values, not measurements
+  //   it are held-over values, not measurements. NOT the same quantity as a receiver's count of
+  //   satellites it can HEAR: a Featherweight tracker reports 16 to 19 of those on rows its own
+  //   FIX column calls no fix at all (10 such rows in the corpus), so a tracked count carried
+  //   under this kind would say a held-over position was measured. A family that reports only the
+  //   tracked count carries it as `other` and states its fix quality through `gpsFixGrade`.
+  | 'gpsFixGrade' // what the receiver solved this fix in: 3 three-dimensional, 2 two-dimensional
+  //   (latitude and longitude on an ASSUMED height), 0 no fix — NaN where the file says nothing.
+  //   `lib/gpsFix.ts` is the one place a file's own statement is turned into this, from either a
+  //   satellite count or a fix-type column, so every family answers the question the same way.
+  //   The GRADE is not the accuracy: it says what a fix may be used for, never how many metres it
+  //   is good to.
   //
   // The three below are SENSOR-FRAME channels: one axis of a board's own inertial package,
   // named by the axis the board wrote rather than by what the airframe was doing. They are

@@ -98,7 +98,8 @@ export default function GpsApogee({ metrics, sys }: { metrics: FlightMetrics; sy
             counting rows counts the repeats: this figure used to read {'>'}100× higher on the same
             flights. A fix needs at least four satellites, which is what it takes to solve for a
             height at all; three gives a position on an assumed altitude, and none at all is the
-            held-over value. Both are left out rather than read as measurements.{' '}
+            held-over value. Neither counts as a HEIGHT here — though a three-satellite fix keeps
+            its position, because it still walks you to the rocket.{' '}
           </>
         )}
         A GPS altitude is coarse (metres, and worse vertically than horizontally) but owes nothing

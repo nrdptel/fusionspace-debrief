@@ -13,6 +13,7 @@
 import type { Parser, ParseInput } from './types';
 import type { RawFlight } from '../flight/types';
 import { getChannel } from '../flight/types';
+import { fixAllows, gradeFromSatellites, gradeValue } from '../gpsFix';
 import { parseTable } from '../csv';
 import { buildFlight, type ColumnMapping } from '../flight/build';
 import { flownAtFromColumns } from '../flight/flownAt';
@@ -222,6 +223,10 @@ export const altusMetrumParser: Parser = {
     const sats = getChannel(flight, 'satellites');
     if (lat && lon) {
       let any = false;
+      // What each fix was solved in, DERIVED from the satellite count rather than read off a
+      // column — AltOS writes no fix-type field. The label says so, because a value Debrief
+      // worked out and one the instrument stated are not the same claim.
+      const gradeVals = new Float64Array(lat.values.length).fill(NaN);
       for (let i = 0; i < lat.values.length; i++) {
         const la = lat.values[i];
         const lo = lon.values[i];
@@ -230,10 +235,19 @@ export const altusMetrumParser: Parser = {
         // loses lock through the whole boost and repeats its pad position and 218 m all
         // the way to 2,400 m, so taking those as data would put the rocket on the pad
         // while the barometer has it a mile up.
+        //
+        // What a count of satellites permits is `lib/gpsFix.ts`'s judgement rather than this
+        // parser's, so that the Featherweight family — which asks the same question of a
+        // fix-type column instead — cannot answer it differently. The rule it states is the one
+        // this parser has always taken: three satellites give latitude and longitude on an
+        // ASSUMED height, so the height is dropped and the position beside it is kept, because
+        // a 2D fix still walks you to the rocket.
         const n = sats && Number.isFinite(sats.values[i]) ? sats.values[i] : null;
-        const locked = n === null || n > 0;
+        const grade = gradeFromSatellites(n);
+        if (n !== null) gradeVals[i] = gradeValue(grade);
+        const allows = fixAllows(grade);
         const ok =
-          locked &&
+          allows.position &&
           Number.isFinite(la) &&
           Number.isFinite(lo) &&
           Math.abs(la) <= 90 &&
@@ -243,16 +257,19 @@ export const altusMetrumParser: Parser = {
           lat.values[i] = NaN;
           lon.values[i] = NaN;
         } else any = true;
-        // The altitude needs one more satellite than the position does. Three gives a 2D
-        // fix — latitude and longitude solved on the assumption of a fixed height — and no
-        // altitude at all; the fourth is what makes the solution 3D (the receiver solves
-        // for x, y, z and its own clock bias, four unknowns needing four satellites). So a
-        // height written beside a 3-satellite fix is an assumption the receiver made, not
-        // something it measured, and it is dropped while the position beside it is kept:
-        // a 2D fix still walks you to the rocket.
-        if (gpsAlt && (!ok || (n !== null && n < 4))) gpsAlt.values[i] = NaN;
+        if (gpsAlt && (!ok || !allows.altitude)) gpsAlt.values[i] = NaN;
       }
-      if (any) flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');
+      if (any) {
+        flight.notes.push('A GPS track was found; the recovery view shows where it drifted and landed.');
+        if (sats) {
+          flight.channels.push({
+            kind: 'gpsFixGrade',
+            label: 'Fix (from satellite count)',
+            unit: '',
+            values: gradeVals,
+          });
+        }
+      }
     }
 
     return flight;
