@@ -315,6 +315,43 @@ function traceTopsApogee(values: Float64Array, apogee: number | undefined): stri
   );
 }
 
+/**
+ * The same shape as `traceTopsApogee`, for the three readings whose HEADLINE is windowed and
+ * whose trace is not — and it is the sharper case, because two of them carry the supersonic
+ * claim.
+ *
+ * The analysis reads the peak speed, its Mach and the peak acceleration over the CLIMB (liftoff
+ * to apogee); this panel plots the whole record and takes its statistics off all of it. On the
+ * 121 km flight that gap is not a rounding difference: the explorer's Velocity `max` reads
+ * **3,728.3 m/s** and Mach **12.64** — a post-apogee re-entry sample at t = 181.5 s — against the
+ * report's **1,663.8 m/s** and Mach **5.64**. Two and a quarter times, published bare, in the
+ * table whose own comment two hundred lines below calls these *"the numbers a cert document
+ * quotes"*.
+ *
+ * `d-altitude` was given this sentence in August and `d-q` got its own in the same pass, both
+ * after the identical defect was found on them. The two traces that say a rocket went supersonic
+ * were left without one — which is the surface-audit lesson this repo keeps relearning: a
+ * qualification lands where it was first noticed, not everywhere the arithmetic travels.
+ *
+ * `tol` is the unit's own noise floor, so a trace that merely touches its headline says nothing.
+ */
+function traceTopsPeak(
+  values: Float64Array,
+  peak: number | null | undefined,
+  what: string,
+  tol: number,
+): string | undefined {
+  if (peak == null || !Number.isFinite(peak) || peak <= 0) return undefined;
+  let max = -Infinity;
+  for (let i = 0; i < values.length; i++) if (Number.isFinite(values[i]) && values[i] > max) max = values[i];
+  if (!Number.isFinite(max) || max - peak <= tol) return undefined;
+  return (
+    `this trace rises above the ${what} Debrief reports, which is read over the climb — the ` +
+    `maximum here can come from a descent or post-apogee sample, so take the ${what} from the ` +
+    'report rather than from a maximum read off this table'
+  );
+}
+
 export function buildPlotChannels(
   flight: RawFlight,
   series: FlightSeries,
@@ -323,7 +360,7 @@ export function buildPlotChannels(
   // the same "a caller that has none still gets the refusal rather than silence" shape this
   // signature already takes for the withheld speed.
   metrics?: Pick<FlightMetrics, 'maxVelocityWithheld'> &
-    Partial<Pick<FlightMetrics, 'apogeeAltitude'>> &
+    Partial<Pick<FlightMetrics, 'apogeeAltitude' | 'maxVelocity' | 'mach' | 'maxAcceleration'>> &
     ApogeeCaveatFacts &
     AccelCaveatFacts,
 ): PlotChannel[] {
@@ -377,7 +414,15 @@ export function buildPlotChannels(
       caveat: altitudeCaveat,
       scope: traceTopsApogee(series.altitudeRaw, metrics?.apogeeAltitude),
     },
-    { key: 'd-velocity', label: 'Velocity', group: 'Debrief', values: series.velocity, ...display('m/s'), caveat: velocityCaveat },
+    {
+      key: 'd-velocity',
+      label: 'Velocity',
+      group: 'Debrief',
+      values: series.velocity,
+      ...display('m/s'),
+      caveat: velocityCaveat,
+      scope: traceTopsPeak(series.velocity, metrics?.maxVelocity, 'peak speed', 0.5),
+    },
   ];
   // Acceleration is offered only when it was measured. A baro-derived acceleration is the
   // second derivative of a coarse altitude and is pure differentiation noise — a real
@@ -385,7 +430,17 @@ export function buildPlotChannels(
   // would just wreck the axis. Its peak is already withheld for the same reason, so the
   // trace isn't presented either; the velocity trace (a usable first derivative) stays.
   if (series.accelerationSource === 'device') {
-    out.push({ key: 'd-acceleration', label: 'Acceleration', group: 'Debrief', values: series.acceleration, ...display('m/s2'), caveat: accelerationCaveat });
+    out.push({
+      key: 'd-acceleration',
+      label: 'Acceleration',
+      group: 'Debrief',
+      values: series.acceleration,
+      ...display('m/s2'),
+      caveat: accelerationCaveat,
+      // The headline is `argMax(acceleration, liftoffRef, apogeeIdx + 1)`, so the landing spike
+      // and the ejection charge are outside it and inside this trace.
+      scope: traceTopsPeak(series.acceleration, metrics?.maxAcceleration, 'peak acceleration', 0.5),
+    });
   }
 
   // Mach number and dynamic pressure — the quantities a rocket is designed
@@ -400,7 +455,14 @@ export function buildPlotChannels(
     // Against the local speed of sound at each height (colder, slower aloft), like the report.
     for (let i = 0; i < mach.length; i++) mach[i] = series.velocity[i] / series.speedOfSoundProfile[i];
     // Unitless, so it sits on its own axis cleanly and reads straight off as Mach.
-    out.push({ key: 'd-mach', label: 'Mach', group: 'Debrief', values: mach, ...display('') });
+    out.push({
+      key: 'd-mach',
+      label: 'Mach',
+      group: 'Debrief',
+      values: mach,
+      ...display(''),
+      scope: traceTopsPeak(mach, metrics?.mach, 'Mach number', 0.01),
+    });
   }
   // **And the load case, which is the one this table got wrong for longest.** The max of this
   // trace IS the max-Q the grid, the report and every export publish — and until 2026-08-17 it

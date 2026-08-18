@@ -227,6 +227,86 @@ describe('buildPlotChannels', () => {
       }
     });
 
+    it('says a speed, Mach or acceleration trace tops its headline, and says nothing when it does not', () => {
+      // **The two traces that carry the SUPERSONIC claim had no scope at all**, while the altitude
+      // beside them and the dynamic pressure below them each got one after the identical defect was
+      // found on them. Measured on the 121 km flight through the column mapper: the explorer read
+      // Velocity max 3,728.3 m/s and Mach 12.64 — a post-apogee re-entry sample at t = 181.5 s —
+      // against the report's 1,663.8 m/s and Mach 5.64. 2.24x, published bare, in the table whose
+      // own comment calls these "the numbers a cert document quotes".
+      //
+      // The shape here is the corpus case in miniature: a climb to 100 m at 40 m/s, then a
+      // descent whose speed and acceleration both exceed anything on the way up.
+      const reentry: FlightSeries = {
+        ...series,
+        time: Float64Array.from([0, 1, 2, 3, 4]),
+        altitude: Float64Array.from([0, 50, 100, 40, 0]),
+        altitudeRaw: Float64Array.from([0, 50, 100, 40, 0]),
+        velocity: Float64Array.from([0, 40, 0, 90, 120]),
+        acceleration: Float64Array.from([0, 40, -9.80665, 60, 300]),
+        accelerationSource: 'device',
+        // Length has to track the new sample count: Mach is velocity/profile per index, and a
+        // short profile silently NaNs the tail — which would make the case pass for the wrong
+        // reason, since the descent samples are exactly the ones on trial.
+        speedOfSoundProfile: Float64Array.from([340, 339, 338, 339, 340]),
+        airDensity: Float64Array.from([1.2, 1.2, 1.2, 1.2, 1.2]),
+      };
+      const chans = buildPlotChannels(flight, reentry, {
+        maxVelocityWithheld: null,
+        maxVelocity: 40,
+        mach: 0.12,
+        maxAcceleration: 40,
+      });
+      const by = (k: string) => chans.find((c) => c.key === k);
+
+      expect(by('d-velocity')?.scope, 'the speed trace says its maximum is not the peak speed').toContain(
+        'take the peak speed from the report',
+      );
+      expect(by('d-acceleration')?.scope, 'the acceleration trace says the same').toContain(
+        'take the peak acceleration from the report',
+      );
+      expect(by('d-mach')?.scope, 'and the Mach trace, which is the supersonic claim').toContain(
+        'take the Mach number from the report',
+      );
+
+      // Same rule the altitude scope is held to: the table is WINDOWED, so a sentence quoting a
+      // whole-record figure would stop describing the numbers beside it the moment a reader drags
+      // across the chart.
+      for (const k of ['d-velocity', 'd-acceleration', 'd-mach']) {
+        expect(by(k)?.scope, `${k} states no figure, so it survives any zoom`).not.toMatch(/[0-9]/);
+      }
+    });
+
+    it('says nothing about a peak the trace never tops — the half that lets the case above fail', () => {
+      // A scope on every flight is a scope nobody reads. Here the headline IS the trace maximum,
+      // which is the ordinary flight, and all three must stay silent.
+      const ordinary: FlightSeries = {
+        ...series,
+        time: Float64Array.from([0, 1, 2, 3]),
+        altitude: Float64Array.from([0, 50, 100, 40]),
+        altitudeRaw: Float64Array.from([0, 50, 100, 40]),
+        velocity: Float64Array.from([0, 40, 0, -20]),
+        acceleration: Float64Array.from([0, 40, -9.80665, -5]),
+        accelerationSource: 'device',
+        speedOfSoundProfile: Float64Array.from([340, 339, 338, 339]),
+        airDensity: Float64Array.from([1.2, 1.2, 1.2, 1.2]),
+      };
+      const chans = buildPlotChannels(flight, ordinary, {
+        maxVelocityWithheld: null,
+        maxVelocity: 40,
+        mach: 0.12,
+        maxAcceleration: 40,
+      });
+      for (const k of ['d-velocity', 'd-acceleration', 'd-mach']) {
+        expect(chans.find((c) => c.key === k)?.scope, `${k} is silent on an ordinary flight`).toBeUndefined();
+      }
+      // …and a caller with no metrics at all gets silence rather than a guess.
+      const bare = buildPlotChannels(flight, ordinary, { maxVelocityWithheld: null });
+      for (const k of ['d-velocity', 'd-mach']) {
+        expect(bare.find((c) => c.key === k)?.scope, `${k} says nothing without metrics`).toBeUndefined();
+      }
+    });
+
     it('keeps the scope and the caveat as separate claims on one channel', () => {
       // The assertion this replaces could not fail: it asserted `caveat` was undefined on metrics
       // where `apogeeIsQualified` is false, so `altitudeCaveat` was unconditionally undefined and

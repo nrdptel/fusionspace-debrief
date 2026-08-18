@@ -6,11 +6,29 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | Measure it, do not read it here: `git fetch --prune origin && git log --oneline origin/main \| head -5`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. This run merged **PR #211** (four commits) and closed **#210** as superseded. |
-| **Pending** | Nothing on a branch. #210 was closed rather than merged — its commit is inside #211 byte for byte. |
+| **Shipped to production** | **PR #211 merged as `d1002da` and CONFIRMED LIVE** — `version.json?cb=…` returned `d1002da`, built `13:14:24Z`, read at `13:15:56Z`. Four increments. **#210 was CLOSED, not merged** — its commit is inside #211 byte for byte, with its claims corrected. Do not read this line next run: measure with `git fetch --prune origin && git log --oneline origin/main \| head -3` then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **PR #212, one commit** — the channel explorer's peak-speed / Mach / acceleration scope. Full local gate green (1,479 unit, build, 365 e2e); merge it on green CI. |
 | **Sev-1** | **None inherited** — the baseline gate was green before anything was touched (unit 1,467 / 95 files WITH the corpus, build clean, e2e 364). **One FOUND, reproduced, and deliberately NOT fixed**: max-Q's air density. See below; it is the first thing to pick up. |
 | **D — capability** | **D12 slice 2 SHIPPED** (it arrived as an unmerged PR from the previous run and this run corrected four of its claims before merging). **Next: D12 slice 3**, the Featherweight dB-Hz bins. |
 | **P — product & craft** | **P1: the logbook's desktop half SHIPPED** — the thing the previous run filed and named as "the next thing here". e2e 364 → 365. |
+
+## The explorer finding, and why its FIRST reproduction mattered
+
+Shipped in #212. The statistics table published **Velocity max 3,728.29 m/s and Mach 12.64** on the
+121 km flight — a post-apogee re-entry sample — against the report's 1,663.8 m/s and Mach 5.64.
+**2.24x, bare**, in the table whose own comment calls these *"the numbers a cert document quotes"*.
+`d-acceleration` had the same hole for the landing spike.
+
+**The first reproduction failed and that is the transferable half.** Run against
+`BlueRaven-LR.csv` the explorer and the report agreed exactly (1,719.4 m/s, Mach 5.79). The sweep
+had named `Mega38-1_TeleMega.csv` — the SAME flight on the other board, which no named parser claims
+and which reaches an analysis only through the column mapper. **Reproduce on the file a finding
+names, not on a neighbour**; one more step and it would have been filed as unreproduced and lost.
+
+The second half: `d-altitude` and `d-q` were each given this exact sentence earlier, after the
+identical defect was found on each. Speed, Mach and acceleration were never revisited. **When a
+qualification is added to a reading, enumerate the FAMILY** — the gap was four readings wide and
+each was closed one at a time, months apart.
 
 ## Start here: the Sev-1 this run reproduced and could not honestly fix
 
@@ -101,6 +119,8 @@ never the number — and a future session trusting the old sentence would get th
 
 ## Next, in order
 
+0. **Merge #212 if it is still open** — it is verified and green locally; only CI stood between it
+   and production.
 1. **The max-Q Sev-1** above — it is a wrong structural load case on a surface a flyer acts on, and
    it is the highest-value thing in the repo right now. It needs the cross-source altitude check.
 2. **D12 slice 3** — the Featherweight dB-Hz satellite bins. `COMPETITION.md` row 47 holds the
