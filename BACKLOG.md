@@ -14,6 +14,33 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-18 — the AltOS `.eeprom` reader drops the device serial its own header states.** The
+  download's JSON header carries `"serial": 5581` and `"product": "EasyMega-v2.0"`; the CSV reader
+  puts `serial` into `flight.meta` and the eeprom reader does not. Found while writing the check
+  below, and it mattered: a first version read the serial through `importFlight` and found ONE
+  serial per flight for every corpus group, which made the case silently vacuous — it passed on a
+  corpus that could not answer the question. The test reads the files directly now and says so. The
+  fix is small and the payoff is real: `meta.serial` is what lets Debrief tell two exports of one
+  board from two boards, which is the distinction a published accuracy figure turns on. Nothing
+  user-facing depends on it today.
+
+- **~~2026-08-18 — `/validation` published the cost of a derived peak as a single flattering
+  number, sixteen times too small.~~ RESOLVED 2026-08-18.** The page said *"the cleanest pair is one
+  device's CSV export against its own binary download — same flight, same sensor — and it reads
+  **+4%**"*. There are TWO such pairs. `lib/derivedPeak.ts` filed the stargazer pair as *"an
+  EasyMega against a second recording of the stargazer flight … + a second barometer"*
+  (`isolatesMethod: false`) when **both its recordings state `serial 5581` and `product
+  EasyMega-v2.0`** — one board, one flight, two exports, exactly like the sg1.1 TeleMetrum pair
+  beside it. So the method-alone figure is **+4% and +66%**, and the page named the smaller.
+  `MAINTAINING.md`: *"accuracy claims are a range with their basis, not a flattering single
+  number."* **What let it survive a year is the shape worth keeping:** `lib/parsers/corpus.test.ts`
+  recomputed every PERCENTAGE from the real files and would have caught a figure that drifted — it
+  never checked the one field that says what a figure MEANS. Now pinned by `lib/derivedPeak.test.ts`
+  in both directions, the load-bearing one being per-FLIGHT: any flight the files say was recorded
+  twice by one board must have a pair marked as isolating the method. Falsified by restoring the old
+  entry — it fails with *"issuiuc-stargazer1-20230507 has 2 recordings off serial 5581, so one of
+  its 1 pair(s) isolates the method — none is marked so"*.
+
 - **~~2026-08-18 — the channel explorer publishes a peak speed and a MACH NUMBER the report
   refuses, bare.~~ RESOLVED 2026-08-18.** Found by the opening corpus sweep and reproduced before
   scoping — and the first reproduction FAILED, which is the part worth keeping: run against
@@ -235,13 +262,16 @@ wild, ideas too big for one pass. One line each, newest first.
   `COMPETITION.md` row 47 proposes it — must map the sentinel to "not stated" first, or the app
   publishes a dilution of precision of two billion.
 
-- **2026-08-18 — the mapper route cannot express GPS quality, and does not consult `lib/gpsFix.ts`.**
-  `lib/flight/mappingOptions.ts:24` offers `latitude` and `longitude` only; `satellites` and
-  `altitudeGps` are legal `ColumnRole`s and legal `ChannelKind`s and are absent from the picker. So
-  a flyer with their own GPS spreadsheet can map the position and has no way to declare the quality
-  column beside it — and a hand-mapped 0-satellite held position reaches the ground track ungated,
-  where the same file read through a named parser would not. `grep -rn "gpsFix" lib/flight/` returns
-  nothing.
+- **~~2026-08-18 — the mapper route cannot express GPS quality, and does not consult
+  `lib/gpsFix.ts`.~~ RESOLVED 2026-08-18 as D12 slice 4.** Both halves, because shipping the picker
+  alone would have made it worse: a flyer could then declare a satellite count that graded nothing.
+  `altitudeGps`, `satellites` and the three dilution roles are offered now, and the satellite-count
+  fix rule moved out of `lib/parsers/altusmetrum.ts` into `lib/gpsFix.ts` as
+  `applySatelliteFixQuality`, applied by `buildFlight` — so a named parser, the column mapper and a
+  reopened flight all get the same answer. `grep -rn "gpsFix" lib/flight/` returns the import now.
+  The refactor moved no reading about any real flight: `lib/parsers/corpus.test.ts` 149/149
+  including the digest snapshot. Pinned by `lib/mapperGps.test.ts`, which holds the two routes side
+  by side over the same four fixes rather than testing either alone.
 
 - **2026-08-18 — the hover-only sweep cannot see the case it is named for, and runs on one route.**
   `e2e/hoverOnly.ts:68` exempts any element with ANY visible text (`if (visible(el).trim()) continue`),
