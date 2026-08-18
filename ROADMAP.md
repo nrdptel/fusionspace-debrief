@@ -2993,9 +2993,41 @@ instead of a constant. What is missing is everything downstream of the position.
    invariant instead of loosening it, which is the whole difference between this and a threshold.
 
    **The line this slice did not cross.** Nothing anywhere looks at how BAD a dilution is. Setting
-   the placeholder aside, the corpus's worst real value is 12.10 and it is published exactly as the
-   receiver wrote it. Row 47's rule holds: fix quality buys graded confidence, never extra
-   filtering, and the existing `nsat > 0` gate had already removed the rows a DOP threshold would.
+   the placeholder aside, the worst dilution Debrief READS off any file in reach is **6.10** — a
+   position dilution on `irec_2023_telemega.csv` — and it is published exactly as the receiver wrote
+   it. Row 47's rule holds: fix quality buys graded confidence, never extra filtering, and the
+   existing `nsat > 0` gate had already removed the rows a DOP threshold would.
+
+   **That number was 12.10 in the version of this entry that first shipped, and correcting it is
+   worth more than the digit.** 12.10 is real — it is `Mega38-1_TeleMega.csv`'s worst position
+   dilution — which is exactly why it survived being written into `/methods`, into
+   `lib/gpsFix.ts`'s own comment and into this file. **But no named parser claims that file.**
+   `importFlight` returns `kind: 'mapping'` for it and the column mapper offers no dilution role at
+   all, so Debrief publishes nothing from it and the sentence *"is published exactly as the receiver
+   wrote it"* was false of the only file that could have made it true. **The corpus had already
+   written that down**: its `expected.json` entry is `"expect": {"kind": "mapping"}` with a
+   `knownIssue` reading *"TeleMega AltOS sheet-export column layout falls to mapping"* — the file is
+   a Google-Sheets export whose headers carry their units (`altitude (m)`, `speed (m/s)`), which
+   `col('altitude')` does not match. So the check that would have caught this was one directory
+   away, and reading the fixture's own contract is cheaper than re-deriving it.
+
+   A claim about the CORPUS had been written under a sentence about the PRODUCT. That is this repo's
+   own recorded failure mode — an inference published as a measurement — and it landed on a public
+   documentation page, which is the one place a green gate cannot see it. Two further figures went
+   the same way and are corrected with it: `/methods` said a single flight runs *0.80 to 1.90* (no
+   recording does; the widest is **0.70 to 3.10**), and `dopSentence`'s own comment argued for
+   stating a range by citing *0.80 to 23.10* — **a range the same change had just removed**, 23.10
+   being the no-fix placeholder.
+
+   **Pinned so it cannot drift back**: `lib/dop.test.ts` → *"the numbers the methods page quotes …
+   are the numbers the corpus actually produces"* asserts both figures EXACTLY (6.10 and 3.10)
+   rather than bounding them, because a bound goes quietly green the day the corpus or the parser
+   moves. Falsified with the two old values: it fails on each and names the file.
+
+   **The transferable rule: a figure in prose needs the same scope statement as a figure in a
+   table.** "The corpus's worst value" and "the worst value Debrief reads" are different quantities,
+   and this repo has already been caught once quoting a whole-record percentage beside a windowed
+   table. Prose is where that survives, because no assert reads it.
 
    **And no metres, anywhere.** Dilution multiplies the receiver's own ranging error; it is not that
    error, and no file here carries it. The sentence states a RANGE and a middle, because a single

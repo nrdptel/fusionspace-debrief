@@ -92,7 +92,8 @@ describe.skipIf(!hasCorpus)('the sentinel', () => {
         for (let i = 0; i < c.values.length; i++) {
           expect(c.values[i], `${r.file} ${k}[${i}]`).not.toBe(DOP_NEVER_SUPPLIED);
         }
-        // …and nothing absurd survived by another route. The corpus's worst real value is 23.10.
+        // …and nothing absurd survived by another route. Bounded loosely here on purpose; the
+        // exact worst value is pinned once, below, because it is a number the methods page quotes.
         const real = Array.from(c.values).filter(Number.isFinite);
         expect(real.length, `${r.file} ${k} is all NaN — it should have been dropped`).toBeGreaterThan(0);
         expect(Math.max(...real), `${r.file} ${k}`).toBeLessThan(100);
@@ -123,6 +124,63 @@ describe.skipIf(!hasCorpus)('the sentinel', () => {
     const none = reads.find((r) => /sg1\.1.*TeleMetrum\.csv$/i.test(r.file));
     expect(none, 'corpus is missing the all-sentinel recording').toBeDefined();
     for (const k of DOP_KINDS) expect(getChannel(none!.flight, k), `${k} on the all-sentinel file`).toBeUndefined();
+  });
+});
+
+/**
+ * The two numbers the METHODS PAGE quotes, pinned to the corpus that produced them.
+ *
+ * **This exists because the first version of this slice quoted three figures that were not true of
+ * what Debrief reads.** `/methods` said a dilution of 12.10 is published as written and that a
+ * single flight runs 0.80 to 1.90; `lib/gpsFix.ts` said the same 12.10 and, arguing for stating a
+ * RANGE, gave 0.80 to 23.10 as the example — a range the very same change had removed, because
+ * 23.10 is `endurance`'s no-fix placeholder.
+ *
+ * 12.10 is a real value and that is what made it survive review: it is `Mega38-1_TeleMega.csv`'s
+ * worst position dilution. But `importFlight` returns `kind: 'mapping'` for that file — no named
+ * parser claims it, and the column mapper offers no dilution role (D12 slice 4) — so Debrief
+ * publishes nothing from it. **A claim about the CORPUS had been written under a sentence about
+ * the PRODUCT.** That is this repo's recorded failure mode, an inference published as a
+ * measurement, and prose is exactly where it survives a gate.
+ *
+ * So the page's numbers are asserted rather than described. Both are EXACT: a bound would go
+ * quietly green the day the corpus or the parser moved, which is the whole thing being prevented.
+ */
+describe.skipIf(!hasCorpus)('the numbers the methods page quotes', () => {
+  it('are the numbers the corpus actually produces', () => {
+    let worst = -Infinity;
+    let worstWhere = '';
+    let widestHi = -Infinity;
+    let widestWhere = '';
+    for (const r of corpusReads()) {
+      for (const k of DOP_KINDS) {
+        const c = getChannel(r.flight, k);
+        if (!c) continue;
+        for (const v of c.values) {
+          if (Number.isFinite(v) && v > worst) {
+            worst = v;
+            worstWhere = `${r.file} ${k}`;
+          }
+        }
+      }
+      // The sentence a flyer reads is HDOP over the positions that were KEPT, so the widest
+      // spread it can state is measured through the same function the surfaces call.
+      const lat = getChannel(r.flight, 'latitude')?.values;
+      const lon = getChannel(r.flight, 'longitude')?.values;
+      const d = lat && lon ? trackDop(getChannel(r.flight, 'dopHorizontal')?.values, lat, lon) : null;
+      if (d && d.hi > widestHi) {
+        widestHi = d.hi;
+        widestWhere = r.file;
+      }
+    }
+
+    // `/methods`: "the worst geometry Debrief reads off any of these files — a position dilution
+    // of 6.10 — is published exactly as the receiver wrote it."
+    expect(worst, `worst dilution read, in ${worstWhere}`).toBeCloseTo(6.1, 10);
+
+    // `/methods`: "a single flight can run from 0.70 to 3.10." The low end is the floor good
+    // geometry reaches; the top of the widest range is the half that can drift.
+    expect(widestHi, `widest HDOP stated, in ${widestWhere}`).toBeCloseTo(3.1, 10);
   });
 });
 

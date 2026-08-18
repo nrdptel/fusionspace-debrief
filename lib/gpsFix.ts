@@ -216,10 +216,18 @@ const DOP_KINDS = new Set<ChannelKind>(['dopHorizontal', 'dopVertical', 'dopPosi
  * question the surface never asks. `lib/canonical.ts` round-trips presence as presence, so the
  * distinction survives an export.
  *
- * **Nothing here filters on quality.** Only the sentinel is removed, and it is not a reading. A DOP
- * of 12.1 — the worst real value in the corpus — is kept exactly as the receiver wrote it, because
- * `COMPETITION.md` row 47's standing rule for this milestone is that fix quality buys graded
- * confidence, never extra filtering.
+ * **Nothing here filters on quality.** Only the sentinel is removed, and it is not a reading. The
+ * worst dilution Debrief reads off any file in reach — **6.10**, a position dilution on
+ * `irec_2023_telemega.csv` — is kept exactly as the receiver wrote it, because `COMPETITION.md`
+ * row 47's standing rule for this milestone is that fix quality buys graded confidence, never
+ * extra filtering.
+ *
+ * **That number is scoped to what Debrief READS, and the distinction is the whole point.** A first
+ * version of this comment said 12.1, which is a real value — `Mega38-1_TeleMega.csv`'s worst
+ * position dilution — in a file no named parser claims: `importFlight` returns `kind: 'mapping'`
+ * for it and the column mapper offers no dilution role at all (D12 slice 4). So Debrief publishes
+ * nothing from it, and quoting it as a value that survives this function was a claim about the
+ * corpus standing in for a claim about the product.
  */
 export function dropNeverSupplied(flight: { channels: Channel[] }): void {
   flight.channels = flight.channels.filter((c) => {
@@ -273,8 +281,14 @@ export function trackDop(
  * That summary as the sentence every surface prints, or `null` where the file states no HDOP.
  *
  * **A RANGE and a middle, never a single flattering number** — `MAINTAINING.md`'s measurement spine
- * asks for exactly that of any accuracy-shaped claim, and one corpus recording runs 0.80 to 23.10
- * across a single flight, so a median alone would hide an order of magnitude.
+ * asks for exactly that of any accuracy-shaped claim, and the widest a corpus recording actually
+ * states is **0.70 to 3.10** across one flight against a median of 0.80, so the middle alone would
+ * hide a spread of four and a half times.
+ *
+ * **The example this used to give was 0.80 to 23.10, and the same change that added it removed
+ * it**: 23.10 is `endurance`'s no-fix placeholder, dropped with the position it belonged to a
+ * function above. Quoting a range that can no longer occur to argue for stating ranges is the
+ * failure the argument is about, so it is measured here rather than remembered.
  *
  * **And no metres, which is the load-bearing half.** Dilution of precision multiplies the
  * receiver's own ranging error; it is not that error. Converting one to a distance takes a figure

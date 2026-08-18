@@ -322,7 +322,7 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           about 1 is as good as it gets. <strong>It is not a distance</strong>, and Debrief will not
           turn it into one — that conversion needs the receiver&apos;s own ranging error, which none
           of these files carries and no vendor publishes. A range is stated rather than one number,
-          because a single flight can run from 0.80 to 1.90.
+          because a single flight can run from 0.70 to 3.10.
         </p>
         <p>
           <strong>Two things in those columns are not readings, and both had to be measured to
@@ -345,7 +345,8 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           22,199, worst case 8%, which is what rounding to two decimals costs. It held on 108 fewer
           before the no-fix placeholder was removed, and those 108 rows were the placeholder:
           taking out something that was never a reading closed the check rather than loosening it.
-          Nothing here filters on quality. A dilution of 12.10 is published exactly as the receiver
+          Nothing here filters on quality: the worst geometry Debrief reads off any of these files
+          — a position dilution of <strong>6.10</strong> — is published exactly as the receiver
           wrote it.
         </p>
       </>
