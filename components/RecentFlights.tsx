@@ -27,6 +27,32 @@ const SORTS: { key: LogbookSort; label: string }[] = [
   { key: 'speed', label: 'Speed' },
 ];
 
+/**
+ * The logbook's desktop columns — the ONE place their widths and their names are written.
+ *
+ * `DESIGN.md` §4's scale governs the gaps; the track widths are content sizes, not spacing, and
+ * are chosen from the longest value each column actually holds (`1,204 ft/s`, `12,060 ft`,
+ * `Jan 18 2026`) rather than from a guess. `minmax(0,1fr)` on the name is what lets it truncate
+ * instead of pushing the figures out of alignment — the defect this replaces.
+ *
+ * Header and row both read `ROW_COLS`, so the two cannot drift into different templates. The
+ * repo's rule for exactly this shape: where two lists must agree they share a module rather than
+ * a resemblance, and a test holds them side by side.
+ */
+const ROW_COLS =
+  'sm:grid sm:grid-cols-[minmax(0,1fr)_auto_6.5rem_6.5rem_5.5rem] sm:items-center sm:gap-3';
+
+/** The header labels, in template order. `align` matches how each cell renders its value: the
+ *  two figures and the date are right-aligned so their digits form a column to scan down, which
+ *  is the whole reason this surface became a grid. */
+const LOGBOOK_COLUMNS: { label: string; align: string }[] = [
+  { label: 'Flight', align: 'text-left' },
+  { label: 'Logger', align: 'text-left' },
+  { label: 'Max velocity', align: 'text-right' },
+  { label: 'Apogee', align: 'text-right' },
+  { label: 'Flown', align: 'text-right' },
+];
+
 function relativeTime(ts: number): string {
   const s = (Date.now() - ts) / 1000;
   if (s < 60) return 'just now';
@@ -733,6 +759,31 @@ export default function RecentFlights({
         </div>
       )}
 
+      {/* **One template, used by the header and by every row, because two lists that must agree
+          get a shared source rather than a resemblance.** Above `sm` the row was a flex line whose
+          cells were each `shrink-0`, so every figure started wherever the name before it happened
+          to end — `tabular-nums` lined the digits up INSIDE a cell and nothing lined the cells up
+          with each other, on the one surface built for scanning a column of flights. Below `sm`
+          the row stays the wrapped block it is: a five-column grid in 390 px is not a table, it is
+          a squeeze, and the labelled block form already shipped for that width. */}
+      <div aria-hidden className="hidden px-3 sm:flex sm:items-center sm:gap-3">
+        {/* Spacers standing in for the tick and the two row actions, so the header's columns land
+            on the row's columns without either side knowing the other's widths. */}
+        <span className="w-4 shrink-0" />
+        <div className={`min-w-0 flex-1 ${ROW_COLS}`}>
+          {LOGBOOK_COLUMNS.map((c) => (
+            <span
+              key={c.label}
+              className={`text-xs font-normal uppercase tracking-wide text-zinc-500 dark:text-zinc-400 ${c.align}`}
+            >
+              {c.label}
+            </span>
+          ))}
+        </div>
+        <span className="w-7 shrink-0" />
+        <span className="w-7 shrink-0" />
+      </div>
+
       {/* Named, so assistive tech (and a test) can tell the logbook from the page's other lists. */}
       <ul aria-label="Your flights" className="mt-3 space-y-2">
         {ordered.map((r) => {
@@ -781,7 +832,7 @@ export default function RecentFlights({
                 <button
                   type="button"
                   onClick={() => onOpen(r.id)}
-                  className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 py-1 text-left sm:min-h-0 sm:flex-row sm:items-center sm:gap-3 sm:py-0"
+                  className={`flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 py-1 text-left sm:min-h-0 sm:py-0 ${ROW_COLS}`}
                 >
                   {/* Below sm: the name gets the line to itself — telling one flight from
                       another is what the row is for — and everything that describes it
@@ -798,6 +849,11 @@ export default function RecentFlights({
                   </span>
                   </span>
                   <span className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:contents">
+                  {/* The logger and the made-up tag are ONE cell. They used to be two siblings,
+                      and the tag is conditional — so a synthetic row had six columns where every
+                      other row had five, and a grid would have shunted its figures one column
+                      right. Nesting them is what lets the template be fixed. */}
+                  <span className="flex min-w-0 shrink-0 items-center gap-2">
                   <span className="shrink-0 rounded-md border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                     {r.formatLabel}
                   </span>
@@ -833,6 +889,7 @@ export default function RecentFlights({
                       }
                     />
                   )}
+                  </span>
                   {/* The two numbers this surface exists to be scanned down. `DESIGN.md` §3:
                       `text-sm` is the floor for anything a flyer reads to make a decision, and any
                       number compared against another number is `font-mono tabular-nums` so the
@@ -840,7 +897,7 @@ export default function RecentFlights({
                       (§2's disabled/placeholder/timestamp role) with proportional digits, on the
                       one surface built for comparing flights against each other. */}
                   <span
-                    className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:ml-auto dark:text-zinc-300"
+                    className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:text-right dark:text-zinc-300"
                     title="Max velocity"
                   >
                     {/* Which number this is, in words. Below `sm` the row is a wrapped block and
@@ -877,7 +934,7 @@ export default function RecentFlights({
                     {r.maxVelocityMs != null ? fmtSpeed(r.maxVelocityMs, sys) : '—'}
                   </span>
                   <span
-                    className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 dark:text-zinc-300"
+                    className="shrink-0 font-mono text-sm tabular-nums text-zinc-700 sm:text-right dark:text-zinc-300"
                     title="Apogee"
                   >
                     <span className="mr-1 font-sans text-xs font-normal uppercase tracking-wide text-zinc-500 sm:sr-only dark:text-zinc-400">
@@ -897,7 +954,7 @@ export default function RecentFlights({
                       is about. Only when the file says nothing does the row fall back to
                       when it was opened here, which is a fact about this device. */}
                   <span
-                    className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400"
+                    className="shrink-0 text-xs text-zinc-500 sm:text-right dark:text-zinc-400"
                     title={r.flownAt ? `Flew ${formatFlownAt(r.flownAt)}` : `Opened ${relativeTime(r.addedAt)}`}
                   >
                     {r.flownAt ? formatFlownAt(r.flownAt).replace(/,.*$/, '') : relativeTime(r.addedAt)}

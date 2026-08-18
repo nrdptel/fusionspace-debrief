@@ -3245,6 +3245,38 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
 
+**2026-08-18 (second entry, same day) — the logbook's DESKTOP half, which the entry below filed
+and named as the next thing here.** The row was a flex line whose every cell was `shrink-0`, so a
+figure began wherever the file name before it happened to end: `tabular-nums` lined the digits up
+INSIDE a cell and nothing lined the cells up with each other, on the one surface built to be
+scanned down a column. **Measured, by driving it: two seeded flights put their Max velocity at
+787.8 px and 621.0 px — 166.8 px apart.** And there was still no header row at any width, so the
+only thing that ever said which figure was which above `sm` was a `title`.
+
+Both halves close together, because they are one change: the row is a five-track grid above `sm`
+(`Flight · Logger · Max velocity · Apogee · Flown`) under a real header, with the two figures and
+the date right-aligned so the digits form a column. Below `sm` nothing moves — a five-column grid
+in 390 px is a squeeze, not a table, and the labelled block form already shipped for that width.
+
+Three things worth keeping:
+- **The header and the row read ONE template** (`ROW_COLS`, `LOGBOOK_COLUMNS` in
+  `components/RecentFlights.tsx`). This repo's rule for two lists that must agree is a shared
+  module rather than a resemblance, and a header hand-kept beside a row is the drift that rule
+  exists to stop.
+- **The synthetic tag had to stop being its own sibling.** It is conditional, so a made-up flight
+  had six cells where every other row had five — a grid would have shunted its figures one column
+  right on exactly the rows that carry a caveat. Logger and tag are one cell now, which is what
+  lets the template be fixed.
+- **The header is `aria-hidden`.** It is not a `<table>`, so nothing associates a header cell with
+  a data cell; the row's own `sr-only` names are what a screen reader uses, and leaving the header
+  in the tree would have read every column name twice per page.
+
+**Pinned by** `e2e/logbook.spec.ts` → *"the desktop logbook lines its figures up in columns, under
+headers that name them"*, which asserts GEOMETRY rather than class names — two flights seeded with
+deliberately different name lengths and figure widths, right edges agreeing to within 1 px.
+Falsified by putting the flex row back: it fails naming the two x positions, 166.8 px apart. e2e
+364 → 365.
+
 **2026-08-18 — two craft fixes SHIPPED, both of them the same defect class on different surfaces:
 a value whose identity or scope was available only through a hover, or not at all.** `0df7eea`.
 
