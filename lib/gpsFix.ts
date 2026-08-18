@@ -106,3 +106,83 @@ export function gradeFromValue(v: number): FixGrade | null {
   if (v === 0) return 'none';
   return null;
 }
+
+/** What a track's fixes were solved in, as a count per grade, over the samples that KEPT a position. */
+export interface FixQuality {
+  /** Positions the parser kept — the fixes a flyer is looking at. */
+  kept: number;
+  twoD: number;
+  threeD: number;
+  /** TRUE where the file says nothing about its fix quality at all. */
+  unstated: boolean;
+  /** The grade of the LAST kept fix — the coordinate a flyer actually walks to. */
+  last: FixGrade | null;
+}
+
+/**
+ * Summarise a track's fix quality, for the one surface where it decides whether somebody walks.
+ *
+ * **The claim this replaces was a constant.** `components/GroundTrack.tsx` told every flyer
+ * *"Positions are GPS, good to a few metres"* — in both branches, on every flight, derived from
+ * nothing: not the satellite count, not the fix column, not whether the fix was two-dimensional.
+ * It is the app's only statement about horizontal accuracy, and `MAINTAINING.md`'s measurement
+ * spine says accuracy claims are a range with their basis, never a flattering single number. On a
+ * corpus flight that spends 13 solutions on three satellites, that sentence is wrong by an order of
+ * magnitude, and it is wrong on the surface a flyer acts on.
+ *
+ * Counts SAMPLES rather than distinct solutions on purpose, and the distinction is the opposite of
+ * the one the corpus tests make: there the question is *how much independent evidence is behind a
+ * figure*, so repeats must not inflate it. Here the question is *what am I looking at on this map*,
+ * and a repeated position is a point on the track a flyer can see and walk to. Both are right for
+ * their own question.
+ */
+export function trackFixQuality(
+  lat: Float64Array,
+  lon: Float64Array,
+  grade: Float64Array | undefined,
+): FixQuality {
+  let kept = 0;
+  let twoD = 0;
+  let threeD = 0;
+  let stated = 0;
+  let last: FixGrade | null = null;
+  const n = Math.min(lat.length, lon.length);
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
+    kept++;
+    const g = grade && i < grade.length ? gradeFromValue(grade[i]) : null;
+    if (!g) continue;
+    stated++;
+    last = g;
+    if (g === '2d') twoD++;
+    else if (g === '3d') threeD++;
+  }
+  return { kept, twoD, threeD, unstated: stated === 0, last };
+}
+
+/**
+ * That summary as the sentence the recovery view prints, or `null` where the file said nothing.
+ *
+ * **No metres, and that is the honest part.** What a fix is good to in metres depends on satellite
+ * geometry and signal strength, and Debrief has neither a published function to compute it from
+ * what these files carry nor any way to check one against the corpus — `COMPETITION.md` row 47
+ * records that the dB-Hz→accuracy relationship does not exist as a function from either vendor.
+ * What a log DOES state is what the receiver solved for, so that is what this says. A grade a flyer
+ * can act on beats a number nobody can ground.
+ */
+export function fixQualitySentence(q: FixQuality): string | null {
+  if (q.unstated || q.kept === 0) return null;
+  const lastClause =
+    q.last === '2d'
+      ? ' The last fix here is one of them, so treat the coordinate as a direction rather than a doorstep.'
+      : '';
+  if (q.twoD === 0) {
+    return 'Every fix on this track was solved in three dimensions — the receiver had the satellites for a full position.';
+  }
+  const share = q.twoD === q.kept ? 'Every' : `${q.twoD} of ${q.kept}`;
+  return (
+    `${share} ${q.twoD === q.kept ? 'fix on this track was' : 'fixes on this track were'} solved in TWO dimensions — ` +
+    'latitude and longitude on a height the receiver assumed rather than measured, which is a worse ' +
+    `position than the rest, not a wrong one.${lastClause}`
+  );
+}

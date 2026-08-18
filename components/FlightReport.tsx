@@ -1534,6 +1534,7 @@ export default function FlightReport({
           apogeeIndex={events.find((e) => e.type === 'apogee')?.index}
           apogeeAltitude={metrics.apogeeAltitude}
           events={events}
+          fixGrade={getChannel(flight, 'gpsFixGrade')?.values}
           synthetic={synthetic}
           recordedBy={recordedBy}
         />

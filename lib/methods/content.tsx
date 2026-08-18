@@ -255,6 +255,17 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           because a 2D fix still walks you to the rocket.
         </p>
         <p>
+          <strong>And the recovery view says what the receiver solved, where a flyer reads the
+          coordinate.</strong> It used to say the same thing on every flight — <em>&ldquo;positions
+          are GPS, good to a few metres&rdquo;</em> — which was Debrief&apos;s only statement about
+          horizontal accuracy and rested on nothing: not the satellite count, not the fix column,
+          not whether the fix was two-dimensional. It now states what the file states, with the
+          count, and says nothing at all where the file says nothing. It still names no distance in
+          metres, deliberately: what a fix is good to depends on satellite geometry and signal
+          strength, and no vendor publishes a function from what these logs carry — so a grade a
+          flyer can act on is offered instead of a number nobody can ground.
+        </p>
+        <p>
           <strong>That is one rule, and it now applies whatever wrote the file.</strong> Loggers
           state the quality of a fix in one of two ways: a count of satellites, or the
           receiver&apos;s own fix-type column (0 no fix, 2 two-dimensional, 3 three-dimensional).

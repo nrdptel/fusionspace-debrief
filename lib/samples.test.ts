@@ -6,12 +6,14 @@ import { importFlight } from './parsers/index';
 import { analyzeFlight } from './analyze';
 import { decodeBytes } from './encoding';
 import { fmtLength, fmtSpeed } from './display';
+import { getChannel } from './flight/types';
+import { gradeFromValue } from './gpsFix';
 import { analyzeTable } from './flight/columns';
 import { parseTable } from './csv';
 import { buildFlight } from './flight/build';
 import type { ColumnRole } from './flight/columns';
 import { buildComposite } from './composite';
-import { demoFlight, isSynthetic, saturatedFlight, stagedPair, toLoggerCsv, toMapperCsv, toSingleLoggerCsv, SYNTHETIC_NOTE } from './synthetic';
+import { coarseGpsFlight, demoFlight, isSynthetic, saturatedFlight, stagedPair, toGpsTrackerCsv, toLoggerCsv, toMapperCsv, toSingleLoggerCsv, SYNTHETIC_NOTE } from './synthetic';
 import { demoDesign, isSyntheticDesign, SYNTHETIC_DESIGN_NOTE } from './syntheticDesign';
 import { orkToXml, readPredictionDetail, predictionFiguresFrom } from './parsers/openrocket';
 
@@ -441,6 +443,51 @@ describe('the sample flights', () => {
    * `lib/syntheticDesign.ts`.
    */
   const DESIGN_SAMPLE = SAMPLES.find((s) => s.id === 'design-overlay');
+
+  it('writes the coarse-GPS tracker log exactly as its generator does', () => {
+    expectGenerated('sample-gps-tracker.csv', toGpsTrackerCsv(coarseGpsFlight('A tracker whose fix kept changing'), 5));
+  });
+
+  it('gives the coarse-GPS sample all three fix grades, which is the capability it demonstrates', () => {
+    // **The assertion that makes this sample worth shipping rather than a seventh log.** Every
+    // corpus recording carrying a position is locked throughout and the front door's other samples
+    // carry no latitude or longitude at all, so before this file NOTHING a visitor could open put
+    // `lib/gpsFix.ts` through its branches. A generated track with a constant satellite count would
+    // demonstrate nothing, and this is what stops it quietly becoming one.
+    const csv = readFileSync(PUBLIC + 'sample-gps-tracker.csv', 'utf8');
+    const res = importFlight({ name: 'sample-gps-tracker.csv', text: csv });
+    expect(res.kind, 'it opens through a named parser, not the mapper').toBe('flight');
+    if (res.kind !== 'flight') return;
+    expect(res.flight.format, 'read as the tracker format whose columns it borrows').toBe('featherweight-gps');
+    expect(isSynthetic(res.flight), 'and it says Debrief made it up').toBe(true);
+
+    const grade = getChannel(res.flight, 'gpsFixGrade');
+    const lat = getChannel(res.flight, 'latitude');
+    const alt = getChannel(res.flight, 'altitude');
+    expect(grade, 'the fix grade reaches the model').toBeTruthy();
+
+    const seen = { '3d': 0, '2d': 0, none: 0 } as Record<string, number>;
+    let positions = 0;
+    let heights = 0;
+    for (let i = 0; i < grade!.values.length; i++) {
+      const g = gradeFromValue(grade!.values[i]);
+      if (g) seen[g]++;
+      if (Number.isFinite(lat!.values[i])) positions++;
+      if (Number.isFinite(alt!.values[i])) heights++;
+    }
+    for (const g of ['3d', '2d', 'none'] as const) {
+      expect(seen[g], `the sample reaches a ${g} fix`).toBeGreaterThan(0);
+    }
+    // The rule, visible in the file itself: a two-dimensional fix keeps its position and loses its
+    // height, and a no-fix row keeps neither. So positions outnumber heights by exactly the 2D
+    // count, and both fall short of the row count by exactly the no-fix count.
+    expect(positions - heights, 'every 2D fix kept a position and lost its height').toBe(seen['2d']);
+    expect(grade!.values.length - positions, 'every no-fix row kept neither').toBe(seen.none);
+    console.log(
+      `coarse-GPS sample: ${grade!.values.length} rows — ${seen['3d']} three-dimensional, ` +
+        `${seen['2d']} two-dimensional, ${seen.none} with no fix; ${positions} positions, ${heights} heights`,
+    );
+  });
 
   it('writes the design pair exactly as its generators do, bytes included', () => {
     const s = DESIGN_SAMPLE!;

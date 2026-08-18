@@ -222,6 +222,22 @@ export interface SynthSample {
    * they cannot disagree cannot demonstrate the disagreement.
    */
   accel?: number;
+  /**
+   * Where a GPS receiver aboard would have put the airframe, decimal degrees, where the flight has
+   * one — and how many satellites it had in the solution.
+   *
+   * **`sats` is the load-bearing one and the reason these are here at all.** A coarse-GPS flight is
+   * not a flight with a worse position; it is a flight whose receiver SAYS how good each fix was,
+   * and Debrief's answer to that (`lib/gpsFix.ts`) is what the sample built on this exists to
+   * demonstrate. A generated track with a constant satellite count would demonstrate nothing the
+   * front door's first sample does not already show.
+   *
+   * Optional together, so the flights that had none before this existed write no GPS column at all
+   * and their committed bytes do not move.
+   */
+  lat?: number;
+  lon?: number;
+  sats?: number;
 }
 
 /** The shape of a generated flight, in SI, before it is written to any format. */
@@ -418,6 +434,172 @@ export function saturatedFlight(demonstrates: string): SynthFlight {
   };
 }
 
+/**
+ * A GPS tracker's recording of a flight, where the fix quality VARIES — the sample D10's last
+ * capability needs.
+ *
+ * **What this exists to demonstrate, and it is a capability rather than a number.** Debrief reads
+ * what a receiver said about each fix and acts on it: a position solved in three dimensions keeps
+ * its height, one solved in two keeps its position and loses the height it assumed, and a row with
+ * no fix at all keeps neither, because a receiver that has lost lock repeats its last position
+ * rather than saying nothing. That rule is `lib/gpsFix.ts`, it is one rule across four logger
+ * families, and until this file existed **nothing a visitor could open exercised it** — every
+ * corpus recording carrying a position is locked throughout, and the front door's samples carry no
+ * latitude or longitude at all.
+ *
+ * **Nothing here is modelled and the satellite profile least of all.** The count below is a
+ * piecewise curve chosen to put the file through each branch of that rule in an order a flyer would
+ * recognise — good on the pad, degrading through the climb, lost across apogee, recovering under
+ * the canopy. Real receivers do lose satellites under high dynamics; this file is not evidence that
+ * they do, and no figure read off it means anything about a real flight.
+ *
+ * A GPS-only recording, like the trackers this format belongs to: no barometer and no
+ * accelerometer, so the receiver's own altitude is the only height there is — itself part of the
+ * demonstration, because that is the case where a two-dimensional fix costs a flyer the height
+ * rather than merely a cross-check.
+ *
+ * Deterministic, with no clock and no randomness, because `lib/samples.test.ts` regenerates the
+ * committed file and compares it byte for byte.
+ *
+ * The legs, and the arithmetic is deliberately visible rather than tuned:
+ *   integrated    at 0.05 s on `demoFlight`'s own constants, so this is the SAME flight that
+ *                 sample flies — apogee 1,666 m, which is 5,466 ft
+ *   sampled       at 1 Hz, which is a tracker's rate and part of what "coarse" means
+ *   drift         a steady 6 m/s wind from the west for the whole flight, so the track runs
+ *                 downrange and the recovery view has a bearing to state
+ *   satellites    9 on the rail · 8 through the boost, the coast, APOGEE and the first minute of
+ *                 the drogue · 3 for fifteen samples mid-descent, which is a TWO-dimensional fix:
+ *                 position kept, height dropped · 0 for ten samples just after it, a real dropout
+ *                 where neither survives · 8 again to the ground. All three grades, in one file.
+ *
+ * **Where the degradation sits took FOUR drafts, and the three that were thrown away are worth more
+ * than the file.** Every reading a GPS-only log produces rests on its altitude channel, so a hole
+ * anywhere in that channel corrupts something — the only question is what.
+ *
+ *  1. The first integrated at the SAMPLE rate: a one-second Euler step over a 118 m/s² boost
+ *     overshot apogee to 2,604 m against the same constants' 1,666 m. A coarse RECORDING had
+ *     become a different FLIGHT.
+ *  2. The second keyed the lost-lock window on an ALTITUDE, so on a taller flight it covered a
+ *     third of the descent — 133 samples of 388 with no fix, where the intent was "a few".
+ *  3. The third degraded the fix ACROSS APOGEE, and it would have shipped a lie: the heights either
+ *     side of the peak are dropped, correctly, so the highest survivor became the GPS apogee and a
+ *     5,466 ft flight reported **1,312 ft** with neither `apogeeIsFloor` nor `altitudeUnproven`
+ *     firing.
+ *  4. The fourth moved it to the BOOST — physically the most defensible place, since that is where
+ *     a receiver really does struggle — and broke the other end. With the boost's heights withheld,
+ *     LIFTOFF is detected at the first surviving height: the report read **"Liftoff 11 s,
+ *     2,653 ft"** on a file whose own first rows sit at 0 ft, and time-to-apogee (13 s against
+ *     19.25), flight time and the main-deploy altitude all inherited it. Caught by a pre-push
+ *     review, which is the second time this generator has been saved by one.
+ *
+ * So the receiver is locked wherever a reading is TAKEN — the pad, liftoff, the climb, apogee, the
+ * main deploy and the ground — and the degradation sits in the middle of the drogue descent, where
+ * it costs a stretch of a constant-rate fall and nothing a flyer quotes. **A demonstration file may
+ * not lie**, however good a demonstration the lie would make.
+ *
+ * Both defects draft 3 and draft 4 exposed are real and FILED rather than papered over: Debrief
+ * does not flag a GPS apogee resting on fewer solutions than its trace suggests, and it does not
+ * flag a liftoff altitude that is not near the pad.
+ */
+export function coarseGpsFlight(demonstrates: string): SynthFlight {
+  // **A four-second burn, not `demoFlight`'s 1.6 s, and the reason is the sample rate.** A 1 Hz
+  // receiver takes two samples across a 1.6 s boost and cannot see it: Debrief read burnout at 8 s
+  // against a burn that ended at 1.6, because a velocity differenced from one-second altitude steps
+  // peaks well after the real one. That is an honest consequence of coarse sampling and a wrong
+  // number on a demonstration file, which is a thing this file may not carry. Four seconds is four
+  // samples of boost, which the trace can resolve — and it is an ordinary burn for the size of
+  // motor a flyer puts a GPS tracker on.
+  const BURN = 4;
+  const THRUST_ACCEL = 50;
+  const G = 9.80665;
+  const DROGUE = 7.5;
+  const MAIN = 4.2;
+  const MAIN_AT = 150;
+  /** The integration step — `demoFlight`'s, deliberately. */
+  const DT = 0.05;
+  /** What the receiver WRITES: one fix a second. */
+  const SAMPLE_EVERY = 1;
+  /** Metres per degree of latitude — the same figure `lib/gps.ts` projects with. */
+  const M_PER_DEG_LAT = 111320;
+  /** A pad on a round meridian, plainly nobody's launch site: no real club's coordinates are
+   *  published by this repo. */
+  const LAT0 = 40;
+  const LON0 = 0;
+  /** A steady westerly, m/s. Not a wind model — one number, applied for the whole flight. */
+  const WIND_E = 6;
+
+  // **Integrated at 0.05 s and SAMPLED at 1 Hz, which is the correction that matters here.** The
+  // first cut integrated at the sample rate, and a one-second Euler step over a 118 m/s² boost
+  // overshot apogee to 2,604 m against `demoFlight`'s 1,666 m for the identical constants — a
+  // coarse RECORDING became a different FLIGHT. A tracker samples a real flight slowly; it does
+  // not fly a slower one.
+  const fine: { t: number; altitude: number; velocity: number; east: number }[] = [];
+  let t = 0;
+  let altitude = 0;
+  let velocity = 0;
+  let east = 0;
+  fine.push({ t, altitude, velocity, east });
+  for (let guard = 0; guard < 20_000; guard++) {
+    const ascending = velocity >= 0 || altitude <= 0;
+    if (ascending) {
+      velocity += (t < BURN ? THRUST_ACCEL - G : -G) * DT;
+    } else {
+      velocity = altitude > MAIN_AT ? -DROGUE : -MAIN;
+    }
+    altitude = Math.max(0, altitude + velocity * DT);
+    east += WIND_E * DT;
+    t += DT;
+    fine.push({ t, altitude, velocity, east });
+    if (altitude <= 0 && t > BURN) break;
+  }
+
+  const apogeeIdx = fine.reduce((best, p, i) => (p.altitude > fine[best].altitude ? i : best), 0);
+  const apogeeT = fine[apogeeIdx].t;
+
+  /**
+   * How many satellites the receiver had, by PHASE rather than by height.
+   *
+   * **The first cut keyed the lost-lock window on an altitude**, and on a flight that reached
+   * higher than expected that covered a third of the descent — 133 of 388 samples with no fix,
+   * where the intent was "a few across the top". Time from apogee says what was meant, and cannot
+   * be widened by the flight getting taller.
+   */
+  const samples: SynthSample[] = [];
+  const step = Math.round(SAMPLE_EVERY / DT);
+  for (let i = 0; i < fine.length; i += step) {
+    const p = fine[i];
+    samples.push({
+      t: Number(p.t.toFixed(2)),
+      altitude: p.altitude,
+      velocity: p.velocity,
+      // A pure translation east, small enough that a flat-earth projection is exact to millimetres
+      // — the same approximation `lib/gps.ts` makes, for the same reason.
+      lat: LAT0,
+      lon: LON0 + p.east / (M_PER_DEG_LAT * Math.cos((LAT0 * Math.PI) / 180)),
+    });
+  }
+
+  /**
+   * The satellite count, assigned by SAMPLE INDEX rather than by elapsed time.
+   *
+   * **Float drift is why.** The integrator accumulates `t += 0.05`, so `fine[100].t` is
+   * 4.99999999999999 and a rule written `t < 5` catches a row whose own written timestamp reads
+   * `5.00` — the committed bytes then rest on the drift rather than on the stated rule, and the
+   * count in the commit message and the count in the code disagree by one. An index is exact.
+   */
+  const apogeeSample = samples.reduce((best, p, i) => (p.altitude > samples[best].altitude ? i : best), 0);
+  /** Where the drogue's degraded stretch sits, in samples after apogee. */
+  const TWO_D_FROM = apogeeSample + 60;
+  const TWO_D_TO = apogeeSample + 75;
+  const NO_FIX_FROM = apogeeSample + 80;
+  const NO_FIX_TO = apogeeSample + 90;
+  samples.forEach((p, i) => {
+    p.sats = i >= NO_FIX_FROM && i < NO_FIX_TO ? 0 : i >= TWO_D_FROM && i < TWO_D_TO ? 3 : i < 3 ? 9 : 8;
+  });
+
+  return { demonstrates, samples };
+}
+
 /** One recording of a staged launch, and everything that separates it from the other one. */
 export interface SynthStage {
   /** Which part of the launch this board was bolted to. Written into the file as its own metadata
@@ -606,6 +788,131 @@ function loggerCsv(flight: SynthFlight, padS: number, stage: 'booster' | 'sustai
     const fps = (s.velocity * M_TO_FT).toFixed(1);
     lines.push(`${(s.t + rec.padS).toFixed(2)},${ft},${fps},${fps}`);
   }
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * Write a generated flight as a GPS TRACKER log — the one format among these that states fix
+ * quality, which is the whole point of the sample it exists for.
+ *
+ * **Why a real format's columns rather than the mapper's.** The mapper route cannot express this
+ * capability at all: `lib/flight/mappingOptions.ts` offers latitude and longitude and no way to
+ * declare a satellite count beside them, so a hand-mapped file arrives with a position and nothing
+ * about how good it was. The demonstration has to come in through a parser that reads a fix column,
+ * and the Featherweight tracker layout is the one Debrief already reads.
+ *
+ * **The header says whose columns these are and that nothing wrote them**, exactly as `loggerCsv`
+ * does for the Eggtimer names it borrows. No Featherweight tracker recorded anything here and no
+ * receiver of any kind did; the `Synthetic` row above the header is the claim, and every surface
+ * downstream reads it from there.
+ *
+ * `FIX` is DERIVED from the satellite count rather than stored separately, so the file cannot
+ * contradict itself: a receiver reporting four satellites and a two-dimensional fix would be a
+ * self-inconsistent log, and this writer is not able to produce one. The mapping is u-blox's own —
+ * 3 for a three-dimensional fix, 2 for two-dimensional, 0 for none — which is what `lib/gpsFix.ts`
+ * reads back.
+ *
+ * The signal-strength columns are three DISJOINT bands summing to at most the tracked total,
+ * because that is what the real ones are: measured over a corpus tracker log, `>40 + >32 + >24 ==
+ * #SATS` holds on 0 of 174 rows and `<=` holds on all 174. A generator that made them sum would put
+ * a false fact into a demonstration file.
+ */
+export function toGpsTrackerCsv(flight: SynthFlight, padS: number): string {
+  const DT = 1;
+  /**
+   * A fixed Unix second, so the file is deterministic.
+   *
+   * **It does NOT "date nothing real", which an earlier version of this comment claimed.**
+   * `flownAtFromText` reads the `UTCTIME` column, so Debrief publishes a launch date for this
+   * flight in the report headline and the logbook row — a real instant attached to a flight that
+   * never happened. Every surface that carries it also says the flight is made up, which is what
+   * makes this acceptable rather than a lie; but the claim in the comment was false and is
+   * corrected rather than quietly dropped. Filed as the smaller question of whether a synthesized
+   * log should carry a date at all.
+   */
+  const T0 = 1_700_000_000;
+  const lines: string[] = [
+    `${SYNTHETIC_KEY},${JSON.stringify(SYNTHETIC_NOTE)}`,
+    `Demonstrates,${JSON.stringify(flight.demonstrates)}`,
+    `Columns,${JSON.stringify(
+      'The column names below are the ones a Featherweight GPS tracker writes, so that Debrief ' +
+        'reads this file without being told about it. No tracker recorded anything here and no ' +
+        'receiver of any kind did: see the Synthetic row above.',
+    )}`,
+    '',
+    'UTCTIME,UNIXTIME,ALT,LAT,LON,#SATS,FIX,HORZV,VERTV,HEAD,FLAGS,>40,>32,>24,RSSI,BATT',
+  ];
+  // A clock string derived ENTIRELY from the Unix second beside it, so the two columns of one row
+  // cannot contradict each other. `Date` is deliberately not used — this module has no clock,
+  // because the file it writes is committed and compared byte for byte — so the calendar arithmetic
+  // is done here from the epoch.
+  //
+  // **The date used to be hardcoded** while the time was derived, which is latent nonsense: a file
+  // whose pad and flight crossed a day boundary would have written `Nov 14 2023` beside a UNIXTIME
+  // on the 15th. Nothing reaches that today at 266 rows; deriving both costs four lines and removes
+  // the possibility.
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const stamp = (unix: number) => {
+    const total = Math.floor(unix);
+    let days = Math.floor(total / 86_400);
+    const secs = total - days * 86_400;
+    // Days since 1970-01-01, walked forward a year and a month at a time. Exact, and short enough
+    // to read: no library, no clock, no locale.
+    let year = 1970;
+    const leap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    for (;;) {
+      const len = leap(year) ? 366 : 365;
+      if (days < len) break;
+      days -= len;
+      year++;
+    }
+    const lengths = [31, leap(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month = 0;
+    while (days >= lengths[month]) {
+      days -= lengths[month];
+      month++;
+    }
+    const two = (n: number) => String(n).padStart(2, '0');
+    return (
+      `${MONTHS[month]} ${days + 1} ${year} ` +
+      `${two(Math.floor(secs / 3600))}:${two(Math.floor((secs % 3600) / 60))}:${two(secs % 60)}.000 UTC`
+    );
+  };
+  const row = (i: number, altM: number, lat: number, lon: number, sats: number, vUp: number) => {
+    const unix = T0 + i * DT;
+    const fix = sats >= 4 ? 3 : sats > 0 ? 2 : 0;
+    // Strongest band first; the remainder is the satellites the receiver hears below 24 dB-Hz and
+    // is deliberately not written, because the format has no column for it.
+    const b40 = Math.floor(sats / 4);
+    const b32 = Math.floor(sats / 3);
+    const b24 = Math.max(0, sats - b40 - b32 - 1);
+    return [
+      stamp(unix),
+      `${unix}.000`,
+      (altM * M_TO_FT).toFixed(0),
+      lat.toFixed(7),
+      lon.toFixed(7),
+      String(sats),
+      String(fix),
+      '0',
+      (vUp * M_TO_FT).toFixed(1),
+      '90',
+      '0x03',
+      String(b40),
+      String(b32),
+      String(b24),
+      '180',
+      '4.010',
+    ].join(',');
+  };
+  const pad = Math.round(padS / DT);
+  const first = flight.samples[0];
+  // On the pad: locked, stationary, and the receiver already reporting — so the record does not
+  // open at liftoff, which is a caveat this file need not earn.
+  for (let i = 0; i < pad; i++) lines.push(row(i, 0, first.lat ?? 0, first.lon ?? 0, 9, 0));
+  flight.samples.forEach((s, i) => {
+    lines.push(row(pad + i, s.altitude, s.lat ?? 0, s.lon ?? 0, s.sats ?? 0, s.velocity));
+  });
   return lines.join('\n') + '\n';
 }
 

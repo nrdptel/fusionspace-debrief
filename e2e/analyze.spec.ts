@@ -3652,3 +3652,45 @@ test('the events table states the apogee the same way the reading does', async (
   // found the surface (`RecordingPicker`) and this assertion would have reddened when it was fixed.
   await expect(events.getByText(/\(at least\)/), 'exactly one event row wears the tag').toHaveCount(1);
 });
+
+/**
+ * The coarse-GPS sample, opened the way a stranger opens it — D10's last capability, and the first
+ * file in the app that puts `lib/gpsFix.ts` through its branches.
+ *
+ * Every corpus recording carrying a position is locked throughout and the other samples carry no
+ * latitude or longitude at all, so before this file nothing a visitor could press exercised what
+ * Debrief does with a degraded fix. The unit check holds the FILE's grades; this holds what the app
+ * does with it.
+ */
+test('the coarse-GPS sample opens, draws a track, and says Debrief made it up', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /tracker whose fix kept changing/i }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // It says so before anything else — a made-up flight is labelled on every surface that can carry
+  // it out of the app, and the report is the first of them.
+  await expect(page.getByText(/SYNTHETIC/).first()).toBeVisible();
+
+  // A GPS-only recording still produces a flight with a recovery view, which is the capability.
+  await expect(page.getByRole('heading', { name: /Recovery|Ground track/i }).first()).toBeVisible();
+
+  // …and the receiver's own altitude is the height, read off fixes it kept. **Asserted as the EXACT
+  // figure on the Apogee reading**, not as a band anywhere on the page: the first draft matched
+  // `/5,4\d\d ft/` over the whole body, which is a 100 ft window, is not tied to the apogee, and
+  // the other made-up sample lands inside it — so it would have passed on the wrong sample, on a
+  // chart tick, or on an apogee a percent wrong. Caught by a pre-push review.
+  //
+  // This is the assertion that stops the generator regressing to draft three, which degraded the
+  // fix across apogee and made this same flight report 1,312 ft.
+  const apogee = page.locator('[data-reading="Apogee"]');
+  await expect(apogee, 'the report states an apogee').toBeVisible();
+  await expect(apogee).toContainText('5,508 ft');
+  const report = page.locator('body');
+
+  // **The recovery view says what the receiver actually solved.** It told every flyer "Positions
+  // are GPS, good to a few metres" — a constant, in both branches, on every flight, derived from
+  // nothing. This sample has five two-dimensional fixes and the panel now says so, with the count.
+  await expect(report).toContainText(/solved in TWO dimensions/);
+  await expect(report).toContainText(/15 of 256 fixes/);
+  await expect(report, 'and the constant it replaced is gone').not.toContainText(/good to a few metres/);
+});
