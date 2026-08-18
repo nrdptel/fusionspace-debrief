@@ -262,13 +262,16 @@ wild, ideas too big for one pass. One line each, newest first.
   `COMPETITION.md` row 47 proposes it — must map the sentinel to "not stated" first, or the app
   publishes a dilution of precision of two billion.
 
-- **2026-08-18 — the mapper route cannot express GPS quality, and does not consult `lib/gpsFix.ts`.**
-  `lib/flight/mappingOptions.ts:24` offers `latitude` and `longitude` only; `satellites` and
-  `altitudeGps` are legal `ColumnRole`s and legal `ChannelKind`s and are absent from the picker. So
-  a flyer with their own GPS spreadsheet can map the position and has no way to declare the quality
-  column beside it — and a hand-mapped 0-satellite held position reaches the ground track ungated,
-  where the same file read through a named parser would not. `grep -rn "gpsFix" lib/flight/` returns
-  nothing.
+- **~~2026-08-18 — the mapper route cannot express GPS quality, and does not consult
+  `lib/gpsFix.ts`.~~ RESOLVED 2026-08-18 as D12 slice 4.** Both halves, because shipping the picker
+  alone would have made it worse: a flyer could then declare a satellite count that graded nothing.
+  `altitudeGps`, `satellites` and the three dilution roles are offered now, and the satellite-count
+  fix rule moved out of `lib/parsers/altusmetrum.ts` into `lib/gpsFix.ts` as
+  `applySatelliteFixQuality`, applied by `buildFlight` — so a named parser, the column mapper and a
+  reopened flight all get the same answer. `grep -rn "gpsFix" lib/flight/` returns the import now.
+  The refactor moved no reading about any real flight: `lib/parsers/corpus.test.ts` 149/149
+  including the digest snapshot. Pinned by `lib/mapperGps.test.ts`, which holds the two routes side
+  by side over the same four fixes rather than testing either alone.
 
 - **2026-08-18 — the hover-only sweep cannot see the case it is named for, and runs on one route.**
   `e2e/hoverOnly.ts:68` exempts any element with ANY visible text (`if (visible(el).trim()) continue`),
