@@ -20,10 +20,10 @@ weaker gate rather than the only gate.
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **FOUR merged this run: `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207).** `feeded2` was confirmed LIVE by fetching `version.json?cb=…`; `992a6d0`'s deploy was in flight at handoff time. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -4`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **One PR open: `docs/d12-decomposition` (#208)** — documentation only, full local gate green (1,467 unit / 364 e2e) and **CI green on both jobs**: `frontend` 2m25s with the corpus fetched, `e2e` 7m36s. An earlier version of this row said its `e2e` job had HUNG and told you to re-run it. **It had not** — see the fourth item below, which is the more useful half. |
+| **Shipped to production** | **FIVE merged this run: `0df7eea` (#204), `21641b2` (#205), `feeded2` (#206), `992a6d0` (#207), `fc08365` (#208).** `992a6d0` was confirmed LIVE by fetching `version.json?cb=…`; `fc08365`'s deploy was in flight at handoff time. Do not count from this line — measure: `git fetch --prune origin && git log --oneline origin/main \| head -5`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **One PR open: `feature/gps-apogee-gap`** — D12 slice 1, rebuilt over SOLUTIONS and shipped, with the full local gate green (1,473 unit / 96 files, build clean, 364 e2e in 8.8 m). `#208` merged as `fc08365` after CI went green on both jobs. |
 | **Sev-1** | **None inherited** (baseline green before anything was touched: unit 1,450 / 94 files with the corpus, build clean, e2e 359). **Two FOUND and FIXED this run**, both the same shape. **Two more FOUND, reproduced and FILED** — see below. |
-| **D — capability** | **D10 SHIPPED, and D12 decomposed to replace it.** All six capabilities in D10's *done when* have a named sample; the last needed the surface built first, and both landed. **D12 slice 1 was then built, measured and REFUSED** — see below; it is the next session's first increment, with the reason it failed already written down. |
+| **D — capability** | **D10 SHIPPED, D12 decomposed to replace it, and D12 SLICE 1 SHIPPED** — on its second attempt, the first having been built, measured and thrown away the same run. A GPS apogee that rests on a hole in the record is now labelled a bound on all three surfaces. See below. |
 | **P — product & craft** | **Two craft fixes shipped**, both a value whose identity was hover-only or absent: the logbook's two figures, and `/changelog`'s pinned strip. §9 counts all at or better than the last run's. |
 
 ## The shape both Sev-1s shared, and it is the transferable part
@@ -64,30 +64,55 @@ reproduce-before-you-scope rule cutting in the direction nobody expects.
    12-slot cache with Export/Import behind it, so **it is not a Sev-1 preemption**. The grouped-row
    case (several recordings, one press) is the half still unreproduced.
 
-## Then: D12 slice 1, which this run built, measured and REFUSED
+## D12 slice 1 — refused, rebuilt, shipped, all in one run
 
 D10 shipped, the D-track went dry, and `ROADMAP.md`'s rule applied: decompose the next area rather
 than fall back to the ledger. **D12 — How good the fix was, wherever a GPS value is read** — is
-written up with five slices, every one measured by this run rather than chosen from a list.
+written up with five slices, every one measured by this run rather than chosen from a list. **Slice
+1 is now shipped, and the two attempts are worth reading in order.**
 
-**Slice 1 is the next increment, and the reason its first attempt failed is already written down.**
+**The gap is real and BIGGER than the milestone first assumed.** On `SG1.1-Booster` the GPS apogee
+reads **2,251 ft against a barometric 2,502 ft — 10% low — on BOTH exports**, and the cross-check
+panel called that "differ" without ever saying the GPS figure is a lower BOUND. That flight spends
+13 distinct solutions on three satellites, whose heights are dropped. So the corpus DOES contain
+the case; the first cut assumed it did not.
 
-The gap is real and BIGGER than the milestone first assumed: on `SG1.1-Booster` the GPS apogee reads
-**2,251 ft against a barometric 2,502 ft — 10% low — on BOTH exports**, and the cross-check panel
-calls that "differ" without ever saying the GPS figure is a lower BOUND. That flight spends 13
-distinct solutions on three satellites, whose heights are dropped. So the corpus DOES contain the
-case; the first cut assumed it did not.
+**Why the first build was refused.** A `gpsApogeeGapS` metric — seconds without a usable height
+beside the peak — fired on that flight's **`.eeprom` (17.9 s) and not on its `.csv`**. An AltOS
+eeprom writes a GPS record only when the receiver actually solved one, so its position channel is
+NaN between fixes in a 100 Hz array, while AltosUI's CSV repeats the held position on every row. **A
+metric defined over SAMPLES answers differently for two exports of one download** — the exact
+one-value-two-accounts defect the rest of this run was spent closing.
 
-**Why the build was refused.** A `gpsApogeeGapS` metric — seconds without a usable height beside the
-peak — fired on that flight's **`.eeprom` (17.9 s) and not on its `.csv`**. An AltOS eeprom writes a
-GPS record only when the receiver actually solved one, so its position channel is NaN between fixes
-in a 100 Hz array, while AltosUI's CSV repeats the held position on every row. **A metric defined
-over SAMPLES answers differently for two exports of one download** — the exact one-value-two-accounts
-defect the rest of this run was spent closing.
+**What shipped instead.** `gpsApogeeGap` and `gpsSolutionInterval` walked over SOLUTIONS the way
+`gpsAscentFixes` already is, and `peakRestsOnAGap` in `lib/gpsFix.ts` as the ONE gate the panel, the
+three documents and `analysisJson` all ask. Both SG1.1 exports now read **57 solutions, a 1.00 s
+median interval and an 18.00 s gap**; the Kairos pair agrees to 10 ms. The figure is tagged
+`(at least)` and explained — **never dropped**, which is row 47's standing rule for every quality
+signal in this milestone.
 
-**What a correct version needs:** the count defined over SOLUTIONS, the way `gpsAscentFixes` already
-is, pinned by the check this run wrote for the degraded-fix rule — hold a flight's two exports side
-by side and fail when they disagree.
+**The threshold is not fitted, and that is checkable.** Across every corpus recording that states a
+GPS apogee the gap-to-cadence ratio is **1.0, 1.1, 1.1, 1.1, 1.4 and 18.0** — an order of magnitude
+of empty space, so nothing turns on where in it the line sits. The rule is *three times the record's
+own cadence AND at least two seconds*, and **both clauses are load-bearing against a real file**: the
+ratio clause is what keeps `endurance` quiet, which carries the corpus's second-largest absolute gap
+at 7.0 s on a 5 s receiver and whose GPS apogee reads ABOVE the barometric one.
+
+**Five mutants, all red**: sample-counting, each threshold clause alone, the document tag removed,
+the JSON flag removed. Sample-counting is killed by the CORPUS cases rather than by a unit case —
+which is the whole point, because the first attempt passed a full green gate.
+
+**What it could not pin, and it is filed.** `components/GpsApogee.tsx` has **no automated coverage of
+any kind**: not one of the ten parseable files in `public/samples/` produces a `gpsApogeeAltitude`,
+so no e2e run has ever rendered that panel. The screen half is held by a source-level check that it
+asks the shared rule rather than carrying its own thresholds. `BACKLOG.md`'s newest entry has the
+measurement and what a fix needs.
+
+**The corpus snapshot moved on all 50 flights, and that was proved benign before it was
+regenerated.** Two new metric keys change every digest by construction. Re-running the snapshot with
+only those two keys excluded reproduced the committed hashes exactly, so no reading about any real
+flight moved — worth repeating whenever `corpus-digests.json` goes red on a metrics addition, rather
+than regenerating on the assumption.
 
 ## Four things this run got WRONG first, and what caught them
 

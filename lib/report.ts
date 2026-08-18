@@ -43,6 +43,7 @@ import {
 import { derivedPeakCaveat } from './derivedPeak';
 import { buildFields, buildLine } from './buildInfo';
 import { accelIsClipped, ACCEL_TAG_CLIPPED, apogeeCaveat, apogeeIsQualified, APOGEE_TAG_UNPROVEN, APOGEE_TAG_FLOOR, apogeeSub, eventAltitudeTag, eventQualification, avgBoostSub, maxQProvenance, velocityProvenance, burnoutSub, burnoutVelocitySub, landedInRecord, landingRate, landingRateIsWholeDescent, withheldReason } from './readings';
+import { peakRestsOnAGap } from './gpsFix';
 import { peakAgreement } from './crossPeak';
 import { buildPlotChannels } from './explore';
 import { orderRows, visibleRows } from './reportProfile';
@@ -463,11 +464,25 @@ function gpsCrossRow(m: FlightAnalysis['metrics'], sys: UnitChoice): [string, st
   );
   const deltaPct = ((gps - m.apogeeAltitude) / m.apogeeAltitude) * 100;
   const pct = Math.abs(deltaPct) < 0.05 ? '≈0%' : `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}%`;
+  // The SAME gate the panel reads, not a second copy of the reasoning: a figure this document
+  // publishes bare while the screen qualifies it is the exact defect four runs of this repo have
+  // now had to fix. The gap and the cadence both travel, because a bound whose basis is missing
+  // is a number a reader cannot argue with.
+  const floor = peakRestsOnAGap(m.gpsApogeeGap, m.gpsSolutionInterval);
   const agreement =
     verdict === 'different-peak'
       ? `not the same peak — the two put it ${Math.abs((m.gpsApogeeTime ?? 0) - m.timeToApogee).toFixed(1)} s apart`
       : `${verdict === 'agree' ? 'agree' : 'differ'} (${pct})`;
-  return ['Apogee', fmtLength(gps, sys), fmtLength(m.apogeeAltitude, sys), agreement];
+  const gapNote =
+    floor && m.gpsApogeeGap != null && m.gpsSolutionInterval != null
+      ? ` — the receiver went ${m.gpsApogeeGap.toFixed(1)} s without a solution across the peak, against ${m.gpsSolutionInterval.toFixed(1)} s on the rest of the flight, so the GPS figure is a lower bound`
+      : '';
+  return [
+    'Apogee',
+    `${fmtLength(gps, sys)}${floor ? APOGEE_TAG_FLOOR : ''}`,
+    fmtLength(m.apogeeAltitude, sys),
+    `${agreement}${gapNote}`,
+  ];
 }
 
 
@@ -1656,6 +1671,14 @@ function jsonMetrics(m: FlightAnalysis['metrics'], sys: UnitChoice): Record<stri
     gpsApogee: m.gpsApogeeAltitude != null ? len(m.gpsApogeeAltitude) : null,
     gpsApogeeTime: sec(m.gpsApogeeTime),
     gpsAscentFixes: m.gpsAscentFixes,
+    // How long the receiver was silent across its own peak, and the cadence that makes that
+    // legible — both measured between SOLUTIONS, so two exports of one download answer the same.
+    // `gpsApogeeIsFloor` is the verdict `peakRestsOnAGap` draws from the pair, carried as data so
+    // a consumer reading only this file cannot publish the GPS apogee as a summit when the screen
+    // calls it a bound.
+    gpsApogeeGapS: sec(m.gpsApogeeGap),
+    gpsSolutionIntervalS: sec(m.gpsSolutionInterval),
+    gpsApogeeIsFloor: peakRestsOnAGap(m.gpsApogeeGap, m.gpsSolutionInterval),
     gpsApogeeAgreement:
       m.gpsApogeeAltitude != null && Number.isFinite(m.apogeeAltitude) && m.apogeeAltitude > 0
         ? peakAgreement(

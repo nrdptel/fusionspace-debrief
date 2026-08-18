@@ -313,6 +313,35 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           receiver&apos;s altitude and its satellite count are both in
           the explorer, so you can plot either against the barometric line.
         </p>
+        <p>
+          <strong>
+            And the highest fix is the apogee only if the receiver was still solving as the rocket
+            went over.
+          </strong>{' '}
+          A receiver that has stopped solving does not stop being logged — it repeats its last
+          position, or its raw download simply writes nothing — so a recording can go quiet across
+          the top and still look continuous. One corpus flight does: no new solution for{' '}
+          <strong>18&nbsp;seconds</strong> across the peak, on a receiver managing one a second
+          through the rest of the flight, and a GPS apogee that lands roughly <strong>10%</strong>{' '}
+          under the barometric read of the same launch. Debrief labels that figure a lower bound
+          rather than dropping it: the reading is still the receiver&apos;s own, and a bound a
+          flyer can act on beats a number quietly removed. Without the label the cross-check says
+          only &ldquo;differ&rdquo;, which invites the opposite conclusion — that the barometer is
+          the one to doubt.
+        </p>
+        <p>
+          The silence is measured between <strong>solutions</strong>, for the same reason the count
+          above is, and the first attempt at it was thrown away for getting that wrong. Counted in
+          rows, that same 18&nbsp;seconds reads as <strong>17.9&nbsp;s</strong> in the raw download
+          and as <strong>nothing at all</strong> in the CSV the board exported from it — because
+          the CSV repeats the held position on every row while the download writes no record until
+          the next fix. One flight, two answers, which is the defect the rest of this page exists to
+          rule out. Counted between solutions the two exports agree exactly: 57 solutions, a one
+          second cadence and an 18.00&nbsp;second gap, from both files. A hole is called a hole only
+          when it is out of character for the receiver that made it — three times its own cadence
+          and at least two seconds — because five seconds of silence is nothing on a five-second
+          receiver, and a fifth of a second cannot hide a peak on any of them.
+        </p>
       </>
     ),
   },

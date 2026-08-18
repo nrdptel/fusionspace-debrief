@@ -161,6 +161,19 @@ export interface FlightMetrics {
   /** 3D fixes the GPS recording contributed on the way up — how well it could resolve a
    *  peak at all. A 1 Hz receiver on a 20-second ascent has twenty. */
   gpsAscentFixes: number | null;
+  /** The longer of the two intervals between SOLUTIONS on either side of the GPS peak, in
+   *  seconds — how long the receiver was silent across the top. The highest fix in a record
+   *  is the highest fix the receiver happened to solve, so a hole here means the real peak
+   *  may sit inside it and `gpsApogeeAltitude` is a lower bound. Solutions, never samples:
+   *  a receiver that has stopped solving repeats its last position on every row of a CSV and
+   *  writes nothing at all to an eeprom, so a gap counted in rows answers differently for two
+   *  exports of one download. `lib/gpsFix.ts`'s `peakRestsOnAGap` reads this against the
+   *  interval below; neither is a filter. */
+  gpsApogeeGap: number | null;
+  /** The MEDIAN interval between solutions across the whole recording, in seconds — the
+   *  receiver's own cadence, which is what makes the gap above legible. 5 seconds of silence
+   *  is nothing on a 5 s receiver and a hole on a 1 Hz one. */
+  gpsSolutionInterval: number | null;
 }
 
 export interface FlightSeries {
