@@ -6,8 +6,8 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 
 | track | where it is |
 |---|---|
-| **Shipped to production** | **PR #211 (`d1002da`, confirmed live) and PR #212 (`6c7d4bd`) merged**. `d1002da` was confirmed live by fetching `version.json?cb=…` (built `13:14:24Z`, read at `13:15:56Z`). **#210 was CLOSED, not merged** — its commit is inside #211 byte for byte, with its claims corrected. Do not read this line next run: measure with `git fetch --prune origin && git log --oneline origin/main \| head -3` then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Pending** | **PR #213, one commit** — D12 slice 4. Full local gate green (1,482 unit / 97 files, build, 365 e2e); merge it on green CI. |
+| **Shipped to production** | **PRs #211, #212 and #213 merged; `ee8eb8f` CONFIRMED LIVE** (built `13:57:50Z`, read at `13:58:59Z`). `d1002da` was confirmed live by fetching `version.json?cb=…` (built `13:14:24Z`, read at `13:15:56Z`). **#210 was CLOSED, not merged** — its commit is inside #211 byte for byte, with its claims corrected. Do not read this line next run: measure with `git fetch --prune origin && git log --oneline origin/main \| head -3` then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
+| **Pending** | **PR #214, one commit** — `/validation` published the cost of a derived peak as one flattering number. Full local gate green (1,485 unit / 98 files, build, 365 e2e); merge it on green CI. |
 | **Sev-1** | **None inherited** — the baseline gate was green before anything was touched (unit 1,467 / 95 files WITH the corpus, build clean, e2e 364). **One FOUND, reproduced, and deliberately NOT fixed**: max-Q's air density. See below; it is the first thing to pick up. |
 | **D — capability** | **D12 slices 2 AND 4 SHIPPED.** Slice 2 arrived as an unmerged PR from the previous run and this run corrected four of its claims before merging it. Slice 4 moved the satellite-count fix rule out of one parser and into `buildFlight`, so the column mapper grades a GPS spreadsheet the same way a named parser does. **Next: D12 slice 3**, the Featherweight dB-Hz bins. |
 | **P — product & craft** | **P1: the logbook's desktop half SHIPPED** — the thing the previous run filed and named as "the next thing here". e2e 364 → 365. |
@@ -29,6 +29,27 @@ The second half: `d-altitude` and `d-q` were each given this exact sentence earl
 identical defect was found on each. Speed, Mach and acceleration were never revisited. **When a
 qualification is added to a reading, enumerate the FAMILY** — the gap was four readings wide and
 each was closed one at a time, months apart.
+
+## The run's one repeated shape, and it is the thing to look for next run
+
+**Four separate defects this run were the same error: a real number, quoted at a scope it was not
+measured over.** Every one survived a full green gate, because each number was true of *something*.
+
+| where | said | true of |
+|---|---|---|
+| `/methods` | a dilution of **12.10** is published as the receiver wrote it | a file no parser claims — Debrief reads **6.10** |
+| `/methods` | a single flight runs **0.80 to 1.90** | no recording; the widest is **0.70 to 3.10** |
+| the channel explorer | Velocity max **3,728.3 m/s**, Mach **12.64** | the whole record, where the report reads the **climb** |
+| `/validation` | the cleanest pair reads **+4%** | one of **two** same-device pairs; the other is **+66%** |
+
+**The guards were all one level below the error.** The corpus suite recomputes every percentage in
+`lib/derivedPeak.ts` from the real files and would catch a figure that drifted — it never checked
+`isolatesMethod`, the field that says what a figure MEANS. The same shape holds for the other three:
+the arithmetic was pinned and the sentence around it was not.
+
+**So the check to write is the one that pins a documentation figure to the corpus that produced
+it**, exactly, not by a bound — `lib/dop.test.ts` and `lib/derivedPeak.test.ts` both do that now,
+and both were falsified against the old wrong values before landing.
 
 ## D12 slice 4 moved a rule, and the corpus proved it moved nothing else
 
@@ -135,7 +156,7 @@ never the number — and a future session trusting the old sentence would get th
 
 ## Next, in order
 
-0. **Merge #213 if it is still open** — it is verified and green locally; only CI stood between it
+0. **Merge #214 if it is still open** — it is verified and green locally; only CI stood between it
    and production.
 1. **The max-Q Sev-1** above — it is a wrong structural load case on a surface a flyer acts on, and
    it is the highest-value thing in the repo right now. It needs the cross-source altitude check.
