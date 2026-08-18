@@ -289,8 +289,13 @@ test('the logbook copies out as a table, in the order and selection on screen', 
 
   // What is copied is what is ON SCREEN. Sorting by apogee reverses these, so a copy that
   // ignored the sort would come back in the other order.
-  await page.getByRole('button', { name: 'Apogee' }).click();
-  await expect(page.getByRole('button', { name: 'Apogee' })).toHaveAttribute('aria-pressed', 'true');
+  // `exact: true` because the logbook's rows now NAME their two figures: each row button's
+  // accessible name reads "… Max velocity 1,034 ft/s Apogee 8,022 ft" where it used to read two
+  // bare numbers, so a substring match on "Apogee" resolves to the sort control AND every row.
+  // The ambiguity is the improvement — before it, a screen reader got the numbers with no idea
+  // which was which.
+  await page.getByRole('button', { name: 'Apogee', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Apogee', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const sorted = await copyAnd('high.csv');
   expect(sorted.slice(1).map((l) => l.split('\t')[0])).toEqual(['high.csv', 'mid.csv', 'small.csv', 'low.csv']);
 
