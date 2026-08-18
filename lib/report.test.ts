@@ -4,7 +4,7 @@ import { analyzeFlight } from './analyze';
 import { analyzedDataCsv, summaryText, summaryMarkdown, summaryHtml, analysisJson, compareMarkdown, compareHtml, compareJson, compareMetricRows, compareTableRows, compareHasClippedAccel, compareHasFloorApogee, compareHasGpsDerivedSpeed, compareHasBaroDerived, LEGEND_FLOOR, recordingLine } from './report';
 import { buildComparison, type CompareInput } from './compare';
 import { PROVENANCE_COLUMN, provenanceCell } from './synthetic';
-import { landingRateIsWholeDescent } from './readings';
+import { APOGEE_TAG_FLOOR, APOGEE_TAG_UNPROVEN, eventAltitudeTag, landingRateIsWholeDescent } from './readings';
 
 function tinyFlight(): RawFlight {
   const dt = 0.05;
@@ -1233,5 +1233,103 @@ describe('the shareable card says which recording it is of', () => {
     expect(recordingLine({ of: 2, reportedBy: 'primary.csv', isReportedBy: false })).toBe(
       'One of 2 recordings of this flight — reported by primary.csv',
     );
+  });
+});
+
+describe('every document states one apogee, not one qualified and one bare', () => {
+  /**
+   * The Sev-1 this pins. The Apogee READING is qualified — "at least this high" when the log ends
+   * at its own peak, "(unproven)" when Debrief has disowned the altitude channel — and the EVENTS
+   * table printed the identical number flat, on five surfaces: the `.txt`, the `.md`, the `.html`,
+   * `analysisJson` and the screen. Measured over the corpus, **3 of 39 analysable records** carry a
+   * qualified apogee, and every one of them published it twice in one document.
+   *
+   * Driven through the real exports rather than through the helper, because the helper being right
+   * is not the claim — every sink reading it is.
+   */
+  function floorFlight(): RawFlight {
+    // A record that STOPS at its own peak: it never descends, so the apogee is a lower bound.
+    const dt = 0.05;
+    const time: number[] = [];
+    const alt: number[] = [];
+    for (let t = 0; t <= 18; t += dt) {
+      time.push(t);
+      const ft = t - 2;
+      alt.push(ft > 0 ? 300 * (1 - (1 - Math.min(ft, 16) / 16) ** 2) : 0);
+    }
+    return {
+      source: 'floor.csv',
+      format: 'test',
+      formatLabel: 'Test',
+      time: Float64Array.from(time),
+      channels: [{ kind: 'altitude', label: 'alt', unit: 'm', values: Float64Array.from(alt) }],
+      meta: {},
+      notes: [],
+    };
+  }
+
+  it('tags the apogee event wherever the apogee reading is tagged', () => {
+    const flight = floorFlight();
+    const a = analyzeFlight(flight);
+    expect(a.metrics.apogeeIsFloor, 'this record stops at its own peak').toBe(true);
+    const apogeeEvent = a.events.find((e) => e.type === 'apogee');
+    expect(apogeeEvent, 'it has an apogee event').toBeTruthy();
+
+    const txt = summaryText(flight, a, 'imperial');
+    const md = summaryMarkdown(flight, a, 'imperial');
+    const html = summaryHtml(flight, a, 'imperial');
+
+    // Asserted on the EVENT ROW itself rather than by counting occurrences in the document, and
+    // the reason is worth keeping: the `.txt` states the READING's qualification as the full
+    // sentence ("at least this high — the log ends at its own peak…") and the event row as the
+    // short tag, so a naive count of the tag finds one and reads as a failure against working
+    // code. Two forms of one claim, sized to two surfaces — which is the vocabulary §6 already
+    // has, not an inconsistency.
+    for (const [name, doc] of [['txt', txt], ['md', md], ['html', html]] as const) {
+      const row = doc.split(/\r?\n/).find((l) => /apogee/i.test(l) && /\d/.test(l) && l.includes(APOGEE_TAG_FLOOR.trim()));
+      expect(row, `${name} tags the apogee EVENT row`).toBeTruthy();
+      // …and the document still states the qualification in full somewhere, so the tag points at
+      // something rather than standing alone.
+      expect(doc, `${name} states the qualification in full as well`).toContain('at least this high');
+    }
+
+    // The JSON gets a FLAG rather than a tag: a consumer parses `altitude` as a number, so the
+    // caveat cannot be appended to it.
+    const json = JSON.parse(analysisJson(flight, a, 'imperial')) as {
+      events: { type: string; altitude: unknown; altitudeQualified?: { floor?: boolean; unproven?: boolean } }[];
+    };
+    const jsonApogee = json.events.find((e) => e.type === 'apogee')!;
+    expect(jsonApogee.altitudeQualified, 'the JSON event carries the facts as data').toEqual({ floor: true });
+    expect(typeof jsonApogee.altitude, 'and its altitude is still a number a consumer can parse').toBe('number');
+    for (const e of json.events) {
+      if (e.type === 'apogee') continue;
+      expect(e.altitudeQualified, `${e.type} is not an apogee and carries no qualification`).toBeUndefined();
+    }
+  });
+
+  it('says nothing on an ordinary flight, and only ever on the apogee', () => {
+    // The half that makes the above able to fail — on the corpus this is 36 of 39 records.
+    const flight = tinyFlight();
+    const a = analyzeFlight(flight);
+    expect(a.metrics.apogeeIsFloor, 'this record comes back down').toBeFalsy();
+    expect(a.metrics.altitudeUnproven, 'and its altitude is not disowned').toBeFalsy();
+    for (const [name, doc] of [
+      ['txt', summaryText(flight, a, 'imperial')],
+      ['md', summaryMarkdown(flight, a, 'imperial')],
+      ['html', summaryHtml(flight, a, 'imperial')],
+    ] as const) {
+      expect(doc, `${name} says nothing about a floor`).not.toContain(APOGEE_TAG_FLOOR.trim());
+      expect(doc, `${name} says nothing about an unproven altitude`).not.toContain(APOGEE_TAG_UNPROVEN.trim());
+    }
+
+    // …and the rule is keyed on the event TYPE, so a renamed label cannot silently drop it and no
+    // other event can pick it up.
+    const qualified = { apogeeIsFloor: true, altitudeUnproven: false };
+    expect(eventAltitudeTag('apogee', qualified)).toBe(APOGEE_TAG_FLOOR);
+    for (const t of ['liftoff', 'burnout', 'drogue', 'main', 'landing'] as const) {
+      expect(eventAltitudeTag(t, qualified), `${t} is not an apogee`).toBe('');
+    }
+    expect(eventAltitudeTag('apogee', { apogeeIsFloor: false, altitudeUnproven: false }), 'nothing to say').toBe('');
+    expect(eventAltitudeTag('apogee', { apogeeIsFloor: false, altitudeUnproven: true })).toBe(APOGEE_TAG_UNPROVEN);
   });
 });

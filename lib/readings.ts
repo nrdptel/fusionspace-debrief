@@ -16,7 +16,7 @@
 // one in lib rather than inside the component is what lets a test hold them side by side
 // (lib/readings.test.ts) and fail the moment one gains a reading the other doesn't.
 
-import type { FlightMetrics } from './analyze/types';
+import type { EventType, FlightMetrics } from './analyze/types';
 import { fmtAccel, fmtLength, fmtMach, fmtPressure, fmtSpeed, fmtTemp, fmtTime, fmtVoltage } from './display';
 import type { UnitChoice } from './display';
 import type { MethodId } from './methodIds';
@@ -327,6 +327,29 @@ export function apogeeCaveat(m: ApogeeCaveatFacts): string | undefined {
 export function apogeeCaveatFlags(m: FlightMetrics): { floor?: boolean; unproven?: boolean } | undefined {
   if (!apogeeIsQualified(m)) return undefined;
   return { ...(m.apogeeIsFloor ? { floor: true } : {}), ...(m.altitudeUnproven ? { unproven: true } : {}) };
+}
+
+/**
+ * The altitude of an EVENT, tagged where that event is the apogee and the apogee is qualified.
+ *
+ * **The defect this exists to stop, and it is the one this repo keeps finding.** The Apogee tile,
+ * the print card, the logbook row and the comparison cell all qualify a floor or an unproven
+ * apogee; the Events table printed the identical number bare, on five surfaces — the `.txt`, the
+ * `.md`, the `.html`, `analysisJson` and the screen. Measured over the corpus: **3 of 39
+ * analysable records** carry a qualified apogee, and all three published it twice in one document,
+ * once qualified and once not — `intrepid1` at 3,268 ft and `intrepid2` at 3,548 ft as "at least
+ * this high", and a record the report calls UNPROVEN at 31 ft.
+ *
+ * The short TAG rather than the sentence, because an events row is an aligned line in a monospace
+ * block and a table cell — the same reasoning that gave the logbook and the comparison their tags,
+ * and it points at the caveat the same document already states in full beside the reading.
+ *
+ * Takes the event TYPE rather than matching its label, so a renamed label cannot silently drop the
+ * tag; `'apogee'` is the one type this can fire on.
+ */
+export function eventAltitudeTag(type: EventType, m: ApogeeCaveatFacts): string {
+  if (type !== 'apogee' || !apogeeIsQualified(m)) return '';
+  return `${m.altitudeUnproven ? APOGEE_TAG_UNPROVEN : ''}${m.apogeeIsFloor ? APOGEE_TAG_FLOOR : ''}`;
 }
 
 export function apogeeIsQualified(m: ApogeeCaveatFacts): boolean {

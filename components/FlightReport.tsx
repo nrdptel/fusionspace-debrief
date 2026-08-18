@@ -36,7 +36,7 @@ import CropControl from './CropControl';
 import { copyTable } from '@/lib/copyTable';
 import { savePlotPng } from '@/lib/plotPng';
 import { toCanonical } from '@/lib/canonical';
-import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, landedInRecord, landingRate, landingRateIsWholeDescent, liftoffOnLogClock, withheldReason } from '@/lib/readings';
+import { ACCEL_CLIPPED_CAVEAT, accelIsClipped, eventAltitudeTag, landedInRecord, landingRate, landingRateIsWholeDescent, liftoffOnLogClock, withheldReason } from '@/lib/readings';
 import { loadFigureOrder, loadHidden, moveReading, orderRows, saveFigureOrder, saveHidden, toggleHidden, loadHiddenFigures, saveHiddenFigures } from '@/lib/reportProfile';
 import DeviceSummary from './DeviceSummary';
 import FigureChooser from './FigureChooser';
@@ -1443,7 +1443,13 @@ export default function FlightReport({
                   `tabular-nums` because these are read down a column, event against event. */}
               <span className="text-right font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
                 <span className="block">
+                  {/* The apogee row carries the same qualification the Apogee reading above it
+                      carries. This panel published one apogee twice — once "at least this high"
+                      in the grid and once flat here — on 3 of the 39 analysable corpus records.
+                      `eventAltitudeTag` is the shared rule the four written exports also read, so
+                      the screen and the document a flyer keeps cannot drift on it. */}
                   {fmtTime(e.time)} · {fmtLength(e.altitude, sys)}
+                  {eventAltitudeTag(e.type, metrics)}
                 </span>
                 {eventSpeed(e.index) && <span className="block">{eventSpeed(e.index)}</span>}
                 {e.peakAccel != null && accelInG(e.peakAccel) >= 2 && (

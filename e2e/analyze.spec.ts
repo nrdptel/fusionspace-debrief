@@ -3591,3 +3591,60 @@ test('the sample that demonstrates a refusal says the peak is a floor, not the t
   await expect(page.locator('[data-synthetic="report"]')).toContainText(SYNTH_SENTENCE);
   await expect(page.locator('[data-synthetic="readings"]')).toContainText(SYNTH_SHORT);
 });
+
+/**
+ * One apogee, one document, one claim — the Sev-1 the opening sweep found on the corpus.
+ *
+ * The Apogee READING is qualified where the log ends at its own peak ("at least this high"); the
+ * EVENTS table beside it printed the identical number flat, and so did the `.txt`, the `.md`, the
+ * `.html` and the JSON. 3 of the 39 analysable corpus records are in that state, and every one of
+ * them published its apogee twice, once qualified and once not.
+ *
+ * Walked on a hand-built log that STOPS AT ITS OWN PEAK, which is what `apogeeIsFloor` means and
+ * which no committed fixture is — the same builder `e2e/compare.spec.ts` needed for the same
+ * reason. The four written exports are pinned in `lib/report.test.ts`; this is the SCREEN, which a
+ * unit test cannot reach.
+ */
+function climbOnlyLog(peakM: number): string {
+  const lines = ['time,altitude'];
+  let t = 0;
+  const push = (alt: number) => {
+    lines.push(`${t.toFixed(2)},${alt.toFixed(2)}`);
+    t += 0.05;
+  };
+  for (let i = 0; i < 40; i++) push(0);
+  for (let i = 0; i <= 160; i++) push(peakM * Math.sin((Math.PI / 2) * (i / 160)));
+  return lines.join('\n');
+}
+
+test('the events table states the apogee the same way the reading does', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a flight log file').setInputFiles({
+    name: 'floor-events.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(climbOnlyLog(1040)),
+  });
+  await expect(page.getByRole('heading', { name: 'Map the columns' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Analyze flight' }).click();
+  await expect(page.getByRole('button', { name: /Analyze another flight/ })).toBeVisible({ timeout: 60_000 });
+
+  // The reading says it, and always did.
+  await expect(page.getByText(/at least this high/).first()).toBeVisible();
+
+  // …and so does the events row, which is the half that was bare. Anchored on the Events SECTION
+  // so this cannot pass on the grid's own copy of the sentence — the trap the explorer walk hit,
+  // where a check scoped too widely passed on the very code it was written to redden.
+  //
+  // `#events` is on the HEADING rather than on the section, so the rows are two levels up from it:
+  // `<div>` (section) > `<div class="flex …">` > `<h3 id="events">`. Written as `page.locator('#events')`
+  // the first draft of this walk resolved to the heading alone, found no rows, and failed against
+  // working code.
+  const events = page.locator('#events').locator('xpath=../..');
+  await expect(events.getByText(/Apogee/).first(), 'the events section has an apogee row').toBeVisible();
+  await expect(events.getByText(/\(at least\)/).first(), 'the apogee event row carries the tag').toBeVisible();
+
+  // And only the apogee row: a liftoff or a landing is not a summit reading. Counted over the WHOLE
+  // page, because the grid states its qualification as the full sentence rather than this tag, so a
+  // second `(at least)` anywhere would be a second event wearing it.
+  await expect(page.getByText(/\(at least\)/), 'exactly one place wears the short tag').toHaveCount(1);
+});
