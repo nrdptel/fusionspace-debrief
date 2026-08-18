@@ -14,6 +14,41 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-18 — `padDataLikely` can NEVER be true on a ~1 Hz log, so every GPS tracker recording is
+  told it "doesn't appear to start on the pad".** `lib/analyze/index.ts:401-412` sets
+  `maxBase = round(3 / dt)` while `:1264-1270` requires `minQuiet = max(5, …)` quiet samples — at
+  dt = 1 s that is 3 against 5, unsatisfiable at any length. Reproduced on the coarse-GPS sample,
+  which opens with **six stationary rows at 0 ft on nine satellites and a 3D fix** and still gets
+  the warning as the first thing in *Worth knowing*. Structural rather than sample-specific: the
+  corpus's 1 Hz ground-station recording is in the same position. The fix is to express both bounds
+  in SECONDS rather than one in seconds and one in samples.
+
+- **2026-08-18 — a burnout derived from a 1 Hz GPS altitude lands ~6 s late and is published as an
+  event with no caveat.** Measured on the coarse-GPS sample, whose generator burns for exactly 4 s:
+  Debrief's own derived velocity rises to 145 m/s at **t = 10 s** against a true peak of 161 m/s at
+  **t = 4 s**, because the smoothing a noisy GPS altitude needs is wide relative to the burn. The
+  event row then reads *"Burnout 10 s · 1,587 ft"*. Two things make this less bad than it sounds and
+  neither closes it: the derived readings around it ARE caveated (*"derived from the speed peak"*,
+  *"usually reads high at the peak"*), and the BURN TIME is still right at 4 s because liftoff is
+  displaced by the same lag. Worth knowing that Debrief's detector **declines entirely** on the
+  corpus's real 1 Hz tracker log and fires on the synthetic one, which suggests the guard keys on
+  noise rather than on sample rate.
+
+- **2026-08-18 — a GPS apogee resting on fewer fixes than the trace suggests is published bare, and
+  building the coarse-GPS sample is what exposed it.** Where a receiver's fix degrades AROUND the
+  peak, the heights either side of apogee are dropped (correctly — a 2D fix's height is an
+  assumption, a no-fix row's is a held-over value) and the highest SURVIVING height becomes the GPS
+  apogee. Nothing says it rests on fewer solutions than the record has rows, and neither
+  `apogeeIsFloor` nor `altitudeUnproven` fires: the log does come back down and the channel is not
+  disowned. Measured while designing the sample: a satellite profile that lost lock across apogee
+  made a 5,466 ft flight report **1,312 ft**, unqualified. No corpus recording is in that state —
+  every one carrying a position is locked throughout — so this is latent rather than live, which is
+  exactly why a sample found it and a sweep did not. `metrics.gpsAscentFixes` already counts
+  SOLUTIONS behind the GPS apogee and `components/GpsApogee.tsx` already prints it; the missing
+  half is a qualification when that count collapses near the peak. **The sample deliberately does
+  NOT demonstrate this** — it keeps the receiver locked across apogee so its own reading is honest,
+  because a demonstration file may not lie.
+
 - **2026-08-18 — the logbook has NO column headers at any width, and the desktop half of that is
   still open.** Each row's top speed and apogee now carry their own names below `sm` and in the
   accessibility tree everywhere (shipped `0df7eea`), but a sighted pointer user still gets two bare
@@ -31,13 +66,21 @@ wild, ideas too big for one pass. One line each, newest first.
   shape this repo keeps finding — a caveat on one surface and a confident claim on another — and it
   is a **Sev-1 candidate**, not ordinary ledger work: reproduce it and fix it ahead of a milestone.
 
-- **2026-08-18 — the logbook's per-row ✕ deletes the flight AND every recording of it on one click,
-  with no confirm and no undo.** `components/RecentFlights.tsx:905` calls
+- **2026-08-18 — the logbook's per-row ✕ is destructive with no confirm and no undo, and the
+  asymmetry with *Clear* is the sharpest part.** `components/RecentFlights.tsx:905` calls
   `group.recordings.forEach((rec) => onRemove(rec.id))`, taking the stored file text, the report
-  label, the notes, the chosen crop and any hand-made column mapping with it. The panel's *Clear*
-  button — which deletes strictly less on a grouped row — does have a confirm. A **one-way door**,
-  which `MAINTAINING.md` ranks second in the Sev-1 list. Reproduce before scoping: the sweep that
-  found it read source rather than driving the app.
+  label, the notes, the chosen crop and any hand-made column mapping with it — while *Clear*, which
+  on a grouped row deletes strictly less per press, does confirm.
+  **DRIVEN IN THE APP rather than read, and the severity is corrected downward as a result.** The
+  sweep that found it filed it as a Sev-1 one-way door. Measured at 1280px with two flights
+  remembered: the ✕ carries `aria-label="Remove <name> from recent flights"` and `title="Remove"`,
+  one click takes the list from 2 rows to 1, and the page then contains **zero** undo affordances
+  and the word "undo" **zero** times. So the behaviour reproduces exactly — but it is a destructive
+  ACTION without a guard, not a state a flyer is stuck in, and the logbook is a 12-slot cache with
+  Export/Import behind it. Real, worth fixing, and **not** a Sev-1 preemption; the honest framing is
+  the asymmetry, not a trap. A grouped row (several recordings, one press) is the case worth
+  measuring next — this probe had two ungrouped flights, so the multi-recording branch is still
+  unreproduced.
 
 - **2026-08-18 — every rocket-shaped input is stored under ONE global key, not per flight.**
   Descending mass, main-deploy altitude, motor delay, chute/drogue/body diameter and rail length all

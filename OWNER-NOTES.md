@@ -326,7 +326,28 @@ them states horizontal fix quality at all. That reorders the last slice: a coars
 demonstrates a capability, and the capability it would demonstrate is thinner than this milestone
 assumed. `COMPETITION.md` row 47 carries the measured version.
 
-TRIAGED 2026-08-18 — **still open, and this run took the SURFACE half the last one said to take
+RESOLVED 2026-08-18 — **D10 is SHIPPED, and this note is what it was built from.** The milestone's
+*done when* asked for a named sample for each of six capabilities; the coarse-GPS flight was the
+last without one and it landed this run. `/` now carries seven ways in where this note found ONE
+file, and every made-up flight among them says so on every sink a figure can leave through.
+
+**The owner's own question, answered one last time:** the fixtures still cannot ship — no blanket
+licence, and real names, launch-site GPS and device serials in the files — and the route taken was
+the owner's own suggestion, made-up logs, with the constraint from the note body adopted verbatim as
+the milestone's hardest clause.
+
+Two things worth having back from it. **The made-up logs turned out to be BETTER than the corpus for
+this purpose, not a fallback:** a generated file can be built to exercise one capability, where a
+real log covers it only by luck — and the coarse-GPS sample is the proof, being the first file in the
+app that exercises Debrief's degraded-fix rule at all, because every real recording in the corpus is
+locked throughout. **And a demonstration found a defect a sweep could not**: an early draft of that
+generator made a 5,466 ft flight report 1,312 ft, unqualified, because the heights around its peak
+were dropped — filed, and the sample deliberately does not reproduce it.
+
+The note moves to `## Resolved` at the top of the next run rather than now, so the run that shipped
+it leaves the reasoning where the next reader will look for it.
+
+TRIAGED 2026-08-18 — **this run took the SURFACE half the last one said to take
 first.** D10's remaining capability is the coarse-GPS flight, and `ROADMAP.md` had already recorded
 the reason to build the surface before the sample: *a sample demonstrates a capability, and this
 capability is thin*. It was thinner than that entry knew. `COMPETITION.md` row 47 named one thing to

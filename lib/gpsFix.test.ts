@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importFlight } from './parsers';
 import { getChannel } from './flight/types';
-import { fixAllows, gradeFromFixColumn, gradeFromSatellites, gradeFromValue } from './gpsFix';
+import { fixAllows, fixQualitySentence, gradeFromFixColumn, gradeFromSatellites, gradeFromValue, trackFixQuality } from './gpsFix';
 
 /**
  * One rule for a degraded fix, held against every parser that has to apply it.
@@ -250,4 +250,56 @@ describe('one rule for a degraded GPS fix', () => {
         twoD.map((r) => `${r.file.split('/').pop()}: ${r.twoDSolutions} (over ${r.fixRows} rows)`).join(' · '),
     );
   }, 300_000);
+});
+
+describe('what the recovery view says about a fix, in place of a constant', () => {
+  const f = (...v: number[]) => Float64Array.from(v);
+
+  it('says nothing at all when the file states nothing', () => {
+    // Most formats carry no fix column. The panel must be QUIET rather than reassuring: the
+    // sentence this replaces — "Positions are GPS, good to a few metres" — was printed on every
+    // flight, in both branches, derived from nothing, and it is the app's only statement about
+    // horizontal accuracy.
+    const q = trackFixQuality(f(1, 2, 3), f(1, 2, 3), undefined);
+    expect(q.unstated, 'a file with no grade channel states nothing').toBe(true);
+    expect(fixQualitySentence(q), 'and the panel says nothing').toBeNull();
+    // …and a grade channel of nothing but NaN is the same case, not a track of bad fixes.
+    expect(fixQualitySentence(trackFixQuality(f(1, 2), f(1, 2), f(NaN, NaN)))).toBeNull();
+  });
+
+  it('counts what the receiver solved, over the fixes that were KEPT', () => {
+    // NaN lat/lon are the fixes the parser dropped — they are not on the map, so they are not what
+    // the reader is looking at and are not counted.
+    const q = trackFixQuality(f(1, NaN, 2, 3), f(1, NaN, 2, 3), f(3, 0, 2, 3));
+    expect(q.kept, 'three positions survived').toBe(3);
+    expect(q.threeD).toBe(2);
+    expect(q.twoD).toBe(1);
+    expect(q.last, 'the coordinate a flyer walks to is the LAST kept fix').toBe('3d');
+  });
+
+  it('states the count and never a distance in metres', () => {
+    const good = fixQualitySentence(trackFixQuality(f(1, 2), f(1, 2), f(3, 3)))!;
+    expect(good).toContain('three dimensions');
+    const mixed = fixQualitySentence(trackFixQuality(f(1, 2, 3, 4), f(1, 2, 3, 4), f(3, 2, 3, 3)))!;
+    expect(mixed, 'the count is stated, not implied').toContain('1 of 4');
+    expect(mixed).toContain('TWO dimensions');
+
+    // **No metres, and this is the assertion that keeps it that way.** What a fix is good to in
+    // metres depends on geometry and signal strength, and neither vendor publishes a function from
+    // what these files carry — `COMPETITION.md` row 47. A grade a flyer can act on beats a number
+    // nobody can ground, and the sentence this replaced was exactly such a number.
+    for (const sentence of [good, mixed]) {
+      expect(sentence, 'no distance is claimed').not.toMatch(/\bmetres?\b|\bmeters?\b|\bfeet\b|\bft\b/i);
+      expect(sentence, 'and no accuracy figure').not.toMatch(/\d+\s*(m|ft|km)\b/);
+    }
+  });
+
+  it('warns when the coordinate a flyer walks to is itself two-dimensional', () => {
+    // The last kept fix is the one that goes into a phone. A track that was mostly good and ended
+    // badly is the case the count alone would understate.
+    const endsBadly = fixQualitySentence(trackFixQuality(f(1, 2, 3), f(1, 2, 3), f(3, 3, 2)))!;
+    expect(endsBadly).toContain('The last fix here is one of them');
+    const endsWell = fixQualitySentence(trackFixQuality(f(1, 2, 3), f(1, 2, 3), f(2, 3, 3)))!;
+    expect(endsWell, 'and says so only when it is true').not.toContain('The last fix here');
+  });
 });

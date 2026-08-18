@@ -250,6 +250,22 @@ describe('trackKml — the flight in Google Earth', () => {
     expect(kml.match(/,34\./g)?.length).toBe(2);
   });
 
+  it('does not put a fix whose height was withheld on the ground', () => {
+    // A two-dimensional fix: the position is real, the height is an assumption Debrief refuses to
+    // publish, so `altitudeM[i]` is NaN while lat and lon are finite. KML's `relativeToGround`
+    // reads a `0` there as ON THE SURFACE, so this used to draw the airframe dragging along the
+    // terrain mid-flight and then jumping back up. Latent until a sample existed that could reach
+    // it — every corpus recording carrying a position is locked throughout.
+    const withheld = Float64Array.from([100, NaN, 300]);
+    const kml = trackKml('t', lat, lon, withheld, -1, true, false, null);
+    const points = kml.match(/<coordinates>([^<]*)<\/coordinates>/g) ?? [];
+    const line = points[points.length - 1];
+    expect(line, 'the two fixes with a height are drawn').toContain('100.0');
+    expect(line).toContain('300.0');
+    expect((line.match(/,0\.0(?=[ <])/g) ?? []).length, 'and the withheld one is not put at 0').toBe(0);
+    expect((line.match(/ /g) ?? []).length, 'two points, not three').toBe(1);
+  });
+
   it('says nothing about being made up when the flight was flown', () => {
     const kml = trackKml('flight', lat, lon, alt, 2, true, false, null, 'the barometer drew the height');
     expect(kml).not.toContain(SYNTHETIC_TAG);

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmtLength, fmtSpeed, fmtTime, lengthIn, unitsOf } from '@/lib/display';
 import type { UnitChoice } from '@/lib/display';
 import { groundTrack, recoveryStats, compass, trackGpx, trackKml, descentWind, ascentLean, windProfile } from '@/lib/gps';
+import { fixQualitySentence, trackFixQuality } from '@/lib/gpsFix';
 import type { FlightEvent } from '@/lib/analyze/types';
 import { EVENT_COLOR } from '@/lib/eventStyle';
 import { liftoffOnLogClock } from '@/lib/readings';
@@ -65,6 +66,7 @@ export default function GroundTrack({
   apogeeAltitude,
   landed,
   events,
+  fixGrade,
   synthetic,
   recordedBy,
 }: {
@@ -99,6 +101,10 @@ export default function GroundTrack({
    *  by leg — each leg takes the colour of the event that began it, the same token the
    *  charts mark that event with — and give the readout something to name a fix by. */
   events?: FlightEvent[];
+  /** What the receiver solved each fix in, aligned with lat/lon — `lib/gpsFix.ts`'s `gpsFixGrade`
+   *  channel where the file states one. Optional, because most formats say nothing about their fix
+   *  quality and the panel must say nothing rather than guess for them. */
+  fixGrade?: Float64Array;
   /** Whether this is a flight Debrief MADE UP. Required with no default, for the reason
    *  `MetricGrid`'s and `FlightCard`'s are: on a panel whose three exports are coordinates
    *  somebody walks to, the safe-looking default is the defect value.
@@ -150,6 +156,16 @@ export default function GroundTrack({
       : base;
   }, [altitude, hasGpsAltitude]);
   const stats = useMemo(() => (track ? recoveryStats(track) : null), [track]);
+  // **What the receiver actually solved these fixes in, in place of a constant.** This panel told
+  // every flyer "Positions are GPS, good to a few metres" in both branches, on every flight,
+  // derived from nothing — and it is the app's ONLY statement about horizontal accuracy. On the one
+  // corpus flight that spends real time on three satellites it is wrong by an order of magnitude,
+  // on the surface a flyer physically acts on. `null` where the file says nothing, because a panel
+  // that guesses at quality is worse than one that is quiet about it.
+  const fixQuality = useMemo(
+    () => fixQualitySentence(trackFixQuality(lat, lon, fixGrade)),
+    [lat, lon, fixGrade],
+  );
   const wind = useMemo(
     () =>
       track && time && descentFromIndex != null
@@ -786,12 +802,12 @@ export default function GroundTrack({
         {landed ? (
           <>
             Walk from the pad toward {compass(stats.landingBearing)} ({bearing}°), or put the coordinates into your
-            phone/GPS — the cross marks the last fix. Positions are GPS, good to a few metres.
+            phone/GPS — the cross marks the last fix.{fixQuality ? ` ${fixQuality}` : ''}
           </>
         ) : (
           <>
             This record ends before the ground, so the cross is the last fix Debrief has — not where the rocket came
-            down, and not a direction to walk. Positions are GPS, good to a few metres.
+            down, and not a direction to walk.{fixQuality ? ` ${fixQuality}` : ''}
           </>
         )}
         {lean && (

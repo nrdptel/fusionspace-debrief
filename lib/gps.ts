@@ -258,10 +258,28 @@ export function trackKml(
   altitudeNote?: string,
 ): string {
   const n = Math.min(lat.length, lon.length);
+  // **A withheld height is not a point on the ground.** This wrote `0` for any sample whose
+  // altitude was NaN, and KML's `relativeToGround` reads that as *on the surface* — so a fix the
+  // receiver solved in two dimensions, whose position is real and whose height is an assumption
+  // Debrief refuses to publish, was drawn lying on the terrain and the track then jumped back up.
+  // In Google Earth that is a rocket dragging along the ground mid-flight. Latent until 2026-08-18,
+  // because every corpus recording carrying a position is locked throughout and no sample carried
+  // one at all; the coarse-GPS sample is the first file that reaches it, with 15 such fixes.
+  //
+  // Such a sample is SKIPPED, exactly as a sample with no position already was, and the line
+  // bridges it — which is what a polyline does between every pair of samples anyway, and invents no
+  // per-point height. Every value Debrief could put in that slot would be a claim it has refused
+  // elsewhere: `0` says where the airframe was, and the last known height is the held value the
+  // parsers exist to strip out.
+  //
+  // **Breaking the line into runs was tried first and is worse**: it turns a track whose positions
+  // are known but whose heights are not into nothing at all, and `lib/gps.test.ts`'s existing case
+  // — two good fixes either side of one gap — went from a two-point line to an empty document.
   const coords: string[] = [];
   for (let i = 0; i < n; i++) {
     if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
-    const h = altitudeM && Number.isFinite(altitudeM[i]) ? Math.max(0, altitudeM[i]) : 0;
+    if (altitudeM && !Number.isFinite(altitudeM[i])) continue;
+    const h = altitudeM ? Math.max(0, altitudeM[i]) : 0;
     coords.push(`${lon[i].toFixed(6)},${lat[i].toFixed(6)},${h.toFixed(1)}`);
   }
   const placemarkName = syntheticHeader(landed ? 'Landing' : 'Last fix (record ends in the air)', synthetic);
