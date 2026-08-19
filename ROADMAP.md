@@ -5437,6 +5437,25 @@ cheaply instead of re-derived. Newest first.
   and the methods page says so. The reversal is to withhold q wherever the height is withheld,
   which costs `meraki2` its load case.
 
+- **2026-08-19 — the INTEGRATED DEVICE VELOCITY is not accepted as a third candidate either, and
+  this one was refused before it was built rather than after.** *Rejected:* placing a contradicted
+  ascent sample by trapezoid-integrating the flight's own measured velocity from liftoff, which is
+  the one baro-independent estimate the AltusMetrum files can produce and which an early reading of
+  the corpus made look promising (it puts `irec2023`'s max-Q sample at ~1,837 m, where q would be
+  172.6 kPa against the 206.7 published). **Measured against the samples the guards TRUST, it
+  overshoots by +2,141 m on `telemega` (3,265 of 3,986 samples), +2,078 m on `easymega`, +654 m on
+  `jan10`, +665 m on `sg1.2` and +385 m on `kairos`, and its apogee overshoots the barometer by
+  +8.1%, +6.1% and +9.2% on the three tropospheric flights.** The drift is in the VELOCITY rather
+  than the barometer: on `kairos` and `sg1.2` the file's own GPS apogee sits BELOW the baro
+  (2,928 vs 2,973; 2,078 vs 2,113) while the integration sits 6.9% and 31.5% above it.
+  **And the part that makes this worth writing down rather than just not doing:** on the samples
+  that are withheld today the existing `usable` bounds — floor, apogee cap, below-ground, the
+  mean-value ceiling — accept the integrated value on **100% of them** (498/498, 499/499, 32/32,
+  40/40), publishing heights up to **+2,056 m above the running maximum**. None of those four files
+  carries an inertial channel, so those samples read "—" today and would have become confident
+  wrong numbers. The guard would not have caught it. No reversal is proposed: this is a design
+  rejection with the measurement behind it, not a deferral.
+
 - **2026-08-19 — a receiver's own altitude is NOT accepted as a second recording for placing an
   ascent sample.** *Rejected:* using the GPS altitude channel as the cross-source floor, which is
   what `BACKLOG.md` had proposed and what the AltusMetrum files make superficially available. It
