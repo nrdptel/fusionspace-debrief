@@ -11,7 +11,7 @@ import {
   DEFAULT_RAIL_M,
   MARGINAL_RAIL_VELOCITY,
 } from '@/lib/rail';
-import { Card, Readout } from './ui';
+import { Card, Readout, Select } from './ui';
 
 const PREF_KEY = 'debrief.rail';
 
@@ -91,18 +91,18 @@ export default function RailExit({
         </div>
         <label className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
           <span>Rail length</span>
-          <select
-            aria-label="Launch rail length"
+          <Select
+            ariaLabel="Launch rail length"
             value={railM}
-            onChange={(e) => onPick(Number(e.target.value))}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+            onChange={(v) => onPick(Number(v))}
+            className="font-medium"
           >
             {RAIL_LENGTHS_M.map((m) => (
               <option key={m} value={m}>
                 {railLabel(m)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
 

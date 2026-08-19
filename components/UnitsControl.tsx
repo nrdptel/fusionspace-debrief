@@ -13,7 +13,7 @@ import {
   type UnitChoice,
   type Units,
 } from '@/lib/display';
-import { Button, Popover } from './ui';
+import { Button, Popover, Select } from './ui';
 
 // Units, the way the mature tools do it: one click for the system a flyer works in,
 // and a choice per quantity underneath for the cases the two systems don't cover — a US
@@ -74,17 +74,17 @@ export default function UnitsControl({
           {CHOICES.map((c) => (
             <label key={c.key} className="flex items-center justify-between gap-2 text-sm">
               <span className="text-zinc-600 dark:text-zinc-400">{c.label}</span>
-              <select
+              <Select
                 value={current[c.key]}
-                onChange={(e) => onSetUnits({ ...current, [c.key]: e.target.value } as Units)}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-sm text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                onChange={(v) => onSetUnits({ ...current, [c.key]: v } as Units)}
+                className="font-mono"
               >
                 {c.options.map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           ))}
         </div>

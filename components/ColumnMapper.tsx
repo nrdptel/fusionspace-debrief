@@ -7,7 +7,7 @@ import { flownAtFromMapping, formatFlownAt, type DateColumns } from '@/lib/fligh
 import type { ColumnMapping } from '@/lib/flight/build';
 import { ROLE_GROUPS, ROLE_OPTIONS, prefillUnit, unitOptionsFor } from '@/lib/flight/mappingOptions';
 import { signatureOf, loadTemplate, saveTemplate, type SavedColumn } from '@/lib/mappingTemplates';
-import { Button, Card, Disclosure, Frame } from './ui';
+import { Button, Card, Disclosure, Frame, Select } from './ui';
 
 interface Row {
   role: ColumnRole;
@@ -205,11 +205,10 @@ export default function ColumnMapper({
                     {colName}
                   </td>
                   <td className="order-3 px-0 py-0 sm:table-cell sm:px-3 sm:py-2">
-                    <select
+                    <Select
                       value={rows[i].role}
-                      onChange={(e) => setRole(i, e.target.value as ColumnRole)}
-                      aria-label={`Role for the ${colName} column`}
-                      className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs sm:min-h-0 dark:border-zinc-700 dark:bg-zinc-900"
+                      onChange={(v) => setRole(i, v as ColumnRole)}
+                      ariaLabel={`Role for the ${colName} column`}
                     >
                       <option value="ignore">Ignore</option>
                       {ROLE_GROUPS.map((g) => (
@@ -221,22 +220,21 @@ export default function ColumnMapper({
                           ))}
                         </optgroup>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="order-4 px-0 py-0 sm:table-cell sm:px-3 sm:py-2">
                     {units.length > 0 ? (
-                      <select
+                      <Select
                         value={rows[i].unit}
-                        onChange={(e) => setUnit(i, e.target.value)}
-                        aria-label={`Unit for the ${colName} column`}
-                        className="min-h-11 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs sm:min-h-0 dark:border-zinc-700 dark:bg-zinc-900"
+                        onChange={(v) => setUnit(i, v)}
+                        ariaLabel={`Unit for the ${colName} column`}
                       >
                         {units.map((u) => (
                           <option key={u} value={u}>
                             {u}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     ) : (
                       <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
                     )}
