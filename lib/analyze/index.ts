@@ -357,20 +357,19 @@ function padPressure(flight: RawFlight, baseEnd: number, padDataLikely: boolean)
  *  anchored to the pad's own temperature and pressure rather than sea level — so
  *  a mile-high launch site reads its real (thinner) air. */
 function standardAtmosphereDensity(altAgl: Float64Array, groundTempK: number, groundPressure: number): Float64Array {
-  const rho0 = groundPressure / (R_AIR * groundTempK);
-  // ρ/ρ0 = (T/T0)^(−g/(R·L) − 1), with T = T0 + L·h (h is AGL, T0 the pad temp).
-  const exponent = -G_STD / (R_AIR * LAPSE) - 1;
   const out = new Float64Array(altAgl.length);
-  for (let i = 0; i < altAgl.length; i++) {
-    const h = altAgl[i];
-    if (!Number.isFinite(h)) {
-      out[i] = NaN;
-      continue;
-    }
-    const tRatio = (groundTempK + LAPSE * h) / groundTempK;
-    out[i] = tRatio > 0 ? rho0 * Math.pow(tRatio, exponent) : NaN;
-  }
+  for (let i = 0; i < altAgl.length; i++) out[i] = densityAt(altAgl[i], groundTempK, groundPressure);
   return out;
+}
+
+/** One height's air density — the whole of the model above, for the samples the analysis
+ *  re-reads once it knows where they actually were. Stated once so the array form and the
+ *  correction below cannot drift apart. */
+function densityAt(h: number, groundTempK: number, groundPressure: number): number {
+  if (!Number.isFinite(h)) return NaN;
+  // ρ/ρ0 = (T/T0)^(−g/(R·L) − 1), with T = T0 + L·h (h is AGL, T0 the pad temp).
+  const tRatio = (groundTempK + LAPSE * h) / groundTempK;
+  return tRatio > 0 ? (groundPressure / (R_AIR * groundTempK)) * Math.pow(tRatio, -G_STD / (R_AIR * LAPSE) - 1) : NaN;
 }
 
 /** Speed of sound (m/s) at each AGL altitude: a = √(γ·R·T), with the air temperature
@@ -381,16 +380,15 @@ function standardAtmosphereDensity(altAgl: Float64Array, groundTempK: number, gr
  *  standard atmosphere goes isothermal, so a very high flight doesn't over-cool. */
 function speedOfSoundProfile(altAgl: Float64Array, groundTempK: number): Float64Array {
   const out = new Float64Array(altAgl.length);
-  for (let i = 0; i < altAgl.length; i++) {
-    const h = altAgl[i];
-    if (!Number.isFinite(h)) {
-      out[i] = NaN;
-      continue;
-    }
-    const t = groundTempK + LAPSE * Math.min(h, TROPOSPHERE_LIMIT_M);
-    out[i] = t > 0 ? Math.sqrt(1.4 * R_AIR * t) : NaN;
-  }
+  for (let i = 0; i < altAgl.length; i++) out[i] = speedOfSoundAt(altAgl[i], groundTempK);
   return out;
+}
+
+/** One height's speed of sound — stated once, for the same reason `densityAt` is. */
+function speedOfSoundAt(h: number, groundTempK: number): number {
+  if (!Number.isFinite(h)) return NaN;
+  const t = groundTempK + LAPSE * Math.min(h, TROPOSPHERE_LIMIT_M);
+  return t > 0 ? Math.sqrt(1.4 * R_AIR * t) : NaN;
 }
 
 /**
@@ -1684,6 +1682,26 @@ function analyzeWhole(
     const base = median(inertialCh.values, 0, baseEnd);
     inertial = Float64Array.from(inertialCh.values, (v) => v - (Number.isFinite(base) ? base : 0));
   }
+  /** The second recording of this climb, if the file holds one.
+   *
+   *  **The receiver's own height is deliberately NOT one, and this was measured rather than
+   *  assumed.** It looks like the obvious second opinion — it does not use the static port,
+   *  so the shock that distorts the barometer through the transonic push leaves it alone —
+   *  and it is the only candidate the AltusMetrum files carry. But a recording only earns
+   *  the right to stand in for another where the two agree on the stretch the first one is
+   *  sound, and measured across the corpus on 2026-08-19 **not one GPS altitude channel
+   *  does**: against its own barometer over the uncontradicted ascent the median gap is
+   *  174.8 m on `endurance` (band 85 m), 105.3 m on `intrepid2` (32 m), 235.9 m on `sg1.2`
+   *  (63 m), 572.6 m on `sg1.1` (30 m) and **560.8 m over 3,488 samples on
+   *  `irec_2023_telemega`** (250 m) — whose GPS also puts apogee at 8,854 m where its
+   *  barometer reads 8,317 m. The two files whose GPS DOES agree (`kairos`, both exports)
+   *  have no contradicted ascent sample a GPS fix could place.
+   *
+   *  So substituting it would not be reading a second instrument, it would be blending two
+   *  that disagree — which is the one thing `MAINTAINING.md`'s measurement spine forbids
+   *  outright. Both recordings still ride the flight side by side, plottable against each
+   *  other, which is where a disagreement of 537 m at apogee belongs. */
+  const secondAltitude: Float64Array | null = inertial;
 
   const ascentFloor = altClean.slice();
   {
@@ -1737,38 +1755,122 @@ function analyzeWhole(
   // recite every way it could have.
   let sawUnderRead = false;
   let sawOverRead = false;
+  /** The trace was neither below the pad nor above its own speed cap here — the second
+   *  recording is what caught it. A different fault from the two above, so the warning says
+   *  so rather than borrowing one of their sentences. */
+  let sawDisagreement = false;
+  /** Where one ascent sample's height stands: the reading, which way the trace went wrong
+   *  if it did, and whether the second recording could place it. Pure — it records nothing —
+   *  because the atmosphere below has to ask this of EVERY ascent sample, and the warning
+   *  the flags drive is about the readings a flyer is shown, not about every index the
+   *  analysis walked past. `altAt` is this plus that bookkeeping. */
+  const placeAscent = (idx: number): { alt: number; under: boolean; over: boolean; crossed: boolean; recovered: boolean } => {
+    const h = altClean[idx];
+    const onAscent = idx >= liftoffRef && idx <= apogeeIdx && Number.isFinite(h);
+    if (!onAscent) return { alt: h, under: false, over: false, crossed: false, recovered: false };
+    const tooLow = h < -belowGroundBand || ascentFloor[idx] - h > contradictionBand;
+    const tooHigh = capApplies && h - ascentCeil[idx] > contradictionBand;
+    // The two tests above hold the trace against ITSELF, and there is a shape neither can
+    // see: a stretch that is smoothly wrong. On `f1machbuster-jan10` the trace reads
+    // 76 → 12 → 11 → −45 → −93 m in a tenth of a second at 646 m/s, and only the last two
+    // fall far enough below the running maximum to be caught — so the sample the max-Q
+    // landed on kept a height of 11.4 m on a rocket the file's own inertial solution puts
+    // at 482 m. A rocket does not reach Mach 1.9 eleven metres off the pad.
+    //
+    // A SECOND RECORDING of the same climb can see it, because it is evidence about the
+    // same instant rather than about a neighbouring one. So a sample the second recording
+    // puts more than the same band away is contradicted too — by the other instrument
+    // rather than by its own history.
+    //
+    // This does not make the second recording authoritative; it is held to exactly the
+    // bounds below, all of them, and where it cannot satisfy them the barometer stands. A
+    // receiver whose altitude solution lags at pad level through the climb — a state this
+    // corpus contains — reads BELOW the height the barometer has already proved, so it
+    // fails the floor and changes nothing.
+    const other = secondAltitude?.[idx];
+    const disagrees = other != null && Number.isFinite(other) && Math.abs(other - h) > contradictionBand;
+    // WHICH BOUNDS a candidate must clear depends on WHO raised the contradiction, and
+    // getting this wrong is the expensive mistake — it was made once here and the corpus
+    // caught it. The running-maximum floor is the bound that rejects a lagging receiver, so
+    // a cross-source disagreement is ALWAYS held to it: five corpus TeleMega/TeleMetrum
+    // flights have a GPS altitude that sits near pad level through the climb, and with the
+    // floor switched off for them their burnout heights read 0, 9, 6, 456 and 579 m against
+    // barometric 488, 103, 360, 1,012 and 1,536.
+    //
+    // The one bound a candidate may skip is the floor, and ONLY where the trace itself was
+    // caught reading HIGH — because an over-read is exactly what contaminates the running
+    // maximum, so holding a candidate to it would be holding it to the error. That is the
+    // original rule for `tooHigh` and it is unchanged; `f1machbuster-jan18` keeps its
+    // 171.9 m burnout height through it.
+    // The trace having been caught reading high is what suspends the floor, whether or not
+    // the second recording also disagrees — it is the over-read that contaminates the
+    // running maximum, and a second opinion arriving alongside does not un-contaminate it.
+    // Writing this as `tooHigh && !disagrees` was tried and takes `f1machbuster-jan18`'s
+    // burnout height away, because that flight is in BOTH states at once.
+    const skipFloor = tooHigh;
+    if (tooLow || tooHigh || disagrees) {
+      // Only when the second recording agrees with what the first already established:
+      // never below a height the barometer has already proved, never above apogee, never
+      // underground, and never above what the flight's own measured top speed allows. A
+      // candidate is held to every bound the record can still state, or it is no better
+      // than what it replaces.
+      const alt = other;
+      const usable =
+        alt != null &&
+        Number.isFinite(alt) &&
+        (skipFloor ? true : alt >= ascentFloor[idx] && alt <= apogeeAlt) &&
+        alt > -belowGroundBand &&
+        (capApplies ? alt - ascentCeil[idx] <= contradictionBand : true);
+      if (usable) return { alt: alt as number, under: tooLow, over: tooHigh, crossed: disagrees && !tooLow && !tooHigh, recovered: true };
+      // A disagreement the second recording cannot itself stand behind says nothing about
+      // the barometer — only the trace's own self-contradiction withholds a height.
+      if (!tooLow && !tooHigh) return { alt: h, under: false, over: false, crossed: false, recovered: false };
+      return { alt: NaN, under: tooLow, over: tooHigh, crossed: false, recovered: false };
+    }
+    return { alt: h, under: false, over: false, crossed: false, recovered: false };
+  };
   /** The altitude at an ascent instant: the logger's inertial solution where the
    *  barometric record contradicts itself and that solution is consistent with it,
    *  otherwise NaN. Every surface formats a non-finite length as "—", so a figure with no
    *  honest answer reads as unknown everywhere. */
   const altAt = (idx: number): number => {
-    const h = altClean[idx];
-    const onAscent = idx >= liftoffRef && idx <= apogeeIdx && Number.isFinite(h);
-    if (!onAscent) return h;
-    const tooLow = h < -belowGroundBand || ascentFloor[idx] - h > contradictionBand;
-    const tooHigh = capApplies && h - ascentCeil[idx] > contradictionBand;
-    if (tooLow || tooHigh) {
-      if (tooLow) sawUnderRead = true;
-      if (tooHigh) sawOverRead = true;
-      // Only when the second recording agrees with what the first already established:
-      // between the height the baro itself had reached and the apogee when the trace read
-      // too low, and under the speed record's own cap when it read too high. A candidate is
-      // held to the bound the barometer just failed, or it is no better than what it replaces.
-      const alt = inertial?.[idx];
-      const usable =
-        alt != null &&
-        Number.isFinite(alt) &&
-        (tooLow ? alt >= ascentFloor[idx] && alt <= apogeeAlt : true) &&
-        (tooHigh ? alt - ascentCeil[idx] <= contradictionBand && alt > -belowGroundBand : true);
-      if (usable) {
-        recoveredFromInertial = true;
-        return alt as number;
-      }
-      withheldAnAltitude = true;
-      return NaN;
-    }
-    return h;
+    const p = placeAscent(idx);
+    if (p.under) sawUnderRead = true;
+    if (p.over) sawOverRead = true;
+    if (p.crossed) sawDisagreement = true;
+    if (p.recovered) recoveredFromInertial = true;
+    else if (p.under || p.over) withheldAnAltitude = true;
+    return p.alt;
   };
+
+  // --- The atmosphere is re-read at the height the analysis will STATE -------
+  // It was built from `altClean` a few hundred lines above, before apogee, liftoff or any
+  // of the bounds below existed — which left the analysis holding TWO heights for one
+  // instant: the one `altAt` prints and the one the air was read at. On
+  // `f1machbuster-jan10` those are 482.5 m and −93.5 m, 576 m apart in one row, and the
+  // max-Q published off the second is the structural load case an airframe is sized
+  // against. Density goes exponentially with height, so reading it too low reads the air
+  // too THICK and the load case too high — the direction that matters.
+  //
+  // Two rules, in order, and neither invents a height:
+  //  - Where the record can place the sample, use that placement — the same one `altAt`
+  //    publishes, so the row stops contradicting itself.
+  //  - Where it cannot, the sample still cannot be BELOW THE PAD: a climbing rocket is
+  //    never underground, which is the premise `belowGroundBand` above already stands on.
+  //    Clamping there is a bound rather than a guess, it only ever thins the air, and it
+  //    leaves the reading published instead of withholding a load case the flyer has.
+  // Where the placement is unknown AND the barometer is not below the pad, nothing moves.
+  {
+    const padPa = padPressure(flight, baseEnd, padDataLikely);
+    for (let i = liftoffRef; i <= apogeeIdx && i < n; i++) {
+      const placed = placeAscent(i).alt;
+      const raw = altClean[i];
+      const h = Number.isFinite(placed) ? placed : Number.isFinite(raw) ? Math.max(raw, 0) : NaN;
+      if (!Number.isFinite(h) || h === raw) continue;
+      airDensity[i] = densityAt(h, groundTempK, padPa);
+      sosProfile[i] = speedOfSoundAt(h, groundTempK);
+    }
+  }
 
   // A large gap in the sampled ascent makes a baro-DERIVED velocity peak
   // undeterminable: the true top speed may fall in the unrecorded stretch, and the
@@ -3060,19 +3162,26 @@ function analyzeWhole(
     );
   }
   if (recoveredFromInertial || withheldAnAltitude) {
-    // Both faults are the same physical cause read in opposite directions, so the sentence
-    // is built from what this flight actually did.
+    // The faults are one physical cause read different ways, so the sentence is built from
+    // what this flight actually did. The first two are the trace failing against ITSELF; the
+    // third is a fault only the second recording can see — a stretch that is smoothly wrong,
+    // which never drops below the pad and never outruns the speed cap. Folding it into one
+    // of the other two was tried and told `f1machbuster-jan18`'s reader its trace had dropped
+    // below the pad, when that flight's barometer reads HIGH.
     const how = [
-      sawUnderRead
-        ? 'dropping below the pad, or below a height the record had already reached'
-        : '',
+      sawUnderRead ? 'dropping below the pad, or below a height the record had already reached' : '',
       sawOverRead
         ? 'climbing further in a stretch than the flight’s own measured top speed over that stretch can account for'
         : '',
+      sawDisagreement ? 'and parting from the logger’s own inertial solution by more than this flight’s trace should' : '',
     ]
       .filter(Boolean)
-      .join(', and ');
-    const cause = `The altitude trace contradicts itself on the way up — ${how}, and a climbing rocket can do neither. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure away from the true static value — upward on some airframes, downward on others.`;
+      .join(', and ')
+      .replace(', and and ', ', and ');
+    const selfContradicted = sawUnderRead || sawOverRead;
+    const cause = selfContradicted
+      ? `The altitude trace contradicts itself on the way up — ${how}, and a climbing rocket can do neither. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure away from the true static value — upward on some airframes, downward on others.`
+      : `The altitude trace disagrees with the logger’s own inertial solution on the way up, by more than the height reached can account for. It is what a barometric port reads through the transonic push, where the shock over it drives the sensed pressure away from the true static value — upward on some airframes, downward on others — and the inertial sensor, which does not use that port, is unaffected by it.`;
     if (recoveredFromInertial) {
       warnings.push(
         `${cause} Where a reading lands in that stretch, its altitude is taken from the logger’s own inertial solution instead — a second recording in the same file, which doesn’t use the port — rather than off the distorted baro trace, and only where that solution satisfies the bound the barometer failed. The altitude chart still shows the barometric trace as recorded, and you can plot the inertial one against it in the explorer.`,

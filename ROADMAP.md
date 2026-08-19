@@ -107,6 +107,41 @@ land here, unlike in a repo that ships none — they land as small affordances o
 whatever order a defect sweep surfaced them, while both North Star ambitions' headline items sit
 still.
 
+### The Sev-1 that preempted a run on 2026-08-19 — a structural load case read at the wrong height
+
+**Max-Q is `½ρv²`, so the height the air was read at is half the reading — and the atmosphere was
+built from the raw barometric trace hundreds of lines before the ascent bounds existed.** The
+analysis therefore held TWO heights for one instant: the one it printed beside the load case and
+the one it read the air at. On `f1machbuster-jan10` those were **482.5 m and −93.5 m**, 576 m apart
+in a single row. Density falls exponentially with height, so reading it low reads the air thick and
+the load case high — and a max-Q is the number an airframe is sized against.
+
+**Two earlier attempts were built and refused, both correctly, and this is the third.** What made
+it small is a distinction the first two missed: the trace is *smoothly* wrong through the transonic
+push, not spikily wrong, so a guard that withholds on the peak sample just watches the peak migrate
+to a neighbour its bands do not catch. Reading the air at the height the analysis will STATE, and
+bounding it at the pad where nothing can state one, fixes the cause instead of the symptom.
+
+**Measured blast radius, and it is the whole reason this could land: exactly 4 of 39 analysed
+corpus flights move, one metric each, and the error runs BOTH ways.** `jan10` 254.3 → 240.9 kPa,
+`jan18` 83.8 → **89.0** kPa (its barometer over-reads, so its air was too THIN and its load case
+too low), and the two irec2023 recordings 212.5 → 206.7 and 205.1 → 199.8 kPa off the pad bound
+alone. Four further flights move `airDensity`/`speedOfSoundProfile` and **nothing else** — verified
+by hashing every digest component separately, before and after, across all 50 analysable flights:
+no metric, no event, no warning, no other series moved anywhere.
+
+**The GPS altitude was measured as the cross-source floor and REFUSED — see `BACKLOG.md` for the
+numbers.** A recording earns the right to stand in for another only where the two agree on the
+stretch the first is sound, and not one GPS channel in the corpus does; `irec_2023_telemega`'s is
+560.8 m off its own barometer over 3,488 samples. Building it anyway was tried first and the corpus
+caught it: five burnout heights read 0, 9, 6, 456 and 579 m against barometric 488, 103, 360, 1,012
+and 1,536, a lagging receiver replacing a sound barometer.
+
+**Pinned by** `lib/analyze/atmosphere.test.ts` (3 corpus-free cases) plus two corpus cases — *"never
+publishes a load case heavier than the air at the height it says it happened"*, which is checkable
+from the published figures alone, and *"the load cases the methods page quotes are the ones the
+corpus produces"*, which holds all four EXACTLY. All five were falsified before landing.
+
 ### The Sev-1 that preempted a run on 2026-08-04 — a descent rate 2.4× too fast
 
 **`legRate` read the leg rate off a derivative smoothed three times, and `timeMean` only
@@ -5258,6 +5293,32 @@ Beyond these, decompose from the North Star in `MAINTAINING.md` and from `COMPET
 Unattended runs do not stop to ask (see *Unattended operation* in `MAINTAINING.md`). Every decision
 that would otherwise have been a question goes here, with the option rejected, so it can be reversed
 cheaply instead of re-derived. Newest first.
+
+- **2026-08-19 — where nothing can place an ascent sample, max-Q is still PUBLISHED, with the air
+  bounded at the pad, rather than withheld.** *Rejected:* withholding the load case on any flight
+  whose peak sample has no statable height. That option was built in a previous run and refused by
+  the corpus, because it takes max-Q off `meraki2 BlueRaven-LR` — the 121 km flight the corpus
+  asserts at 404.1 kPa — where 5,931 ascent samples have no statable height and no sound lower
+  bound exists through a contradicted stretch. Publishing a figure bounded by a physical fact ("a
+  climbing rocket is not underground") beats withholding a load case the flyer has a right to, and
+  the bound only ever thins the air, so the published number can only move toward the truth.
+  **The cost, stated so it can be reversed cheaply:** on the two irec2023 recordings the pad bound
+  leaves a figure that is still high — their barometers dive ~295 m below the pad at the peak and
+  nothing in either file can say where the rocket actually was. The height beside them reads "—",
+  and the methods page says so. The reversal is to withhold q wherever the height is withheld,
+  which costs `meraki2` its load case.
+
+- **2026-08-19 — a receiver's own altitude is NOT accepted as a second recording for placing an
+  ascent sample.** *Rejected:* using the GPS altitude channel as the cross-source floor, which is
+  what `BACKLOG.md` had proposed and what the AltusMetrum files make superficially available. It
+  was implemented and measured before being refused: not one GPS channel in the corpus agrees with
+  its own barometer on the stretch the barometer is sound (median gap 105–573 m against bands of
+  30–250 m), and `irec_2023_telemega`'s puts apogee 537 m above its barometer's. Using it would
+  blend two instruments that disagree, which the measurement spine forbids. **The reversal, if a
+  file ever turns up where the two do agree,** is an agreement gate — calibrate the second
+  recording against the first over the uncontradicted ascent and admit it only if the median gap
+  is inside the band. That gate is written down rather than shipped, because measured today it
+  fires on zero real files, and this repo does not ship guards that cannot fire.
 
 - **2026-08-17 — the dynamic-pressure CURVE is truncated to the ascent rather than drawn whole with
   a caveat attached.** *Rejected:* keeping the full-record curve and hanging a warning on it. The
