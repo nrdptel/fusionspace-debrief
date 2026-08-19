@@ -59,6 +59,34 @@ wild, ideas too big for one pass. One line each, newest first.
   qualification is added to a family of readings, the surface audit has to enumerate the FAMILY:
   altitude and q got it, speed, Mach and acceleration did not, and nothing in between noticed.
 
+- **2026-08-19 — SEV-1, REPRODUCED: three corpus flights publish a rail-exit velocity their own
+  measured acceleration cannot produce.** `lib/rail.ts:63` integrates the flown velocity from
+  `liftoffIndex + 1`, and on several flights the DETECTED liftoff sample is already metres off the
+  pad — `kairos` at **7.0 m**, `f1machbuster-jan18` at **14.3 m**, `sg1.2` 2.1 m past its last pad
+  sample — where an 8 ft rail is **2.438 m**. So the reported figure is the speed after travelling a
+  rail length *from there*, not from the pad.
+  **The physics check is what settles it, and it is the technique `MAINTAINING.md` names**: from
+  rest, `v = sqrt(2·a·d)`, so a flight's own peak acceleration bounds what it can reach over one
+  rail length. Three exceed their own bound:
+  - `intrepid2` reports **57.9 m/s** (70 g implied) against a measured peak of **31 g**, which
+    allows at most **38.8 m/s** — 1.49x its own bound;
+  - `kairos TeleMega` reports **32.6 m/s** (22 g) against **10 g**, max **21.3 m/s** — 1.53x;
+  - `sg1.2` reports **28.9 m/s** (17 g) against **12 g**, max **23.6 m/s** — 1.22x.
+  Rail-exit velocity carries a stability caution at **15 m/s** (`MARGINAL_RAIL_VELOCITY`), so this is
+  a safety-relevant reading a flyer acts on — Sev-1 category 1.
+  **Reproduce in a minute:** analyse `altusmetrum__issuiuc-kairos-20240323__Kairos-Booster-March-TeleMega.csv`,
+  take the liftoff event's `index`, read `series.altitude` at it (7.0 m), then compare
+  `railExitVelocity(...)` against `sqrt(2 · metrics.maxAcceleration · 2.438)`.
+  **What this entry does NOT establish, stated so a later run does not inherit an overclaim:**
+  whether any flight's caution is wrongly suppressed. The three that overrun all report well above
+  15 m/s, and what they SHOULD report is not known until the start point is fixed.
+  **And one comparison that looks decisive and is NOT** — it cost this run twenty minutes. Anchoring
+  the integral at the record's first sample instead makes `kairos` read 7.3 m/s, a 348% "error" and
+  a 1.1 g rail exit, i.e. a rocket that cannot leave the pad. Pad-sample noise accumulates into the
+  displacement budget and eats it before the rocket moves. **Any fix has to start the integral where
+  the rocket actually began moving, and be validated against the acceleration bound above rather
+  than against another integral.**
+
 - **~~2026-08-18 — SEV-1: max-Q is computed from an air density read at an altitude the analysis
   itself refuses to state.~~ RESOLVED 2026-08-19 — on the THIRD attempt, and the two that failed
   are why this one is small.** The atmosphere is now re-read, after the ascent bounds exist, at the

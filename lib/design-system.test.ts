@@ -714,6 +714,19 @@ const PRIMITIVE_ADOPTERS: Record<string, number> = {
   /** 3 → 4 on 2026-08-01: the sample table's channel scope, which is 2 mutually exclusive
    *  options with both visible — §5's own definition of when to reach for this. */
   Segmented: 4,
+  /** §5's word for "one of many", built 2026-08-19 from a census of SEVEN `<select>` across FIVE
+   *  geometries and four surfaces a flyer touches on every analysis — the explorer's add-a-channel
+   *  and x-axis pickers, the column mapper's role and unit pickers, the units panel and the
+   *  rail-exit panel. **Every one of those geometries was on §4's scale and `rounded-md`, so all
+   *  seven §9 commands read clean through the whole of it** — the same structural blindness that
+   *  hid the chip census, arriving on a control §5 had no word for at all.
+   *
+   *  Counted at FOUR because the count is files, not call sites; the explorer and the mapper hold
+   *  two each. Two of the seven also shed a call-site touch floor written as `min-h-11 …
+   *  sm:min-h-0`, which keys §8's 44 px to viewport WIDTH rather than to pointer type —
+   *  `app/globals.css` already floors every `select` on a coarse pointer, so it was redundant on a
+   *  phone and grew touch chrome on a desktop window dragged narrow. */
+  Select: 4,
   /** 3 → 5 on 2026-08-09: `app/page.tsx` and `components/LogDetails.tsx`. Both hand-rolled the
    *  primitive with a class string **byte-identical to its own**, `<summary>` included — and
    *  `LogDetails` already imported from `./ui` for `Chip`, so the primitive was one word away in
@@ -1849,6 +1862,26 @@ describe("DESIGN.md §5 — the chip's semantic tones", () => {
     }
     return out;
   };
+
+  /**
+   * **Every `<select>` in the app is `Select` — §5, added 2026-08-19.** The census that produced
+   * the primitive found SEVEN of them in FIVE geometries across four surfaces a flyer touches on
+   * every analysis, and every one of those geometries was on §4's spacing scale and `rounded-md`,
+   * so all seven §9 commands read clean through the whole of it. That is the same structural
+   * blindness the chip census records, arriving on a control §5 had no word for at all — which is
+   * why the pin here is a CENSUS of the tag rather than another count of classes.
+   *
+   * It anchors on the opening tag rather than on any class, so a new hand-roll fails however it is
+   * styled — including one that copies `Select`'s own string, which a class-matching grep would
+   * wave through.
+   */
+  it('has no hand-rolled select left', () => {
+    const offenders = uiSources(['components', 'app'], ['.tsx'])
+      .filter((f) => f.path !== 'components/ui.tsx')
+      .filter((f) => /<select[\s>]/.test(f.text))
+      .map((f) => f.path);
+    expect(offenders, 'hand-rolled <select> — use <Select>, DESIGN.md §5:').toEqual([]);
+  });
 
   it('has no hand-rolled inline notice left', () => {
     expect(

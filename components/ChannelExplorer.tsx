@@ -30,10 +30,8 @@ import { useIsDark } from './useIsDark';
 import { useFigureDark, FigureThemeButton } from './FigureTheme';
 import Chart, { type ChartMarker } from './Chart';
 import SampleTable from './SampleTable';
-import { Button, Card, Chip, ChipButton, CopyTableButton, DismissibleChip, Notice, Segmented } from './ui';
+import { Button, Card, Chip, ChipButton, CopyTableButton, DismissibleChip, Notice, Segmented, Select } from './ui';
 
-const SELECT =
-  'rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200';
 const GROUPS: PlotChannel['group'][] = ['Debrief', 'Recorded'];
 // The explorer's own limit, for the same reason `MAX_COMPARE` is: how many traces stay
 // readable is a fact about the eye, not about how many strokes the palette happens to hold.
@@ -407,13 +405,12 @@ export default function ChannelExplorer({
           ),
         )}
         {offerable.length > 0 && (
-          <select
-            aria-label="Add a channel to the plot"
+          <Select
+            ariaLabel="Add a channel to the plot"
             value=""
-            onChange={(e) => {
-              if (e.target.value) setYKeys((ks) => [...ks, e.target.value]);
+            onChange={(v) => {
+              if (v) setYKeys((ks) => [...ks, v]);
             }}
-            className={SELECT}
           >
             <option value="">+ Add channel…</option>
             {GROUPS.map((g) => {
@@ -432,7 +429,7 @@ export default function ChannelExplorer({
                 </optgroup>
               );
             })}
-          </select>
+          </Select>
         )}
       </div>
 
@@ -440,7 +437,7 @@ export default function ChannelExplorer({
       <div className="mt-3">
         <label className="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
           X axis
-          <select aria-label="X axis channel" value={xKey} onChange={(e) => setXKey(e.target.value)} className={SELECT}>
+          <Select ariaLabel="X axis channel" value={xKey} onChange={setXKey}>
             <option value="time">Time</option>
             {GROUPS.map((g) => {
               const inGroup = channels.filter((c) => c.group === g);
@@ -455,7 +452,7 @@ export default function ChannelExplorer({
                 </optgroup>
               );
             })}
-          </select>
+          </Select>
         </label>
       </div>
 

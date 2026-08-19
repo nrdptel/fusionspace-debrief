@@ -891,6 +891,65 @@ export function NumberField({
  * `multiline` rather than a separate `TextArea`, because everything except the tag and `rows` is
  * identical and two primitives would be two things to keep in step.
  */
+/**
+ * One of MANY mutually exclusive options — `DESIGN.md` §5. `Segmented` is the primitive up to five;
+ * this is the one above it, and every `<select>` in the app is this.
+ *
+ * **It takes its options as CHILDREN**, which is the whole of its API surface and is deliberate. A
+ * select's options are already a first-class part of the platform — `<optgroup>`, per-option
+ * `disabled`, a placeholder row — and all three are live here: the explorer groups thirty channels
+ * under Debrief/Recorded and disables the ones a flight cannot plot, and its add-a-channel control
+ * opens on an empty "+ Add channel…" row. An `options` prop would have to grow a config surface to
+ * say those, which is how a shared layer acquires the shape that stops anyone using it.
+ *
+ * **The geometry is `TextField`'s, not `Button`'s**, because a select is a field. Census of seven
+ * that produced it, in five different geometries, is in §5.
+ *
+ * **No touch floor here.** `app/globals.css`'s `@media (pointer: coarse)` block already floors every
+ * `select` at 44 px. One call site carried `min-h-11 … sm:min-h-0`, which is redundant on a phone
+ * and wrong on a pointer device — it keys the floor to viewport WIDTH, so a desktop window dragged
+ * narrow grows touch chrome. §8's floor is about the pointer.
+ */
+export function Select({
+  value,
+  onChange,
+  children,
+  id,
+  ariaLabel,
+  disabled,
+  className,
+}: {
+  value: string | number;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+  id?: string;
+  /** Needed only where no `<label>` wraps or points at this control. */
+  ariaLabel?: string;
+  disabled?: boolean;
+  /** Width and flex behaviour, the one thing that genuinely varies between call sites — the same
+   *  escape hatch `TextField` gives, and for the same reason. */
+  className?: string;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(e.target.value)}
+      className={cx(
+        'rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800',
+        'focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500',
+        'disabled:cursor-not-allowed disabled:opacity-60',
+        'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+        className,
+      )}
+    >
+      {children}
+    </select>
+  );
+}
+
 export function TextField({
   id,
   label,

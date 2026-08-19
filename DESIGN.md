@@ -432,6 +432,35 @@ hand-rolls it instead is not done.
   prose colour in light mode while dark mode looks correct. No test can see it: the roles and
   accessible names are unchanged.
 - **`Segmented`** — 2–5 mutually exclusive options, all visible. Preferred over a select at that size.
+- **`Select`** — one of MANY mutually exclusive options, where showing them all is not an option:
+  a channel out of thirty, a column role, a unit, a rail length. It is the word §5 was missing above
+  `Segmented`, and **every `<select>` in either app is this**.
+
+  It owns the field treatment and nothing else — geometry, focus ring, dark values, disabled — and
+  takes its options as CHILDREN, exactly as the native element does. That is deliberate and is the
+  difference between it and `Segmented`: `Segmented` renders its options as buttons so it must be
+  told what they are, while a select's options are already a first-class part of the platform, with
+  `<optgroup>`, per-option `disabled`, and a placeholder row. An `options` prop would have to grow a
+  config surface to say all three, and a primitive nobody can use is worse than a hand-roll.
+
+  **It shares `TextField`'s geometry, not `Button`'s** — `px-3 py-1.5 text-sm`, `control` border,
+  `raised` fill — because it is a field. A select and a text input on one form at two heights is
+  the thing this entry exists to stop.
+
+  **Added 2026-08-19 from a census of seven across FIVE geometries**, none of them the same:
+  `px-2 py-1.5 text-sm` (the explorer, twice), `min-h-11 px-2 py-1 text-xs` (the column mapper,
+  twice), `px-2 py-1 font-mono text-sm` on `dark:bg-zinc-950` with a `dark:border-zinc-600` that is
+  on no §2 row (the units panel), and `px-2 py-1 text-sm font-medium` (the rail-exit panel). Four
+  surfaces a flyer touches on **every** analysis, presenting four control heights and two border
+  vocabularies for one control — and every one of those classes is on §4's scale and `rounded-md`,
+  so all seven §9 commands read clean through the whole of it. Same shape as `link`, `ChipButton`
+  and `Popover`: the vocabulary being short a word, found only by counting.
+
+  **Do not carry a touch floor at the call site.** `app/globals.css`'s `@media (pointer: coarse)`
+  block already floors every `select` at 44 px. The mapper's `min-h-11 … sm:min-h-0` was therefore
+  redundant on a phone and actively wrong on a pointer device — it keys the floor to VIEWPORT WIDTH,
+  so a desktop window dragged under `sm` grows 44 px controls it has no use for. §8's floor is about
+  the pointer, never the width.
 - **`Tabs`** — switching views over one subject *within* a route. Not for navigation between jobs;
   that is a route (§7).
 - **`NumberField`** — a numeric input with its unit, min/max, and step. **Every numeric input in
@@ -941,6 +970,30 @@ move off the failing values, so the hierarchy each one sat in survives:
 | two comparison reorder buttons (◀ ▶) | `text-zinc-400`, no `dark:` partner | **2.46:1** on `sunken` | **the check's own first draft exempted these** — see below |
 | three simulation-run annotations, one an apogee | `text-zinc-500`, no `dark:` partner | **3.67:1** dark | a reading a flyer compares against their own |
 | the logbook's cross-check spread, `Chip`'s key, the stitch annotation, two placeholders | `dark:text-zinc-500` | **3.67:1** dark | text, in dark |
+
+**Every ratio above is TEXT contrast (WCAG 1.4.3), and NON-TEXT contrast (1.4.11) has never been
+checked in either app. Measured on the built export 2026-08-19, §2's `control` border fails it in
+both themes, and light is the worse one:**
+
+| boundary | rendered | 1.4.11 wants |
+|---|---|---|
+| `border-zinc-300` on `bg-white` — every field, light | **1.48:1** | 3:1 |
+| `border-zinc-300` on `bg-zinc-50` — a field on `sunken`, light | **1.42:1** | 3:1 |
+| `border-zinc-700` on `bg-zinc-900` — every field, dark | **1.70:1** | 3:1 |
+
+1.4.11 applies to the boundary of any control whose shape is what identifies it, which is every
+`TextField`, `NumberField`, `Select` and secondary `Button` in both apps — the border IS the control,
+because the fill matches the container it sits on. The first value that clears 3:1 on both surfaces
+is `zinc-500` (**4.86:1** light, **3.67:1** dark); `zinc-400` reaches only 2.56:1 light and
+`zinc-600` only 2.29:1 dark.
+
+**This is a §2 token change and it is deliberately NOT taken here.** `control` is worn by inputs,
+selects and secondary buttons at more than a dozen sites in `components/ui.tsx` alone, so raising it
+changes the weight of every control in the app in both themes — a visual decision the size of a
+milestone slice, not a fix to fold into whichever conversion happens to notice it. It is filed in
+`ROADMAP.md` under P1 with these numbers. **What is recorded here is that the greps above cannot see
+it**: they rate `text-zinc-*` only, so a control whose boundary is invisible passes every command in
+§9 while its label rates 16:1.
 
 **The `zinc-600` version of this fix was written first and was WRONG, which is worth more than the
 fix.** Lifting these to §2's `secondary` clears AA by a wider margin — and inverts hierarchies the

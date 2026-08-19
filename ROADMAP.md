@@ -4661,6 +4661,134 @@ flight's channels arriving and the effect that re-seeds `yKeys` running, where t
 resolve to nothing — one frame, and returning null for it is better than an empty chart. Same lesson
 as rows 1 and 3: an audit that reads source finds divergence and cannot weigh it.
 
+**2026-08-19 (second entry, same day) — `Select` SHIPPED, which is audit row 12 and the largest
+thing on the list a flyer actually meets.** Seven `<select>` in five geometries became one, and it
+was measured by driving the built export rather than by reading the source: on the report with the
+units panel open, **eight selects rendered at 34 px, 14 px and one padding in BOTH themes**, against
+four heights and two border vocabularies before. §5 gained the word; `components/ui.tsx` gained the
+primitive; four files converted.
+
+Three things worth keeping:
+- **It takes its options as CHILDREN**, not an `options` array. A select's options are already a
+  first-class part of the platform — `<optgroup>`, per-option `disabled`, a placeholder row — and
+  all three are live in the explorer alone. An `options` prop would have to grow a config surface to
+  say them, which is how a shared layer acquires the shape that stops anyone using it. `Segmented`
+  takes an array because it RENDERS its options as buttons; this one does not.
+- **Two call sites shed a viewport-keyed touch floor.** The mapper's `min-h-11 … sm:min-h-0` keys
+  §8's 44 px to WIDTH rather than to pointer type, so a desktop window dragged under `sm` grew touch
+  chrome — and `app/globals.css` already floors every `select` on a coarse pointer, so it was
+  redundant on the phone it was written for. Same defect class as audit row 9.
+- **It found row 13 below**, which is the only number this run moved the wrong way, and it is stated
+  rather than buried.
+
+**Pinned by** `lib/design-system.test.ts` → *"has no hand-rolled select left"*, a CENSUS of the
+opening tag rather than another count of classes — so a new hand-roll fails however it is styled,
+including one that copies `Select`'s own string. Falsified by reverting one call site: it fails
+naming `components/RailExit.tsx`. Plus `PRIMITIVE_ADOPTERS.Select: 4`, the exact ratchet.
+
+**2026-08-19 — THE AUDIT WAS RE-RUN IN FULL, and it did two things: it corrected four of the five
+open rows, and it found nine divergences the list never had.** §9 itself is honest — radius drift
+**0** · card treatments **3** · off-scale spacing **0** · half-steps **41** · off-scale type **1** ·
+inverted files **10 of 51** · `./ui` adopters **40 of 51**, every number matching the 2026-08-18
+record exactly. So everything below is drift the ratchet structurally cannot see, which is the point
+of running an audit beside it.
+
+**Corrections to the rows above — three of the four are refutations, and a ledger that contradicts
+the code is how a session ships the same regression twice:**
+
+- **Row 5 → `ChannelExplorer.tsx:567`** (was `:513`). The `ref` half of the blocker IS closed
+  (`Card` declares one at `ui.tsx:187`). Adopting `Figure` as it stands still REGRESSES twice: the
+  panel already has `<h3 id="explore-the-data">` so a second heading appears inside it, and
+  `savePlotPng(chartRef.current)` loses its host and the PNG export dies silently. **The fix is two
+  props on `Figure`, not a call-site conversion.**
+- **Row 9 → `RecentFlights.tsx:964,:979`, `CompareView.tsx:903,:913`, `SampleTable.tsx:74`.**
+  `ChannelExplorer` now holds zero hand-rolled `<button>` — that half shipped. **Its stated reason
+  is now FALSE**: all five remaining carry `hover:bg-zinc-100 dark:hover:bg-zinc-800`, which IS
+  `ghost`'s tint. What is actually wrong is the geometry — `h-11 w-11 sm:h-7 sm:w-7`, a
+  **viewport-width** query where the floor belongs to pointer type. Drag a desktop window under
+  640 px and the logbook row grows 44 px chrome. Conversion is safe: `globals.css` already floors
+  every `button` at 44×44 on a coarse pointer, so nothing shrinks on a phone.
+- **Row 10 OVERSTATES the debt by three.** `CompareView` is no longer a finding — that table has
+  `cycleSort` and `aria-sort`. Of the three left, only the explorer's stats table is a plausible
+  `DataTable` and it REGRESSES: `DataTable` renders one fixed `<table>` with no `block … sm:table`
+  collapse, reinstating the 395 px-in-358 px sideways scroll `ChannelExplorer.tsx:832` records
+  fixing. `StitchSurface`'s marks carry `tiedWithPrevious`, a flag defined relative to the row
+  ABOVE — **sorting it points a caveat at the wrong row**, which is a safety-shaped regression — and
+  `ColumnMapper` is a form whose row order IS the column index.
+- **Row 11 CONFIRMED at `FlightReport.tsx:1247`, and its prescribed primitive is WRONG.** The
+  zoom-preset group hand-rolls `ChipButton`'s signature verbatim, not `Segmented`'s. `Segmented`
+  would REGRESS: `activePreset` is null whenever the flyer pans the chart by hand, and e2e asserts
+  both presets read `aria-pressed="false"` at once, which a `value`-taking `Segmented` cannot
+  express. `ChipButton pressed={active}` keeps that and fixes the geometry. **Both this row and
+  `lib/design-system.test.ts:1804` prescribe `Segmented`; `FlightReport.tsx:1236` refutes both.**
+- **Row 7 CONFIRMED**, one line moved (`SampleTable.tsx:262`, `:270`, `:275`).
+
+**What the list never had, ranked by what a flyer meets:**
+
+12. **Seven `<select>` in FIVE geometries, and §5 has no select primitive at all.**
+    `ChannelExplorer.tsx:35` (used at `:410`, `:443`) `px-2 py-1.5 text-sm` · `ColumnMapper.tsx:208`,
+    `:228` `min-h-11 px-2 py-1 text-xs` · `UnitsControl.tsx:77` `px-2 py-1 font-mono text-sm` with
+    `dark:border-zinc-600` and `dark:bg-zinc-950` · `RailExit.tsx:94` `px-2 py-1 text-sm
+    font-medium`. Four surfaces a flyer touches on **every** analysis present four control heights
+    and two border vocabularies for one control — and every class is on §4's scale and `rounded-md`,
+    so all seven §9 greps read clean. This is the "vocabulary short a word" shape §5 already records
+    for `link`, `ChipButton`, `Popover` and `TextField`. **§5 moves first.**
+13. **§2's `control` border fails WCAG 1.4.11 in BOTH themes, and light is the worse one** —
+    measured on the built export, not read off the source: `border-zinc-300` on `bg-white` renders
+    **1.48:1** (1.42:1 on `sunken`) and `border-zinc-700` on `bg-zinc-900` renders **1.70:1**,
+    against the 3:1 a control boundary needs. The border IS the control here, because the fill
+    matches the container it sits on — so on a form the flyer is looking at an invisible edge with a
+    16:1 label inside it. First value clearing both surfaces is `zinc-500` (4.86:1 light, 3.67:1
+    dark); `zinc-400` reaches 2.56 and `zinc-600` 2.29. **Its own slice**, because `control` is worn
+    by every input, select and secondary button — raising it changes the weight of every control in
+    the app. Numbers and the reason it was not taken inline are in `DESIGN.md` §9.
+    **Found by the `Select` conversion and not caused by it**: the units panel had been wearing an
+    off-system `dark:border-zinc-600` on `dark:bg-zinc-950` reading 2.29:1, and adopting the §2
+    token took that one surface to 1.70:1 — conforming to a value that was already failing
+    everywhere else. Stated rather than buried, because it is the only number this run moved the
+    wrong way.
+14. **`text-[11px]` has become a seventh body size** — twelve live sites against the three row 7
+    names: `RecentFlights.tsx:857,:1109,:1133` (the last an interactive control), `LogDetails.tsx:38,
+    :47`, `CompareView.tsx:957,:963,:969`, `FlightReport.tsx:1553`. §9's type grep SUBTRACTS
+    `text-[11px]` by design, so the count reads 1 however far this spreads.
+15. **A third border role, sixteen occurrences, and §9 has no border-colour grep at all.**
+    `border-zinc-100 dark:border-zinc-900` as the row rule on four data tables
+    (`ColumnMapper.tsx:202`, `ChannelExplorer.tsx:868`, `SampleTable.tsx:334`, `CompareView.tsx:1002`)
+    where §2 names table rules under `hairline`, plus a stray `dark:border-zinc-600` at
+    `UnitsControl.tsx:80` on no §2 row. §2 claims the enumerate-and-subtract pattern; §9 never
+    implemented it for borders. **Either §2 gains a `rule` role for dense tables — darkening a
+    36,701-row virtual list is a real density cost — or the four files convert. §9 needs the grep
+    either way.**
+16. **Three text inputs still hand-rolled after `TextField` shipped**, in three geometries:
+    `RecentFlights.tsx:733` (`min-h-[2.25rem] px-2.5 py-1 text-sm` — the logbook search, the control
+    a flyer with fifty flights uses first), `RecentFlights.tsx:996` (`px-2 py-1 text-xs`),
+    `ChannelExplorer.tsx:488` (`min-h-[1.75rem] px-2 py-0.5 text-sm`). None is §4's `px-3 py-1.5`;
+    two carry arbitrary `min-h-[…]` values §4 forbids, both reaching for a floor `globals.css`
+    already gives every `input`.
+17. **A sixth button weight in all but name** — `ForgottenBanner.tsx:58`, `RecentFlights.tsx:1144`,
+    `:1133`: neutral underlined text controls, where §5 says five weights and only five and `link`
+    is accent. Exactly the shape §5 records as having cost a session before.
+18. **`MetricGrid.tsx:69` — `<Button variant="link" className="underline">` inside a `<p>`**, which
+    §5 forbids in as many words. It is the last line of the `?` popover, the affordance owner note
+    `ON-3` is about, so it is the link a flyer follows most.
+19. **`/compare` implements no `error` state** (`CompareSurface.tsx:440`). Every failure funnels into
+    one `Notice` at the `warn` tone beside ordinary caveats, diluting the amber signal the safety
+    posture leans on. `ErrorState` has two adopters in the whole tree. Arguable — `Notice`'s own
+    docblock sanctions "a refusal" — so it is a §5 wording question as much as a code one.
+20. **Two prose-link dialects on `/methods`** (`:57`, `:161` zinc with a resting underline against
+    `:78`, `:88`, `:148` accent with a hover underline) — 17 zinc-underlined anchors across six docs
+    routes against 4 accent ones. `DESIGN.md` is silent on a real prose `<a>`, which is why both
+    grew. **Wants a §5 sentence, not a sweep.**
+21. **`SampleTable.tsx:355`'s empty state is a hand-rolled `<td colSpan>`.** Weighed and NOT a
+    straight conversion: `EmptyState` renders a standalone block with an action control, which
+    cannot sit in a `<td>` without breaking the virtual-scroll spacer rows. `DataTable`'s own inline
+    fallback is the same shape, so the honest fix is a documented inline variant.
+
+**And three §5 names with no implementation that are the ones to LEAVE ALONE**, recorded so the next
+audit does not file them: `Toast` is declared-not-built in §5 itself, `Panel` is deliberately
+deferred with a written reason at `components/ui.tsx:56–61`, and `Tabs` has neither a builder nor a
+hand-roll (zero `role="tablist"` in the tree).
+
 **Outcome.** The app reads as one considered product rather than fifty components built on different
 days.
 
