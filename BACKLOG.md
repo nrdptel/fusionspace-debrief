@@ -92,7 +92,8 @@ wild, ideas too big for one pass. One line each, newest first.
   are why this one is small.** The atmosphere is now re-read, after the ascent bounds exist, at the
   height the analysis will STATE — and where nothing can place a sample, at the barometer's own
   value bounded below by the pad, because a climbing rocket is not underground. **Exactly 4 of the
-  39 analysed corpus flights move, one metric each, and the error runs both ways**: `jan10`
+  39 analysed corpus flights move — TWO metrics each, `maxDynamicPressure` and `mach` — and the error
+  runs both ways**: `jan10`
   254.3 → 240.9 kPa (it stated 482.5 m and read the air at −93.5 m), `jan18` 83.8 → **89.0** kPa
   (stated 171.9 m, read the air at 774.8 m — too THIN, so its load case was too low), and the two
   irec2023 recordings 212.5 → 206.7 and 205.1 → 199.8 kPa off the pad bound alone. Four more
@@ -120,8 +121,17 @@ wild, ideas too big for one pass. One line each, newest first.
   checkable from the published figures alone because `maxVelocity` bounds the speed at the max-Q
   instant, and *"the load cases the methods page quotes are the ones the corpus produces"*, which
   holds all four figures EXACTLY. All five falsified before landing.
-  **Mach did not move on any flight**, which the old entry expected it to: `sosProfile` is
-  corrected on the same samples, but no flight's peak speed lands on one of them.
+  **CORRECTED 2026-08-19, same run: Mach DID move, on all four, and the first version of this
+  entry said it did not.** The claim came from a before/after probe whose key list contained
+  `maxMach`, a metric this analysis does not have — so it compared `null` against `null` and
+  reported no change. **A comparison probe is an assert and this one could not fail**, which is the
+  trap this repo already records about assertions and had never applied to its own measuring tools.
+  The probe now DISCOVERS `Object.keys(metrics)` instead of listing them. Measured: `mach` moves on
+  exactly the four flights whose q moves — 1.8833 → 1.8953, 1.1399 → 1.1319, 1.7013 → 1.7069,
+  1.6734 → 1.6783 — because on all four the max-Q sample IS the peak-speed sample. It runs both
+  ways with q, it is far smaller (the speed of sound goes as sqrt(T) where density goes
+  exponentially), and **none of the four crosses Mach 1**, so no flight gained or lost a supersonic
+  claim. So the blast radius is **two metrics on each of four flights**, not one.
 
 - **2026-08-18 — SUPERSEDED, kept for the arc: max-Q is computed from an air density read at an
   altitude the analysis itself refuses to state.** `lib/analyze/index.ts:1529` builds `airDensity`

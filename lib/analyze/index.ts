@@ -1524,6 +1524,10 @@ function analyzeWhole(
   const groundTempK = (groundTemperature ?? 15) + 273.15;
   const speedOfSound = Math.sqrt(1.4 * 287.05 * groundTempK); // ground value (near-pad reads, e.g. rail exit)
   const sosProfile = speedOfSoundProfile(altClean, groundTempK); // altitude-varying, for Mach
+  /** The speed-of-sound profile AS FIRST BUILT. `sosProfile` is corrected in place below, and the
+   *  rule that decides which samples get corrected asks how fast the rocket was going in Mach —
+   *  so it has to read a profile the correction cannot move underneath it. */
+  const sosAsRecorded = sosProfile.slice();
   const airDensity = standardAtmosphereDensity(altClean, groundTempK, padPressure(flight, baseEnd, padDataLikely));
 
   const series: FlightSeries = {
@@ -1787,8 +1791,22 @@ function analyzeWhole(
     // receiver whose altitude solution lags at pad level through the climb — a state this
     // corpus contains — reads BELOW the height the barometer has already proved, so it
     // fails the floor and changes nothing.
+    // **And it applies only through the TRANSONIC PUSH, which is the whole of its
+    // justification.** The reason to prefer a second recording is the shock sitting over the
+    // static port, and below `TRANSONIC_BARO_LOW` there is no shock — so a disagreement there
+    // is the second recording drifting, not the barometer failing, and this file already says
+    // so twenty lines above (`inertial` "drift accumulates with time, so in the first seconds,
+    // exactly where the transonic artefact strikes, it is the trustworthy one").
+    //
+    // **Written without this bound it is a regression, and a measured one.** On
+    // `lemiv-l3` it rebased 630 of 1,216 ascent samples onto a drifting inertial solution —
+    // worst 253 m out at t=19.1 s and **Mach 0.25**, where the barometer is sound and reads
+    // 3,584.8 m against an apogee of 3,586.1 m. Substituting there is not reading a second
+    // instrument, it is preferring the one that drifts.
     const other = secondAltitude?.[idx];
-    const disagrees = other != null && Number.isFinite(other) && Math.abs(other - h) > contradictionBand;
+    const machHere = Number.isFinite(velocity[idx]) && sosAsRecorded[idx] > 0 ? velocity[idx] / sosAsRecorded[idx] : NaN;
+    const inTheShock = Number.isFinite(machHere) && machHere >= TRANSONIC_BARO_LOW;
+    const disagrees = inTheShock && other != null && Number.isFinite(other) && Math.abs(other - h) > contradictionBand;
     // WHICH BOUNDS a candidate must clear depends on WHO raised the contradiction, and
     // getting this wrong is the expensive mistake — it was made once here and the corpus
     // caught it. The running-maximum floor is the bound that rejects a lagging receiver, so
@@ -1818,7 +1836,11 @@ function analyzeWhole(
       const usable =
         alt != null &&
         Number.isFinite(alt) &&
-        (skipFloor ? true : alt >= ascentFloor[idx] && alt <= apogeeAlt) &&
+        // The apogee bound is NEVER skipped: a candidate above the height the flight reached is
+        // impossible whichever way the trace failed, and writing it inside the floor clause let a
+        // sample flagged BOTH too-low and too-high admit one.
+        alt <= apogeeAlt &&
+        (skipFloor ? true : alt >= ascentFloor[idx]) &&
         alt > -belowGroundBand &&
         (capApplies ? alt - ascentCeil[idx] <= contradictionBand : true);
       if (usable) return { alt: alt as number, under: tooLow, over: tooHigh, crossed: disagrees && !tooLow && !tooHigh, recovered: true };
@@ -1867,6 +1889,14 @@ function analyzeWhole(
       const raw = altClean[i];
       const h = Number.isFinite(placed) ? placed : Number.isFinite(raw) ? Math.max(raw, 0) : NaN;
       if (!Number.isFinite(h) || h === raw) continue;
+      // **The rebasing is DISCLOSED, and leaving it to `altAt` was a hole.** The flags that
+      // drive the warning are set when a READING is placed, and `altAt` runs at roughly eight
+      // event indices — so a flight could have hundreds of samples' worth of air read off a
+      // second recording with nothing in `warnings` saying so, purely because no event landed
+      // on one. The explorer's Mach and dynamic-pressure traces, its statistics table, the
+      // analyzed-data CSV, the comparison overlay and the drag coefficient are all built on
+      // these two arrays.
+      if (Number.isFinite(placed) && placed !== raw) recoveredFromInertial = true;
       airDensity[i] = densityAt(h, groundTempK, padPa);
       sosProfile[i] = speedOfSoundAt(h, groundTempK);
     }

@@ -123,7 +123,8 @@ to a neighbour its bands do not catch. Reading the air at the height the analysi
 bounding it at the pad where nothing can state one, fixes the cause instead of the symptom.
 
 **Measured blast radius, and it is the whole reason this could land: exactly 4 of 39 analysed
-corpus flights move, one metric each, and the error runs BOTH ways.** `jan10` 254.3 → 240.9 kPa,
+corpus flights move — TWO metrics each, `maxDynamicPressure` and `mach` — and the error runs BOTH
+ways.** `jan10` 254.3 → 240.9 kPa,
 `jan18` 83.8 → **89.0** kPa (its barometer over-reads, so its air was too THIN and its load case
 too low), and the two irec2023 recordings 212.5 → 206.7 and 205.1 → 199.8 kPa off the pad bound
 alone. Four further flights move `airDensity`/`speedOfSoundProfile` and **nothing else** — verified
