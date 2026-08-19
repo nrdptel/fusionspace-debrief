@@ -59,7 +59,43 @@ wild, ideas too big for one pass. One line each, newest first.
   qualification is added to a family of readings, the surface audit has to enumerate the FAMILY:
   altitude and q got it, speed, Mach and acceleration did not, and nothing in between noticed.
 
-- **2026-08-18 — SEV-1, REPRODUCED, NOT FIXED: max-Q is computed from an air density read at an
+- **~~2026-08-18 — SEV-1: max-Q is computed from an air density read at an altitude the analysis
+  itself refuses to state.~~ RESOLVED 2026-08-19 — on the THIRD attempt, and the two that failed
+  are why this one is small.** The atmosphere is now re-read, after the ascent bounds exist, at the
+  height the analysis will STATE — and where nothing can place a sample, at the barometer's own
+  value bounded below by the pad, because a climbing rocket is not underground. **Exactly 4 of the
+  39 analysed corpus flights move, one metric each, and the error runs both ways**: `jan10`
+  254.3 → 240.9 kPa (it stated 482.5 m and read the air at −93.5 m), `jan18` 83.8 → **89.0** kPa
+  (stated 171.9 m, read the air at 774.8 m — too THIN, so its load case was too low), and the two
+  irec2023 recordings 212.5 → 206.7 and 205.1 → 199.8 kPa off the pad bound alone. Four more
+  flights move `airDensity`/`speedOfSoundProfile` and **nothing else** — no metric, no event, no
+  warning, no other series — verified by hashing every digest component separately before and
+  after across all 50 analysable flights.
+  **The GPS altitude was measured as the cross-source floor this entry asked for, and REFUSED.**
+  It is the only non-barometric channel the irec2023/AltusMetrum files carry, and a recording
+  earns the right to stand in only where the two agree on the stretch the first is sound. Not one
+  does: median gap against its own barometer over the uncontradicted ascent is 174.8 m on
+  `endurance` (band 85 m), 105.3 m on `intrepid2` (32 m), 235.9 m on `sg1.2` (63 m), 572.6 m on
+  `sg1.1` (30 m) and **560.8 m over 3,488 samples on `irec_2023_telemega`** (250 m), whose GPS
+  also puts apogee at 8,854 m against its barometer's 8,317 m. The two files whose GPS does agree
+  (`kairos`, both exports) have no contradicted ascent sample to place. Substituting it would be
+  blending two instruments that disagree. **Building it anyway was tried first and the corpus
+  caught it**: with the running-maximum floor switched off for a cross-source candidate, five
+  TeleMega/TeleMetrum burnout heights read 0, 9, 6, 456 and 579 m against barometric 488, 103,
+  360, 1,012 and 1,536 — a lagging receiver replacing a sound barometer.
+  **What DID close the gap the first two attempts fell into** — the peak migrating to a
+  neighbouring sample the bands do not catch, because the trace is smoothly wrong rather than
+  spikily wrong — is a cross-source test against the file's own INERTIAL solution, which is a
+  different physical principle in the same device rather than a different instrument.
+  **Pinned by** `lib/analyze/atmosphere.test.ts` (3 cases, corpus-free) and two corpus cases:
+  *"never publishes a load case heavier than the air at the height it says it happened"*, which is
+  checkable from the published figures alone because `maxVelocity` bounds the speed at the max-Q
+  instant, and *"the load cases the methods page quotes are the ones the corpus produces"*, which
+  holds all four figures EXACTLY. All five falsified before landing.
+  **Mach did not move on any flight**, which the old entry expected it to: `sosProfile` is
+  corrected on the same samples, but no flight's peak speed lands on one of them.
+
+- **2026-08-18 — SUPERSEDED, kept for the arc: max-Q is computed from an air density read at an
   altitude the analysis itself refuses to state.** `lib/analyze/index.ts:1529` builds `airDensity`
   (and `sosProfile`) from `altClean`, hundreds of lines before the ascent bounds exist, so the
   analysis ends up holding TWO heights for one instant — the one `altAt` prints, and the one the

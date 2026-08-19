@@ -645,6 +645,11 @@ interface CorpusRead {
   metrics: ReturnType<typeof analyzeFlight>['metrics'] | null;
   /** Peak ½ρv² over climbing samples at or before apogee — what a reported max-Q is held to. */
   bestClimbQ: number;
+  /** One (height, density) pair from AFTER apogee, which the ascent atmosphere correction
+   *  cannot have touched. It anchors the standard-atmosphere model for this flight without
+   *  needing its pad pressure, which no metric exposes — the pressure cancels in the ratio.
+   *  Null where the record holds no finite pair past apogee. */
+  atmoRef: { h: number; rho: number } | null;
   hasBurnoutEvent: boolean;
   /** True when the analyzer judged this flight's speed impossible and withheld it. The
    *  burnout crossing search takes its bound from the speed peak, so this is the state in
@@ -709,6 +714,7 @@ function corpusReads(): CorpusRead[] {
       reach: 'parse-only',
       metrics: null,
       bestClimbQ: 0,
+      atmoRef: null,
       hasBurnoutEvent: false,
       velocityWithheld: false,
       timeToApogeeS: NaN,
@@ -744,6 +750,19 @@ function corpusReads(): CorpusRead[] {
       if (series.time[i] > apogeeT) break;
       const q = 0.5 * rho * v * v;
       if (q > bestClimbQ) bestClimbQ = q;
+    }
+    // The atmosphere anchor: the first sample past apogee that carries both a height and a
+    // density. Past apogee nothing rewrites either, so the pair states this flight's own
+    // ground reference exactly.
+    let atmoRef: { h: number; rho: number } | null = null;
+    for (let i = 0; i < series.time.length; i++) {
+      if (series.time[i] <= apogeeT) continue;
+      const h = series.altitude[i];
+      const rho = series.airDensity[i];
+      if (Number.isFinite(h) && Number.isFinite(rho) && rho > 0) {
+        atmoRef = { h, rho };
+        break;
+      }
     }
     // Where the signed axial trace falls through zero — computed from the series alone, so
     // the invariant below tests the analyzer's answer rather than restating how it got there.
@@ -797,6 +816,7 @@ function corpusReads(): CorpusRead[] {
       landingApproachFrac,
       metrics,
       bestClimbQ,
+      atmoRef,
       hasBurnoutEvent: events.some((e) => e.type === 'burnout'),
       velocityWithheld: series.velocityUnusable === true,
       timeToApogeeS: metrics.timeToApogee,
@@ -2528,7 +2548,15 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
   // from an unusable speed. Withholding it is the stronger result.
   const WAS_A_TRANSIENT: { file: string; kPa: number; wasKPa: number }[] = [
     { file: 'blueraven/blueraven__reddit-meraki2-121km__BlueRaven-LR.csv', kPa: 404.1, wasKPa: 47321.8 },
-    { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 83.8, wasKPa: 266.3 },
+    // 83.8 → 89.0 on 2026-08-19, and the move is the atmosphere basis rather than the
+    // window this list guards. This flight's barometer over-reads through the transonic
+    // push: it wrote 774.8 m where its own inertial solution puts burnout at 171.9 m, and
+    // the row PRINTED 171.9 while the air behind the q was read at 774.8 — 600 m of
+    // atmosphere between two numbers on one line. Reading it at the height the row states
+    // makes the air thicker and the load case heavier, which is why this one goes UP where
+    // the three flights whose barometer reads LOW go down. The clause this entry exists for
+    // is untouched: 89.0 kPa is still the boost, and 266.3 kPa is still the transient.
+    { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 89.0, wasKPa: 266.3 },
     { file: 'eggtimer/eggtimer__euroc-skyward-lynx__log.csv', kPa: 103.4, wasKPa: 230.0 },
     { file: 'missileworks-rrc3/missileworks-rrc3__euroc-stacarl2-europeanlocale__sta-carl2-rrc3.csv', kPa: 60.3, wasKPa: 401.4 },
   ];
@@ -2542,6 +2570,69 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
       expect(q! / 1000, `${short}: reads the ascent peak, not the transient`).toBeCloseTo(c.kPa, 0);
     });
   }
+
+  // The other half of a load case is the AIR, and it went unchecked for as long as the
+  // window did. The atmosphere used to be built from the raw barometric trace hundreds of
+  // lines before the ascent bounds existed, so a flight could publish a max-Q read at one
+  // height and print another beside it: `f1machbuster-jan10` stated 482.5 m and read the air
+  // at −93.5 m, 576 m apart in one row, and density falls exponentially with height — so the
+  // air came out too thick and the structural load case too high.
+  //
+  // What makes this checkable from the published figures alone is that `maxVelocity` is an
+  // upper bound on the speed at the max-Q instant. So `½·ρ(stated height)·maxVelocity²`
+  // bounds the load case from above, on every flight, with no knowledge of where the peak
+  // sample was. Before the fix `jan10` published 254.3 kPa against a bound of 241.4 kPa.
+  // And the four figures the methods page quotes for it are held to the corpus that produced
+  // them, EXACTLY rather than by a bound — a bound goes quietly green the day the corpus or
+  // the parser moves, and this repo has already published a documentation figure that was
+  // true of something other than the sentence it sat under.
+  it('the load cases the methods page quotes are the ones the corpus produces', { timeout: 60_000 }, () => {
+    const QUOTED: { file: string; kPa: number; why: string }[] = [
+      // The barometer reads LOW through the push, so the air was too thick and q too high.
+      { file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv', kPa: 240.9, why: 'stated 482.5 m, air had been read at −93.5 m' },
+      // The barometer reads HIGH, so the air was too thin and q too low. Opposite direction,
+      // same cause — which is why the page states both.
+      { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', kPa: 89.0, why: 'stated 171.9 m, air had been read at 774.8 m' },
+      // Two recordings of one flight, neither placeable: the pad bound, not a placement.
+      { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv', kPa: 206.7, why: 'unplaceable — air bounded at the pad' },
+      { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv', kPa: 199.8, why: 'unplaceable — air bounded at the pad' },
+    ];
+    for (const c of QUOTED) {
+      const loaded = loadForCompare(c.file);
+      expect(loaded, `${c.file} is in the corpus and parses`).toBeTruthy();
+      const q = loaded!.analysis.metrics.maxDynamicPressure;
+      expect(q, `${c.file}: a load case is reported`).not.toBeNull();
+      expect(q! / 1000, `${c.file} (${c.why})`).toBeCloseTo(c.kPa, 1);
+    }
+    // The two unplaceable ones must still say so, or the pair above stops meaning what the
+    // page says it means.
+    for (const f of QUOTED.slice(2)) {
+      expect(loadForCompare(f.file)!.analysis.metrics.maxDynamicPressureAltitude, `${f.file}: the height stays withheld`).toBeNull();
+    }
+  });
+
+  it('never publishes a load case heavier than the air at the height it says it happened', { timeout: 60_000 }, () => {
+    const R_AIR = 287.05;
+    const LAPSE = -0.0065;
+    const G_STD = 9.80665;
+    const EXP = -G_STD / (R_AIR * LAPSE) - 1;
+    let checked = 0;
+    for (const { file, metrics: m, atmoRef } of corpusReads()) {
+      if (!m || m.maxDynamicPressure == null || m.maxDynamicPressureAltitude == null) continue;
+      if (m.maxVelocity == null || !Number.isFinite(m.maxVelocity) || !atmoRef) continue;
+      checked++;
+      // ρ(h) from this flight's own post-apogee anchor. The pad pressure cancels, so no
+      // metric has to expose it: ρ(h)/ρ(ref) = ((T0+L·h)/(T0+L·ref))^exp.
+      const tK = (m.groundTemperature ?? 15) + 273.15;
+      const rhoAtStated = atmoRef.rho * Math.pow((tK + LAPSE * m.maxDynamicPressureAltitude) / (tK + LAPSE * atmoRef.h), EXP);
+      const bound = 0.5 * rhoAtStated * m.maxVelocity * m.maxVelocity;
+      expect(
+        m.maxDynamicPressure,
+        `${file}: reports ${(m.maxDynamicPressure / 1000).toFixed(1)} kPa at ${m.maxDynamicPressureAltitude.toFixed(1)} m, where the air and this flight's own fastest ${m.maxVelocity.toFixed(1)} m/s allow at most ${(bound / 1000).toFixed(1)} kPa`,
+      ).toBeLessThanOrEqual(bound * 1.001);
+    }
+    expect(checked, 'the sweep actually examined flights').toBeGreaterThan(15);
+  });
 
   it('never reads max-Q off a descending or post-apogee sample, on any corpus flight', { timeout: 60_000 }, () => {
     let checked = 0;

@@ -791,6 +791,31 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           no load case, and gets no max-Q at all.
         </p>
         <p>
+          <strong>And the air is read at the height the reading beside it states.</strong> That
+          sounds like a tautology and was not one: the atmosphere used to be built from the raw
+          barometric trace before the analysis knew where liftoff or apogee were, so a flight could
+          hold two heights for one instant — the one printed beside the load case, and the one the
+          air was read at. Where a barometric trace contradicts itself through the transonic push,
+          those diverge badly. Two corpus mach-busters showed it in opposite directions:
+          one <em>stated</em> a 482.5&nbsp;m load case with the air taken at &minus;93.5&nbsp;m, and
+          the other stated 171.9&nbsp;m with the air taken at 774.8&nbsp;m. Density falls
+          exponentially with height, so the first read the air too thick and published
+          254.3&nbsp;kPa where 240.9&nbsp;kPa is the reading its own row supports, and the second
+          read it too thin and published 83.8&nbsp;kPa against 89.0&nbsp;kPa. Both are now read at
+          the height the row states — the logger&apos;s own inertial solution where the barometer
+          contradicts itself and that solution satisfies the bound the barometer failed.
+          <br />
+          <br />
+          Where <em>nothing</em> in the file can place the sample, the height stays withheld and the
+          air is read at the barometer&apos;s own value — except that a climbing rocket is never
+          below its own pad, so it is never read as thicker than pad air. That is a bound rather than
+          a guess, and it is what keeps a flyer&apos;s load case published instead of withheld: on
+          the two recordings of one 8,300&nbsp;m flight whose barometer dives to about
+          &minus;295&nbsp;m at the peak, it takes 212.5&nbsp;kPa to 206.7&nbsp;kPa and
+          205.1&nbsp;kPa to 199.8&nbsp;kPa. Those two remain the honest limit of what the record
+          supports, and the height beside them is still &ldquo;—&rdquo;.
+        </p>
+        <p>
           <strong>The plotted curve is drawn over that same window</strong>, and so is every column
           of it that leaves the app — the channel explorer&apos;s trace and statistics, the
           comparison overlay, and the dynamic-pressure column in the analyzed-data and plotted-data
