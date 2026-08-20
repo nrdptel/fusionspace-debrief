@@ -29,7 +29,21 @@
  *     document; it carries whatever the file carried;
  *   - the `.zip` bundle — its entries are documents from this list, so it inherits their answers
  *     rather than needing its own;
- *   - `.gpx`/`.kml` — track exports built from GPS fixes, with no header a sentence could ride in;
+ *   - `.gpx`/`.kml` — track exports built from GPS fixes. **The stated reason used to be "no header
+ *     a sentence could ride in", and since 2026-08-20 that is FALSE of the GPX**: it carries
+ *     `<metadata><desc>`, a `<trk><desc>`, a `<src>` naming the instrument, and — after D12 slice 5
+ *     — a `<sat>` and `<hdop>` on every point that states them. The real obstacle is the SHAPE of
+ *     this registry, not the format: every entry here is `build(flight, analysis, sys, ctx)`, and a
+ *     track export needs the ground track — `lat`, `lon`, `landingIndex`, `landed` — which is
+ *     derived in `components/GroundTrack.tsx` and is not a fact about the flight. Admitting them
+ *     means either computing the track inside the registry or giving `ctx` a `recovery` member the
+ *     five existing documents would carry and ignore.
+ *
+ *     **This matters beyond tidiness: D12's *done when* asks for a check that enumerates the GPS
+ *     sinks "from the same registry the exporters are registered in", and it cannot be written
+ *     while the two exports whose whole purpose is the coordinate sit outside the only registry
+ *     there is.** Measured 2026-08-20: 18 `download(` call sites across 8 files, of which exactly
+ *     one routes through this list;
  *   - the comparison's documents — built from a `CompareFlight`, which is a different shape with a
  *     different set of facts about it. They need their own registry when something has to be true
  *     of all of them; inventing one before then would be a list with no check behind it.
