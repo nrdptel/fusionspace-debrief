@@ -5,6 +5,7 @@
 
 import { SYNTHETIC_NOTE, SYNTHETIC_SHORT, syntheticHeader } from './synthetic';
 import { buildLine } from './buildInfo';
+import { gradeFromValue } from './gpsFix';
 
 const M_PER_DEG_LAT = 111320; // metres per degree of latitude (near enough everywhere)
 
@@ -138,6 +139,33 @@ const GPX_TRACK_DESC =
   'ellipsoid, and the height Debrief measured is above the pad; the KML export carries the ' +
   'trajectory and names the instrument that drew it.';
 
+export interface FixQualityChannels {
+  /** Horizontal dilution of precision per sample, aligned with `lat`/`lon` — the `dopHorizontal`
+   *  channel. Absent where the file states none. */
+  hdop?: Float64Array;
+  /** Satellites IN the fix per sample — the `satellites` channel, and only that one.
+   *
+   *  **Not any column whose name contains "sat".** Featherweight's trackers write satellites the
+   *  receiver can HEAR under a similar name, reading 16, 18 or 19 on rows whose own `FIX` column
+   *  says no fix; `lib/flight/types.ts` keeps that deliberately out of the `satellites` kind for
+   *  exactly this reason, and GPX annotates `<sat>` as *"Number of satellites used to calculate the
+   *  GPX fix"*. Writing the heard count there would publish a held-over position as a measured one. */
+  satellites?: Float64Array;
+  /** **The grade Debrief has for each fix — required for either of the two above to be written.**
+   *
+   *  Nothing is said about the quality of a fix unless Debrief knows it WAS a fix. Without this the
+   *  export leans on `applySatelliteFixQuality` having blanked the bad positions, and that function
+   *  returns early unless a `satellites` channel exists — which on the COLUMN-MAPPER path is a role
+   *  the flyer may simply not have mapped. Measured on `Mega38-1_TeleMega.csv`, the one corpus track
+   *  that arrives that way: map the dilution role alone and 25,322 positions export, **12,501 of
+   *  them on rows whose own satellite count says fewer than three** — a held-over position, with a
+   *  held-over dilution now attached to it. Found by the pre-push review.
+   *
+   *  It costs nothing where the grade is known: across the 12 tracks a named parser reaches, ALL
+   *  25,391 satellite counts and ALL 22,199 dilutions sit on a sample with a stated grade. */
+  fixGrade?: Float64Array;
+}
+
 /** A GPX 1.1 document for the flight: the ground track as a <trk>, plus a
  *  <wpt> at the last fix so a phone/handheld can navigate straight to it.
  *  Lat/lon only (the recovery walk is on the ground); gaps in the fix are skipped.
@@ -169,21 +197,62 @@ export function trackGpx(
    *  data. Included to give user some idea of reliability and accuracy of data"*. Absent when the
    *  file named nothing, in which case no element is written rather than an empty one. */
   recordedBy?: string | null,
+  /** **How good each fix was, in the fields the schema built for it.**
+   *
+   *  Every other Debrief export already carries this — `analyzedDataCsv` emits the dilution columns
+   *  and the graded fix, and the saved report states both in prose — while the two exports whose
+   *  entire purpose IS the coordinate carried none of it. `COMPETITION.md` row 49 measures the
+   *  field on this: AltosUI puts its satellite count in an XML COMMENT no parser reads, and both
+   *  vendors carry the quality properly in CSV and lose it in the track. So the quality survived
+   *  the export a spreadsheet opens and died in the export a searcher opens.
+   *
+   *  **Only what the file MEASURED, which is why `<fix>` is not written here.** GPX annotates `fix`
+   *  as the type of fix the RECEIVER reported, and Debrief's own label on 25,391 of the 27,624
+   *  kept corpus positions is *"Fix (from satellite count)"* — a grade it derived. Putting a
+   *  derived grade in the receiver's own field launders an inference into a schema slot, and the
+   *  file outlives the app that wrote it. `<sat>` and `<hdop>` are numbers the file states. */
+  quality?: FixQualityChannels,
 ): string {
   const n = Math.min(lat.length, lon.length);
   const fix = (v: number) => v.toFixed(6);
+  // **Schema ORDER, not preference.** `wptType`'s sequence is `ele, time, magvar, geoidheight,
+  // name, cmt, desc, src, link, sym, type, fix, sat, hdop, vdop, pdop, ageofdgpsdata, dgpsid,
+  // extensions` (gpx.xsd), and a `trkpt` IS a `wptType` — so `sat` precedes `hdop`, and both come
+  // after the `<src>` the `<wpt>` below already ends with. A reader that validates rejects any
+  // other order, and nothing in this repo parses either file as XML, so the order is asserted in
+  // `lib/gps.test.ts` rather than assumed.
+  const quals = (i: number, indent: string): string[] => {
+    const out: string[] = [];
+    // No grade, no claim about the fix. See `FixQualityChannels.fixGrade`.
+    if (!quality?.fixGrade || gradeFromValue(quality.fixGrade[i]) === null) return out;
+    const sat = quality?.satellites?.[i];
+    // A satellite count is a count: written as an integer, and only where the file states one.
+    if (Number.isFinite(sat)) out.push(`${indent}<sat>${Math.round(sat as number)}</sat>`);
+    const h = quality?.hdop?.[i];
+    if (Number.isFinite(h)) out.push(`${indent}<hdop>${(h as number).toFixed(2)}</hdop>`);
+    return out;
+  };
   const pts: string[] = [];
   for (let i = 0; i < n; i++) {
     if (!Number.isFinite(lat[i]) || !Number.isFinite(lon[i])) continue;
-    pts.push(`      <trkpt lat="${fix(lat[i])}" lon="${fix(lon[i])}"/>`);
+    const q = quals(i, '        ');
+    // Self-closing where the file says nothing, so a recording with no quality columns exports
+    // byte-for-byte what it did before this existed.
+    pts.push(
+      q.length
+        ? `      <trkpt lat="${fix(lat[i])}" lon="${fix(lon[i])}">\n${q.join('\n')}\n      </trkpt>`
+        : `      <trkpt lat="${fix(lat[i])}" lon="${fix(lon[i])}"/>`,
+    );
   }
   const wptName = syntheticHeader(landed ? 'Landing' : 'Last fix (record ends in the air)', synthetic);
   // `<src>` sits after `<desc>` in both `wptType` and `trkType`'s sequence — schema order, and a
   // GPX reader that validates will reject it anywhere else.
   const src = recordedBy ? `    <src>${xmlEscape(recordedBy)}</src>\n` : '';
+  // The waypoint is the ONE point somebody physically walks to, so it carries the quality of the
+  // fix that put it there — the same two elements, in the same schema order, after `<src>`.
   const wpt =
     landingIndex >= 0 && landingIndex < n && Number.isFinite(lat[landingIndex]) && Number.isFinite(lon[landingIndex])
-      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${xmlEscape(wptName)}</name>\n${src}  </wpt>\n`
+      ? `  <wpt lat="${fix(lat[landingIndex])}" lon="${fix(lon[landingIndex])}">\n    <name>${xmlEscape(wptName)}</name>\n${src}${quals(landingIndex, '    ').map((l) => `${l}\n`).join('')}  </wpt>\n`
       : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?>\n' +

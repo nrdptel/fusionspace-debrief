@@ -217,6 +217,138 @@ describe('compass', () => {
   });
 });
 
+/**
+ * **The fix quality, in the fields GPX built for it.**
+ *
+ * Nothing here parses either export as XML: `DOMParser`, `fast-xml`, `xml2js` and `xmllint` have
+ * zero hits across the tree. Order is checked by `indexOf` in a few places already — the `<desc>`
+ * before `<src>` case above is the same `wptType` sequence — so this is not the first order
+ * assertion in the file, which the first draft of this comment claimed. What is new is checking a
+ * SEQUENCE rather than a pair: `wptType` declares nineteen children in a fixed xsd `sequence`, and
+ * a validating reader rejects a document whose children are out of order while a lax one opens it
+ * fine. Two pairwise `indexOf`s do not establish that, and adding one per pair does not scale.
+ *
+ * This does not validate the schema; it checks the one property that can silently break, by pulling
+ * the child tag names out of each element and asserting they are a SUBSEQUENCE of the declared
+ * sequence. No parser dependency for a repo with five runtime ones.
+ */
+describe('trackGpx — how good each fix was', () => {
+  /** `wptType`'s declared child sequence, from gpx.xsd. `trkpt` is declared `type="wptType"`. */
+  const WPT_SEQUENCE = [
+    'ele', 'time', 'magvar', 'geoidheight', 'name', 'cmt', 'desc', 'src', 'link', 'sym', 'type',
+    'fix', 'sat', 'hdop', 'vdop', 'pdop', 'ageofdgpsdata', 'dgpsid', 'extensions',
+  ];
+  /** The child tag names of every OPEN `<tag …>…</tag>` in document order.
+   *
+   *  `[^>]*[^/]>` and not `[^>]*>`: the second also matches the SELF-CLOSING `<trkpt …/>` this code
+   *  emits where a file states no quality, and the lazy body then runs on to the NEXT point's
+   *  `</trkpt>` — swallowing a point and attributing its children to the wrong one. Invisible in a
+   *  document that is all-open or all-closed, which every corpus file happens to be. Found by the
+   *  pre-push review, and the mixed case is asserted below so it stays found. */
+  const childrenOf = (xml: string, tag: string): string[][] =>
+    [...xml.matchAll(new RegExp(`<${tag}\\b[^>]*[^/]>([\\s\\S]*?)</${tag}>`, 'g'))].map((m) =>
+      [...m[1].matchAll(/<([a-z]+)>/g)].map((c) => c[1]),
+    );
+  const isSubsequence = (got: string[], of: string[]) => {
+    let at = -1;
+    return got.every((g) => {
+      const i = of.indexOf(g);
+      if (i <= at) return false;
+      at = i;
+      return true;
+    });
+  };
+
+  const lat = Float64Array.from([34.1, NaN, 34.2]);
+  const lon = Float64Array.from([-116.1, NaN, -116.2]);
+  const hdop = Float64Array.from([0.8, NaN, 1.15]);
+  const satellites = Float64Array.from([9, 7, 11]);
+  /** A stated grade on every sample — without one nothing is written at all, which is its own
+   *  case below. `3` is `gradeValue('3d')`. */
+  const fixGrade = Float64Array.from([3, 3, 3]);
+
+  it('rates its own subsequence check before trusting it', () => {
+    // A checker that cannot fail is worse than none — the rule §9 states about compliance
+    // commands, applied here first.
+    expect(isSubsequence(['sat', 'hdop'], WPT_SEQUENCE)).toBe(true);
+    expect(isSubsequence(['hdop', 'sat'], WPT_SEQUENCE)).toBe(false);
+    expect(isSubsequence(['name', 'src', 'sat', 'hdop'], WPT_SEQUENCE)).toBe(true);
+    expect(isSubsequence(['sat', 'sat'], WPT_SEQUENCE)).toBe(false);
+  });
+
+  it('writes sat before hdop, in the schema’s order, on every point that has them', () => {
+    const gpx = trackGpx('r', lat, lon, 2, true, false, 'TeleMetrum 2098', { hdop, satellites, fixGrade });
+    const points = childrenOf(gpx, 'trkpt');
+    expect(points).toEqual([['sat', 'hdop'], ['sat', 'hdop']]);
+    for (const p of points) expect(isSubsequence(p, WPT_SEQUENCE), p.join(',')).toBe(true);
+    // The waypoint carries the same two, AFTER the `<src>` it already ended with.
+    const wpt = childrenOf(gpx, 'wpt')[0];
+    expect(wpt).toEqual(['name', 'src', 'sat', 'hdop']);
+    expect(isSubsequence(wpt, WPT_SEQUENCE)).toBe(true);
+    // The values are the file's own, and a dilution keeps two decimals while a satellite count is
+    // a count.
+    expect(gpx).toContain('<sat>9</sat>');
+    expect(gpx).toContain('<hdop>0.80</hdop>');
+    expect(gpx).toContain('<hdop>1.15</hdop>');
+  });
+
+  it('writes nothing where the file states nothing, and stays byte-identical without quality', () => {
+    // The whole no-quality path: a recording with no columns exports exactly what it did before
+    // this existed, self-closing `<trkpt>` included. This is what lets the corpus digest and every
+    // existing assertion stand.
+    expect(trackGpx('r', lat, lon, 2, true, false, null, {})).toBe(trackGpx('r', lat, lon, 2, true, false, null));
+    expect(trackGpx('r', lat, lon, 2, true, false, null, { hdop: undefined, fixGrade })).toContain(
+      '<trkpt lat="34.100000" lon="-116.100000"/>',
+    );
+    // …and per POINT: the second kept fix has a satellite count and no dilution, so it gets one
+    // child, not an empty `<hdop/>`.
+    const partial = trackGpx('r', lat, lon, 2, true, false, null, { hdop: Float64Array.from([0.8, NaN, NaN]), satellites, fixGrade });
+    expect(childrenOf(partial, 'trkpt')).toEqual([['sat', 'hdop'], ['sat']]);
+    // **A MIXED document**, which is what the reader above has to survive: one open point and one
+    // self-closing, in that order. No corpus file is mixed, so nothing else would ever produce it.
+    const mixed = trackGpx('r', lat, lon, 2, true, false, null, {
+      satellites: Float64Array.from([9, NaN, NaN]),
+      fixGrade,
+    });
+    expect((mixed.match(/<trkpt [^>]*\/>/g) ?? []).length).toBe(1);
+    expect(childrenOf(mixed, 'trkpt')).toEqual([['sat']]);
+    expect(partial).not.toContain('<hdop></hdop>');
+    expect(partial).not.toContain('<hdop>NaN</hdop>');
+  });
+
+  it('says nothing about a fix Debrief cannot say WAS a fix', () => {
+    // The blanking of bad positions rides on `applySatelliteFixQuality`, which returns early
+    // without a `satellites` channel — a role a flyer on the COLUMN MAPPER may simply not have
+    // mapped. On the one corpus track that arrives that way, mapping the dilution alone exports
+    // 25,322 positions of which 12,501 sit on rows whose own satellite count says fewer than
+    // three. So the export asks for the grade itself rather than trusting that somebody upstream
+    // removed the bad rows.
+    expect(trackGpx('r', lat, lon, 2, true, false, null, { hdop, satellites })).toBe(
+      trackGpx('r', lat, lon, 2, true, false, null),
+    );
+    // …and per SAMPLE: `gradeFromValue` returns null for anything that is not 3, 2 or 0, which is
+    // what a file that states nothing writes. The middle sample here is a gap anyway; the third
+    // states no grade and so states no quality either.
+    const partly = trackGpx('r', lat, lon, 2, true, false, null, {
+      hdop,
+      satellites,
+      fixGrade: Float64Array.from([3, 3, NaN]),
+    });
+    expect(childrenOf(partly, 'trkpt')).toEqual([['sat', 'hdop']]);
+    expect((partly.match(/<trkpt [^>]*\/>/g) ?? []).length).toBe(1);
+    expect(childrenOf(partly, 'wpt')).toEqual([['name']]);
+  });
+
+  it('does not write a <fix>, because Debrief derives that grade on almost every file', () => {
+    // GPX annotates `fix` as the type of fix the RECEIVER reported. Debrief's own channel label on
+    // 25,391 of the 27,624 kept corpus positions is "Fix (from satellite count)" — a grade it
+    // worked out. A derived grade in the receiver's own field is an inference laundered into a
+    // schema slot, and the file outlives the app. Asserted so a future slice has to argue with it.
+    const gpx = trackGpx('r', lat, lon, 2, true, false, null, { hdop, satellites, fixGrade });
+    expect(gpx).not.toContain('<fix>');
+  });
+});
+
 describe('trackKml — the flight in Google Earth', () => {
   const lat = Float64Array.from([34.4949, 34.4952, 34.4958]);
   const lon = Float64Array.from([-116.9577, -116.9571, -116.9564]);
