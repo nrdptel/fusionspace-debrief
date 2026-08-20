@@ -14,18 +14,59 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
-- **2026-08-20 · UNREPRODUCED (agent-reported, filed with its numbers so the repro is cheap) — a log
-  that starts mid-boost has an altitude it had ALREADY climbed subtracted from every height,
-  apogee included.** `lib/analyze/index.ts:407`'s `padBaseline()` forces `baseEnd = Math.max(3,
-  baseEnd)` and medians those three samples even when the opening run never sat still.
-  `padDataLikely` at `:1265` detects the condition and only WARNS; the offset is still applied at
-  `:1254`. Reported offsets: `the-gardener` **−39.5 m** (2,421 ft against the device's own
-  2,550 ft, **−5.1%**), `swiss-cheese` −34.8 m (−4.7%), `discovery` −31.2 m (−4.3%), `penguin`
-  −23.7 m (−3.2%). If it reproduces this is a Sev-1 — an apogee is the number a flyer puts in a
-  cert document — and the reason it is filed rather than fixed is that this run's Sev-1 budget went
-  to the rail-exit one, which was reproduced first. **Reproduce before scoping**: the warning's
-  presence is what decides severity, because a qualified number is not the same defect as a bare
-  one.
+- **2026-08-20 — the flight report is 10.5 screens tall on a phone, and the readings a flyer opened
+  the app for are the third block down.** Measured by driving the built export at 390 × 844:
+  **8,895 px**, horizontal overflow **0 px** (so nothing spills sideways — the defect is depth, not
+  width). The section order below the fold is *Worth knowing · How this file was read · Readings ·
+  Rail-exit velocity · Drag coefficient · Flight timeline · Ejection delay · Altitude · Velocity ·
+  Acceleration · Events · Main deploy altitude · Landing energy · Parachute Cd*. `MAINTAINING.md`'s
+  tell is *"a layout deeper than two screens"*; five times that is a scroll a flyer does at the pad
+  with gloves on. The jump nav (`SectionNav`) exists and is the mitigation, which is a second reason
+  its two sub-3:1 border states matter. **P4's after-list is where this belongs** — it is the
+  vertical-layout question `ON-6` asks, not a floor a check can express. Reproduce: load the sample
+  at 390 px and read `document.documentElement.scrollHeight`.
+
+- **2026-08-20 · REPRODUCED, and it is a Sev-1 on the headline number — but the obvious fix is
+  REFUSED BY THE CORPUS, which is why it is filed rather than shipped.** `lib/analyze/index.ts:399`'s
+  `padBaseline()` forces `baseEnd = Math.max(3, baseEnd)` and medians those three samples even when
+  the opening run never sat still, so a log that starts mid-boost has an altitude it had ALREADY
+  climbed subtracted from every height, apogee included. `padDataLikely` detects the condition and
+  only WARNS; the offset is still applied at `:1253`.
+
+  **Measured against the fixtures' own ground truth, which for these four is the file's own
+  `Alt AGL (ft)` column** (`manifest.csv`: *"device data (single custom altimeter; apogee = max
+  recorded)"*):
+
+  | flight | stated | Debrief | error | the file's own column max | offset subtracted |
+  |---|---|---|---|---|---|
+  | `the-gardener` | 2,537 ft | **2,421** | **−4.6%** | 2,537 (0.0%) | 116 ft |
+  | `swiss-cheese` | 2,554 | **2,452** | **−4.0%** | 2,554 (0.0%) | 102 ft |
+  | `discovery` | 2,450 | **2,353** | **−3.9%** | 2,450 (0.0%) | 89 ft |
+  | `penguin` | 2,527 | **2,460** | **−2.7%** | 2,527 (0.0%) | 67 ft |
+
+  **The file's own column matches the stated apogee to 0.0% on all four, and Debrief's shortfall is
+  exactly the offset it subtracted.** The column is already AGL; Debrief re-zeroes it against
+  samples that are not the pad. An apogee is the number a flyer puts in a cert document.
+
+  **The obvious fix was implemented and the corpus refused it, so do not re-derive it.** Not
+  subtracting a baseline where `padDataLikely` is false — which is exactly the argument
+  `lib/analyze/index.ts:1250` already makes for a supplied pad pressure (*"subtracting a baseline
+  taken from the slice's own opening samples would move it a second time"*) — breaks two golden
+  apogees outright: one reads **11,202.7 ft against a ground truth of 6,295.75 ± 1%** (+78%) and
+  another **13,962.0 against 13,304.00 ± 4%**. It also moves 23 flights in the digest, breaks a
+  descent-time assert and a burn-fraction one. On a file whose altitude column is NOT already AGL,
+  the baseline is doing real work even when the opening window is not still.
+
+  **So the real fix is a model-level distinction the flight model does not carry: whether an
+  altitude column is already AGL or is a pressure altitude.** That is milestone-sized, not a patch,
+  and it is why this is filed with the numbers rather than half-fixed. Reproduce in a minute: map
+  the four generic CSVs through the column mapper and compare `metrics.apogeeAltitude` against the
+  raw `altitude` channel's own maximum.
+
+  **The second half is smaller and independently worth doing**: the warning says the baseline is
+  *"approximate"*, with no direction and no size — the exact anti-pattern `MAINTAINING.md` names
+  (*"'runs high by 5–110%' is a warning a flyer can act on; 'approximate' is not"*). It reads LOW,
+  by the offset, and both are measurable per flight.
 
 - **2026-08-20 · UNREPRODUCED (agent-reported) — a trace that runs far BELOW its headline gets no
   scope and no caveat, where one running above gets both.** `lib/explore.ts:424`'s

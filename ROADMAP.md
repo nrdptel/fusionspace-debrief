@@ -3031,6 +3031,14 @@ exports.
 
 ## D12 — How good the fix was, wherever a GPS value is read
 
+**Status:** IN PROGRESS — **slices 2, 4 and 5 SHIPPED.** Slice 1 is refused twice and parked at the
+back until a real file exercises it. **Next: slice 3** (the Featherweight signal bins), whose model
+this file also has wrong — the correction is under it — and then the KML half of slice 5, which is a
+geometry rewrite rather than an addition. **The *done when* is not yet pinnable**: it asks for a
+check enumerating the sinks from the exporters' own registry, and `lib/documents.ts:32` excludes
+`.gpx` and `.kml` from that registry by name. See the note under slice 5; that is one increment's
+work and it belongs before the last slice rather than after it.
+
 **Decomposed 2026-08-18, the run D10 shipped and the D-track went dry.** `ROADMAP.md`'s own rule
 applies: when a track's last milestone ships, decompose the next area rather than falling back to
 the defect ledger. This one is not chosen from a list — **every piece of it was measured this run**,
@@ -3477,6 +3485,21 @@ run in fork CI with no `FIXTURES_TOKEN`, where the corpus half cannot.
 **Status:** IN PROGRESS — the primitive layer exists and is pinned. `lib/design-system.test.ts` is
 `DESIGN.md` §9 as an EXACT ratchet, so every count below has to move in the same commit as the
 conversion that earns it.
+
+**Audit rows shipped: 5's caveat half, 8 (closed and was still listed), 12, 13, 9.** Rows 5's
+remaining half, 7, 10, 11, 14, 15, 16, 17, 18, 19, 20 and 21 are open. **Two of them are now the
+obvious next pair**: row 16 (three hand-rolled text inputs in three geometries, none on §4's
+`px-3 py-1.5`, where `TextField` has two adopters) and row 15 (the third border role — which the
+2026-08-20 border work turned from a style question into a contrast one, because `SectionNav`'s two
+sub-3:1 states are the last `gap` entry in either census).
+
+**And §9's counts have not moved all run** — radius 0 · card treatments 3 · off-scale spacing 0 ·
+half-steps 41 · off-scale type 1 · inverted files 10 of 51 · `./ui` adopters 40 of 51 — through
+three shipped audit rows. That is worth stating rather than reading as stagnation: the ratchet
+measures class-shaped drift, and the three rows this run closed were a COLOUR, a hit-target QUERY
+and a schema-order question, none of which any §9 grep can see. Two new censuses and one e2e case
+are what caught them, which is the argument for growing the checks beside §9 rather than only
+watching its numbers.
 
 **2026-08-18 (second entry, same day) — the logbook's DESKTOP half, which the entry below filed
 and named as the next thing here.** The row was a flex line whose every cell was `shrink-0`, so a
