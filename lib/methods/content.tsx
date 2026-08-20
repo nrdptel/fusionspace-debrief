@@ -803,9 +803,22 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           254.3&nbsp;kPa where 240.9&nbsp;kPa is the reading its own row supports, and the second
           read it too thin and published 83.8&nbsp;kPa against 89.0&nbsp;kPa. Both are now read at
           the height the row states — the logger&apos;s own inertial solution where the barometer
-          contradicts itself and that solution satisfies the bound the barometer failed.
-          <br />
-          <br />
+          contradicts itself, that solution satisfies the bound the barometer failed, and the
+          rocket is in the transonic push where the shock that distorts the port actually exists.
+          Below that there is no shock, so a second recording disagreeing there is the one that has
+          drifted, and the barometer stands.
+        </p>
+        <p>
+          <strong>Mach moves with it, on the same four recordings and for the same reason</strong>,
+          because the speed of sound is read off the same profile: 1.883 to 1.895 and 1.701 to
+          1.707 where the air was read too low, and 1.140 to 1.132 where it was read too high. The
+          shift is far smaller than the load case&apos;s — the speed of sound goes as the square
+          root of temperature where density goes exponentially — and none of the four crosses
+          Mach&nbsp;1, so no flight gains or loses a supersonic claim. It is named here because a
+          qualification that lands on one reading and not on the family it belongs to is this
+          project&apos;s own recorded failure shape.
+        </p>
+        <p>
           Where <em>nothing</em> in the file can place the sample, the height stays withheld and the
           air is read at the barometer&apos;s own value — except that a climbing rocket is never
           below its own pad, so it is never read as thicker than pad air. That is a bound rather than
@@ -814,6 +827,14 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           &minus;295&nbsp;m at the peak, it takes 212.5&nbsp;kPa to 206.7&nbsp;kPa and
           205.1&nbsp;kPa to 199.8&nbsp;kPa. Those two remain the honest limit of what the record
           supports, and the height beside them is still &ldquo;—&rdquo;.
+        </p>
+        <p>
+          <strong>In the data a flyer exports, the altitude column is the barometric trace as
+          recorded, while the q and Mach columns beside it are read at the corrected height.</strong>
+          That is deliberate and is worth knowing before you read a row: the altitude column is a
+          measurement and the correction is a placement, so overwriting one with the other would
+          publish a derived height as if the sensor had reported it. On the samples where the two
+          differ, the altitude a READING is published against is withheld rather than printed.
         </p>
         <p>
           <strong>The plotted curve is drawn over that same window</strong>, and so is every column

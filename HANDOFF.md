@@ -25,8 +25,8 @@ neighbour the bands do not catch — where the stated height was 11.4 m on a roc
 Fixing the *cause* — read the air at the height the analysis will state — is smaller than any of the
 guards, and it needed no new withholding at all.
 
-**Exactly 4 of 39 analysed flights move, one metric each, and the error runs BOTH ways.** That
-last part is what makes it a correction rather than a tuning: `jan18`'s barometer over-reads, so its
+**Exactly 4 of 39 analysed flights move — TWO metrics each, `maxDynamicPressure` and `mach` — and
+the error runs BOTH ways.** That last part is what makes it a correction rather than a tuning: `jan18`'s barometer over-reads, so its
 air was too THIN and its load case went **up** 83.8 → 89.0 kPa, while `jan10` went down 254.3 →
 240.9 and the two irec2023 recordings down 212.5 → 206.7 and 205.1 → 199.8.
 

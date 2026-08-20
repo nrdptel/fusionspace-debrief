@@ -145,7 +145,14 @@ record.
 both tools and carries identical text in the sibling repo. A milestone born from a note cites it —
 `D9 (from ON-4)` — so provenance survives into the queue.
 
-### The reverse channel — `## Awaiting the owner`
+### The reverse channel — `TRIAGED 2026-08-19 — **read, and one thing this run did touches it sideways rather than closing
+it.** The `Select` conversion removed a touch floor written as `min-h-11 … sm:min-h-0` from the
+column mapper, which keyed §8's 44 px to VIEWPORT WIDTH rather than to pointer type — so it grew
+touch chrome on a narrow desktop window and was redundant on the phone it was written for. That is
+this note's own subject (a phone is not a narrow desktop) arriving as a defect class rather than as
+a layout. P4 stays shipped and nothing here reopens.
+
+## Awaiting the owner`
 
 The traffic is not one-way. `MAINTAINING.md` has always said that an owner-level decision which does
 **not** block you goes in the report and in `HANDOFF.md` — and both of those are rewritten every
@@ -391,6 +398,12 @@ note body stands unchanged for those, and D10's *done when* keeps it.
 
 ---
 
+TRIAGED 2026-08-19 — **still open on the same clause, and nothing this run advanced it.** Five of
+the six capabilities in D10's *done when* have a sample; the coarse-GPS flight is still the one
+outstanding, and the staged pair on two devices remains the place a competitor demonstrably beats
+us. Stated plainly rather than left silent: this run spent its budget on an inherited Sev-1 and on
+the P-track, so this note got a reading and no work.
+
 **ON-3 · a question mark should open a popover, not navigate · SOURCE: owner, 2026-08-08**
 
 > it would be nice if clicking on any of the question marks would just open up a pop up not to a
@@ -471,6 +484,12 @@ rather than to a control, and it is the second surface to take the field.
 ---
 
 ---
+
+TRIAGED 2026-08-19 — **read, not moved, and P8 stays the answer.** One thing worth noting against
+it: this run's `Select` conversion touched `components/UnitsControl.tsx`, which is the surface
+`Popover` was extracted FROM when P8 shipped, and the popover behaviour was exercised by driving the
+built export (its five unit selects were measured open, in both themes). So the affordance this note
+asked for is still live and still working; nothing here reopens.
 
 **ON-B1 · match the motor finder's theme and tip controls · SOURCE: owner, 2026-08-08 · BOTH REPOS**
 
@@ -555,6 +574,12 @@ colour divergence. The motor-finder repo is still not attached to this session, 
 direction remains the owner's and stays parked below.
 ---
 
+TRIAGED 2026-08-19 — **unchanged, and neither control was touched.** The sibling repo is NOT
+attached to this session, so the half of this note that is a two-repo change could not have been
+made here even if the run had reached it — `DESIGN.md` is carried identically in both and a change
+to one is owed to the other in the same run. Recorded as an environment fact rather than a decision:
+a session that wants to move this note needs both repos selected as sources.
+
 **ON-B2 · the GitHub repo page is a surface too · SOURCE: owner, 2026-08-08 · BOTH REPOS**
 
 > Another thing they can learn form this project is to also keep the github repo page itself updated.
@@ -609,6 +634,12 @@ call exists in this session's GitHub surface, so description, topics and pinned 
 owner's. This is the FOURTH consecutive run to leave the README, which is worth saying plainly
 rather than repeating the reason.
 ---
+
+TRIAGED 2026-08-19 — **read, unchanged, and nothing this run touched the repository metadata half.**
+Stated so the silence is visible rather than possible: the run went to an inherited Sev-1 (max-Q's
+atmosphere), the `Select` primitive, and a fix-forward on the first of those. P5's remaining half is
+still the README and repo-page work this note asked for, and it is still doable in one increment by
+whoever picks it up.
 
 **ON-5 · dark mode is not being checked · SOURCE: cross-applied from loft `ON-1` — NOT the owner's words**
 
@@ -711,6 +742,17 @@ wears. The rendered contrast audit ran green over all 26 audits. The note's one 
 unchanged: the tone tables in `ui.tsx` are `const` object literals rather than opening tags, so the
 source census still cannot see them.
 ---
+
+TRIAGED 2026-08-19 — **this run has a real answer for the first time, and it widens the note.**
+`ON-5` said dark mode was not being checked; the check that came out of it rates `text-zinc-*`
+against §2's surfaces, which is TEXT contrast (WCAG 1.4.3). **Non-text contrast (1.4.11) had never
+been measured in either app**, and measured on the built export this run it FAILS in both themes:
+§2's `control` border renders **1.48:1** on white and **1.70:1** on `zinc-900`, against the 3:1 a
+control boundary needs — so on a form the flyer is looking at an effectively invisible edge around a
+control whose label rates 16:1. Light is the worse theme, which is the opposite of what this note
+assumed. Filed with the numbers in `DESIGN.md` §9 and as P1 audit row 13, and NOT taken inline
+because `control` is worn by every input, select and secondary button, so raising it is its own
+slice. **The note stays open and its scope is now larger than the theme it named.**
 
 **ON-6 · the phone should be vertical · SOURCE: cross-applied from loft `ON-3` — NOT the owner's words**
 

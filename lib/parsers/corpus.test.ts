@@ -2587,6 +2587,16 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
   // the parser moves, and this repo has already published a documentation figure that was
   // true of something other than the sentence it sat under.
   it('the load cases the methods page quotes are the ones the corpus produces', { timeout: 60_000 }, () => {
+    // Mach is quoted on the same page for the same four recordings and is pinned with them —
+    // the reading and its family, not the reading alone. It moves far less than q (the speed of
+    // sound goes as sqrt(T) where density goes exponentially) and it moves in BOTH directions,
+    // which is what says the correction is a correction.
+    const QUOTED_MACH: { file: string; mach: number }[] = [
+      { file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv', mach: 1.895 },
+      { file: 'blueraven/blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv', mach: 1.132 },
+      { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_easymega.csv', mach: 1.707 },
+      { file: 'altusmetrum/altusmetrum__issuiuc-irec2023-20230621__irec_2023_telemega.csv', mach: 1.678 },
+    ];
     const QUOTED: { file: string; kPa: number; why: string }[] = [
       // The barometer reads LOW through the push, so the air was too thick and q too high.
       { file: 'blueraven/blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv', kPa: 240.9, why: 'stated 482.5 m, air had been read at −93.5 m' },
@@ -2603,6 +2613,13 @@ describe('max-Q is the boost load case, not a deployment transient', () => {
       const q = loaded!.analysis.metrics.maxDynamicPressure;
       expect(q, `${c.file}: a load case is reported`).not.toBeNull();
       expect(q! / 1000, `${c.file} (${c.why})`).toBeCloseTo(c.kPa, 1);
+    }
+    for (const c of QUOTED_MACH) {
+      const m = loadForCompare(c.file)!.analysis.metrics.mach;
+      expect(m, `${c.file}: a Mach is reported`).not.toBeNull();
+      expect(m!, `${c.file}: the Mach the methods page quotes`).toBeCloseTo(c.mach, 2);
+      // And none of the four crosses Mach 1, which is the claim the page makes about them.
+      expect(m! > 1, `${c.file}: still supersonic, so no flight gained or lost the claim`).toBe(true);
     }
     // The two unplaceable ones must still say so, or the pair above stops meaning what the
     // page says it means.
