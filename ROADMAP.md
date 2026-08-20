@@ -4831,6 +4831,52 @@ flight's channels arriving and the effect that re-seeds `yKeys` running, where t
 resolve to nothing — one frame, and returning null for it is better than an empty chart. Same lesson
 as rows 1 and 3: an audit that reads source finds divergence and cannot weigh it.
 
+**2026-08-20 (second entry, same day) — audit row 9 SHIPPED, and the phone walk widened it from
+four sites to eleven with a device nobody had measured.** The row said the defect was five
+hand-rolled `<button>`s whose geometry keys §8's 44 px to VIEWPORT WIDTH. The class is real and the
+population was larger; more usefully, **the consequence was stated backwards**.
+
+**A tablet is coarse AND wide, and that is the device a `sm:`-keyed floor gives the target away
+on.** Every touch sweep in `e2e/touch.spec.ts` sets a 390 px viewport, so every one of these passed
+while the target vanished on any touch device over 640 px. The sharp case is the logbook's compare
+tick: `app/globals.css` floors every `button`, `select` and text `input` at 44 px on a coarse
+pointer and **deliberately exempts a checkbox** — so its wrapping `<label>` was the only thing
+between a thumb and a **16 × 16 px** target, and that wrapper dissolved above `sm`. The other half
+of the same defect points the other way: a desktop window dragged under 640 px grew touch chrome it
+has no use for.
+
+**Eleven sites, in three classes.** Six `min-h-11 … sm:min-h-0` (`RecentFlights` ×4,
+`SiteHeader` ×2); four square icon buttons at `h-11 w-11 … sm:h-7 sm:w-7` / `sm:h-6 sm:w-6`
+(`RecentFlights` ×2, `CompareView` ×2); and the checkbox pair. **The four buttons need no call-site
+treatment at all** — `globals.css` already floors a `<button>` at 44 × 44 on a coarse pointer — so
+they simply lost the explicit 44 and keep the small size, which is the honest shape: the token
+earns its keep only on what that block cannot reach.
+
+**`lib/ui-tokens.ts` has carried `TOUCH_TARGET = 'pointer-coarse:min-h-11'` with this exact argument
+written out since the first time it was got wrong.** Eleven call sites reached for `sm:` anyway,
+because a width query is the reflex. That is the case for a check rather than a sweep.
+
+**Pinned two ways.** `lib/design-system.test.ts` → *"has no `sm:`-keyed hit target left anywhere in
+either surface tree"*, a source census over all three classes — and it strips comments first,
+because `components/ui.tsx`'s `Select` docblock quotes `min-h-11 … sm:min-h-0` verbatim while
+explaining why that string is wrong, so a census that read comments would fail on the paragraph
+arguing its own case. And `e2e/touch.spec.ts` → *"a tablet is a touch device even though it is
+wide"*, which is the one that matters: **1024 × 768 with touch**, an iPad in landscape, sweeping
+`/compare` for anything under 44 px and then measuring the compare tick's `<label>` by name.
+Falsified by putting the `sm:` keying back on that one control: the tablet case fails and the
+390 px sweeps stay green, which is exactly the blind spot it was written for.
+
+**And the conversion turned one existing e2e test RED, which is the most useful thing in this
+slice.** `e2e/analyze.spec.ts`'s two-altimeter walk measures the recordings disclosure against the
+44 px floor and its own comment says that floor *"comes from a `pointer: coarse` rule, so it can
+only be measured at a phone's viewport."* It set the viewport and nothing else — so `pointer:
+coarse` never applied, and what it was actually measuring was the `min-h-11 … sm:min-h-0` at the
+call site. **A width query, under a comment naming a pointer query.** The two agreed at 390 px and
+disagreed on every other device. The test declares `hasTouch` now, which is what a phone is, and
+the control clears the floor from `app/globals.css` as the comment always claimed. The reading to
+take from it: **narrowing a desktop browser is not a phone**, and a check that measures one as if
+it were will hold a width-keyed floor in place indefinitely.
+
 **2026-08-20 — audit row 13 SHIPPED: §2's `control` border reaches WCAG 1.4.11, and the app gained
 its first NON-TEXT contrast check.** This is the row the last run measured and deliberately did not
 take, on the grounds that it is *"a visual decision the size of a milestone slice"*. It is, and this
