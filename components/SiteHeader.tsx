@@ -88,8 +88,8 @@ export default function SiteHeader({
               aria-current={active ? 'page' : undefined}
               className={
                 active
-                  ? 'inline-flex min-h-11 items-center rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white sm:min-h-0 dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'inline-flex min-h-11 items-center rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 sm:min-h-0 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
+                  ? 'inline-flex items-center rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white pointer-coarse:min-h-11 dark:bg-zinc-100 dark:text-zinc-900'
+                  : 'inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 pointer-coarse:min-h-11 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
               }
             >
               {s.label}

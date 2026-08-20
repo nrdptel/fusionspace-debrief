@@ -135,6 +135,41 @@ test('every route the app builds is swept on a phone', async () => {
   expect(routes.length, 'routes found on disk').toBeGreaterThan(5);
 });
 
+// **A TABLET is coarse AND wide, and until 2026-08-20 that was the one device this file could
+// not see.** Every sweep above sets a 390 px viewport, so a floor keyed to `sm:` passed all of
+// them while giving the target away on any touch device over 640 px. The logbook's compare tick
+// was the sharp case: `app/globals.css` floors every button, select and text input on a coarse
+// pointer and deliberately EXEMPTS a checkbox, so its wrapping <label> was the only thing between
+// a thumb and a 16x16 target — and that wrapper dissolved above `sm`. Measured here rather than
+// argued: 1024x768 with touch, which is an iPad in landscape.
+test('a tablet is a touch device even though it is wide', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Try a sample flight' }).click();
+  await expect(page.getByRole('heading', { name: 'Explore the data' })).toBeVisible();
+  await page.getByRole('button', { name: /Analyze another flight/ }).click();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
+
+  await page.goto('/compare');
+  await expect(page.getByRole('heading', { name: 'Compare flights' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent flights' })).toBeVisible();
+
+  const small = await page.evaluate(underSizedTargets);
+  expect(small, `controls under 44 px on a 1024 px TOUCH viewport:\n${small.join('\n')}`).toEqual([]);
+
+  // …and the compare tick by name, because it is the control `globals.css` cannot floor and the
+  // one this test was written for. Its <label> is what a thumb hits.
+  const tick = page.getByRole('checkbox', { name: /Select .* to compare/ }).first();
+  await expect(tick).toBeVisible();
+  const box = await tick.evaluate((el) => {
+    const label = el.closest('label') ?? el;
+    const r = label.getBoundingClientRect();
+    return { w: r.width, h: r.height };
+  });
+  expect(box.h, `the compare tick's tap target is ${box.w}x${box.h}`).toBeGreaterThanOrEqual(44);
+  expect(box.w, `the compare tick's tap target is ${box.w}x${box.h}`).toBeGreaterThanOrEqual(44);
+});
+
 test('the compare surface is thumb-sized too', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');

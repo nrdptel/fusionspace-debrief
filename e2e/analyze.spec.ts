@@ -1652,6 +1652,20 @@ test('a flyer can say which stretch of a record is their flight, and the analysi
   await expect(page.getByText(/You chose the stretch Debrief read/)).toBeHidden();
 });
 
+/**
+ * **A phone is a TOUCH device, and until 2026-08-20 this test only made it narrow.**
+ *
+ * The walk below measures the 44 px floor and its own comment says that floor "comes from a
+ * `pointer: coarse` rule". It set the viewport and nothing else, so `pointer: coarse` never
+ * applied and what it was really measuring was a `min-h-11 … sm:min-h-0` at the call site — a
+ * WIDTH query. The two agreed by accident at 390 px and disagreed everywhere else: on a tablet the
+ * width query gave the target away, and on a narrow desktop window it grew touch chrome for a
+ * mouse. `DESIGN.md` §8 states the contract as the pointer, so the call sites moved to it and this
+ * test now declares the device it is describing.
+ */
+test.describe('two altimeters on one flight', () => {
+  test.use({ hasTouch: true });
+
 test('two altimeters on one flight are one flight in the logbook, counted once', async ({ page }) => {
   // A rocket flown with two altimeters — a Blue Raven and a Featherweight GPS recording the
   // SAME flight — plus a flight from another day. The two recordings disagree slightly, the
@@ -1731,8 +1745,10 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
 
   // The whole thing exists on a phone, and every control on it is a real touch target. A
   // capability that renders on a wide screen and simply is not there on a narrow one is the
-  // standing tell this walk exists to catch — and the 44 px floor comes from a
-  // `pointer: coarse` rule, so it can only be measured at a phone's viewport.
+  // standing tell this walk exists to catch — and the 44 px floor comes from a `pointer: coarse`
+  // rule, which is why this test declares `hasTouch` above rather than only shrinking the window.
+  // Narrowing a desktop browser is not a phone, and measuring one as if it were is how a
+  // width-keyed floor passed for as long as it did.
   await page.setViewportSize({ width: 390, height: 844 });
   const disclosure = page.getByRole('button', { name: /Recorded 2 times/ });
   await expect(disclosure).toBeVisible();
@@ -1825,6 +1841,8 @@ test('two altimeters on one flight are one flight in the logbook, counted once',
 // than per flight — "my altitude trace in green" is a statement about the trace — and the six
 // literals this replaced were the same hex written once for the export and again for the screen,
 // so the saved file and the page could drift apart one edit at a time.
+});
+
 test('a figure colour the flyer picks reaches the saved figure, and can be undone', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Try a sample flight' }).click();

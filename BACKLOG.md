@@ -115,6 +115,12 @@ wild, ideas too big for one pass. One line each, newest first.
   Measured: a Featherweight GPS-only flight's 3,658 m apogee has a falsy `apogeeCaveat`, so nothing
   attaches to it in `compare-metrics.csv` or `compare-debrief.html` either.
 
+- **~~2026-08-20 — nine viewport-keyed touch floors, where §8 says the floor belongs to POINTER
+  TYPE.~~ RESOLVED 2026-08-20, and the population was eleven rather than nine.** See `ROADMAP.md`'s
+  P1 audit-row-9 entry: the classes were six `sm:min-h-0`, four square buttons shrinking above `sm`,
+  and the checkbox pair. Pinned by a source census and by a **1024 × 768 touch** e2e case, which is
+  the device every existing 390 px sweep could not see. Original entry follows.
+
 - **2026-08-20 — nine viewport-keyed touch floors, where §8 says the floor belongs to POINTER
   TYPE.** `components/RecentFlights.tsx:829` (`h-5 w-5 sm:h-4 sm:w-4`), `:835`, `:969`, `:988`,
   `:1049`, `:1099`, `:1147` and `components/CompareView.tsx:909`, `:919`, plus six `min-h-11 …

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { TOUCH_TARGET } from './ui-tokens';
 
 /** `DESIGN.md` §9, as an assertion instead of a block of shell a session may or may not run.
  *
@@ -1823,6 +1824,73 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
     expect(tags, 'the control census found no operable elements at all').toBeGreaterThan(50);
     expect(rated, 'the control census rated no control borders at all').toBeGreaterThan(5);
     expect(found, 'operable controls under WCAG 1.4.11 3:1 — DESIGN.md §2:').toEqual(SUB_THRESHOLD_CONTROLS);
+  });
+});
+
+/**
+ * **§8's touch floor belongs to the POINTER, and a viewport query is not one.**
+ *
+ * `DESIGN.md` §8 states the contract as `pointer: coarse`, and `lib/ui-tokens.ts` has carried
+ * `TOUCH_TARGET = 'pointer-coarse:min-h-11'` — with the argument written out — since the first time
+ * this was got wrong. Call sites kept reaching for `sm:` anyway, because a width query is the
+ * reflex, and the two are not the same thing in either direction:
+ *
+ * - **A tablet held in landscape is ≥ 640 px AND coarse**, so a `sm:`-keyed floor takes the target
+ *   away from exactly the device that needs it. The logbook's compare tick was the sharp case:
+ *   `app/globals.css` floors every `button`, `select` and text `input` at 44 px on a coarse pointer
+ *   and deliberately EXEMPTS a checkbox, so its `<label>` wrapper was the only thing standing
+ *   between a thumb and a **16 px** target — and that wrapper dissolved above `sm`.
+ * - **A desktop window dragged under 640 px is fine and pointer-driven**, and grew touch chrome it
+ *   has no use for.
+ *
+ * So this census is not a style rule: each hit is a target that is wrong on one real device.
+ */
+/** Source with `//` and block comments removed.
+ *
+ *  §9 records that two of its own commands READ COMMENTS AS CODE, and this census would join them:
+ *  `components/ui.tsx`'s `Select` docblock quotes `min-h-11 … sm:min-h-0` verbatim while explaining
+ *  why that string is wrong, so a census that skipped this would fail on the very paragraph arguing
+ *  its case. Strings are left alone — a class lives in one — so this is deliberately narrower than
+ *  a tokenizer and is only ever pointed at class-shaped text. */
+const withoutComments = (text: string): string =>
+  text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
+describe('DESIGN.md §8 — the touch floor is keyed to the pointer, not the viewport', () => {
+  it('has no `sm:`-keyed hit target left anywhere in either surface tree', () => {
+    const offenders: string[] = [];
+    for (const f of uiSources(['components', 'app'], ['.tsx', '.css'])) {
+      const text = withoutComments(f.text);
+      for (const m of text.matchAll(/\bsm:min-h-0\b/g)) {
+        offenders.push(`${f.path}:${text.slice(0, m.index ?? 0).split('\n').length} — sm:min-h-0 gives the floor away above 640 px`);
+      }
+      // A square target that SHRINKS above `sm` — the same defect written as a size rather than a
+      // minimum. `h-11 w-11 … sm:h-7 sm:w-7` reads as "big on a phone", and means "small on a
+      // tablet".
+      for (const m of text.matchAll(/\bh-11 w-11\b[^"`]*?\bsm:h-\d+\b/g)) {
+        offenders.push(`${f.path}:${text.slice(0, m.index ?? 0).split('\n').length} — a 44 px target shrinks above 640 px`);
+      }
+      // …and a checkbox, which `globals.css` cannot floor, sized down above `sm`.
+      for (const m of text.matchAll(/\bsm:h-4 sm:w-4\b/g)) {
+        offenders.push(`${f.path}:${text.slice(0, m.index ?? 0).split('\n').length} — a checkbox shrinks above 640 px, where nothing floors it`);
+      }
+    }
+    expect(offenders, `§8's floor keyed to viewport width — use TOUCH_TARGET / pointer-coarse:`).toEqual([]);
+  });
+
+  it('spends the token rather than re-typing it, and the token says pointer', () => {
+    // The token's whole point is that the argument lives in one place. Asserted so a call site
+    // cannot quietly re-type the class and drift from it.
+    expect(TOUCH_TARGET).toBe('pointer-coarse:min-h-11');
+    const adopters = uiSources(['components', 'app'], ['.tsx']).filter((f) =>
+      /\bpointer-coarse:/.test(withoutComments(f.text)),
+    );
+    // A floor for the check itself: if a refactor removed every coarse-pointer treatment this
+    // would otherwise pass by finding nothing to disagree with. Three files, measured — and it is
+    // deliberately not more. Most controls need no call-site treatment at all, because
+    // `app/globals.css` floors every `button`, `select` and text `input` on a coarse pointer; the
+    // token earns its keep only on what that block cannot reach, which is a `<label>`, a
+    // `<summary>`, a plain `<a>`, and a checkbox it exempts by name.
+    expect(adopters.length, 'no coarse-pointer treatment left in the tree at all').toBeGreaterThanOrEqual(3);
   });
 });
 

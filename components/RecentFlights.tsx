@@ -817,22 +817,29 @@ export default function RecentFlights({
                     input[type=checkbox] on purpose, because stretching the BOX to 44 px would
                     draw a giant square. So the label carries the tap area instead — 44 px of
                     it, pulled back by an equal negative margin so the row lays out exactly as
-                    before and the tick still draws at 20 px. Above sm: a pointer device needs
-                    none of it and the wrapper dissolves. */}
-                <label className="-m-3 flex shrink-0 cursor-pointer items-center justify-center p-3 sm:m-0 sm:cursor-auto sm:p-0">
+                    before and the tick still draws at 20 px.
+
+                    **Keyed to the POINTER, not to the viewport width, and it was the other way
+                    until 2026-08-20.** `app/globals.css` floors every button, select and text
+                    input at 44 px on a coarse pointer and deliberately EXEMPTS a checkbox — so
+                    this wrapper is the only thing standing between a thumb and a 16 px target,
+                    and hanging it on `sm:` meant a tablet held in landscape got the 16 px one
+                    while a desktop window dragged under 640 px grew the touch chrome. Exactly
+                    inverted from what §8 asks. */}
+                <label className="flex shrink-0 cursor-auto items-center justify-center pointer-coarse:-m-3 pointer-coarse:cursor-pointer pointer-coarse:p-3">
                   <input
                     type="checkbox"
                     checked={isSel}
                     disabled={!isSel && atCap}
                     onChange={() => toggle(r.id)}
                     aria-label={`Select ${rowName(r)} to compare`}
-                    className="h-5 w-5 shrink-0 accent-indigo-600 disabled:opacity-40 sm:h-4 sm:w-4"
+                    className="h-4 w-4 shrink-0 accent-indigo-600 disabled:opacity-40 pointer-coarse:h-5 pointer-coarse:w-5"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => onOpen(r.id)}
-                  className={`flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 py-1 text-left sm:min-h-0 sm:py-0 ${ROW_COLS}`}
+                  className={`flex min-w-0 flex-1 flex-col justify-center gap-1 py-1 text-left pointer-coarse:min-h-11 sm:py-0 ${ROW_COLS}`}
                 >
                   {/* Below sm: the name gets the line to itself — telling one flight from
                       another is what the row is for — and everything that describes it
@@ -966,7 +973,7 @@ export default function RecentFlights({
                   onClick={() => startEdit(note.id, note.note)}
                   aria-label={`${note.note ? 'Edit' : 'Add'} note for ${rowName(r)}`}
                   title={note.note ? 'Edit note' : 'Add a note (keeps this flight in your logbook)'}
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 sm:h-7 sm:w-7 dark:hover:bg-zinc-800 ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                     note.note ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
                   }`}
                 >
@@ -985,7 +992,7 @@ export default function RecentFlights({
                       : `Remove ${rowName(r)} from recent flights`
                   }
                   title={others.length > 0 ? `Remove this flight — all ${group.recordings.length} recordings` : 'Remove'}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 sm:h-7 sm:w-7 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                 >
                   ✕
                 </button>
@@ -1046,7 +1053,7 @@ export default function RecentFlights({
                     })}
                     aria-expanded={showing}
                     aria-controls={`recordings-${group.id}`}
-                    className="flex min-h-11 w-full items-center gap-1.5 text-left text-xs font-medium text-zinc-500 transition hover:text-zinc-800 sm:min-h-0 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    className="flex w-full items-center gap-1.5 text-left text-xs font-medium text-zinc-500 transition hover:text-zinc-800 pointer-coarse:min-h-11 dark:text-zinc-400 dark:hover:text-zinc-200"
                   >
                     <span aria-hidden="true" className={`transition-transform ${showing ? 'rotate-90' : ''}`}>
                       ›
@@ -1096,7 +1103,7 @@ export default function RecentFlights({
                             <button
                               type="button"
                               onClick={() => onOpen(rec.id)}
-                              className="min-h-11 min-w-0 flex-1 text-left font-mono break-all text-zinc-700 hover:text-indigo-600 sm:min-h-0 dark:text-zinc-300 dark:hover:text-indigo-400"
+                              className="min-w-0 flex-1 text-left font-mono break-all text-zinc-700 hover:text-indigo-600 pointer-coarse:min-h-11 dark:text-zinc-300 dark:hover:text-indigo-400"
                             >
                               {rec.name}
                             </button>
@@ -1144,7 +1151,7 @@ export default function RecentFlights({
                         <button
                           type="button"
                           onClick={() => onGroup(planSeparation(group))}
-                          className="min-h-11 text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800 sm:min-h-0 dark:text-zinc-400 dark:hover:text-zinc-200"
+                          className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800 pointer-coarse:min-h-11 dark:text-zinc-400 dark:hover:text-zinc-200"
                         >
                           Separate these into {group.recordings.length} flights
                         </button>
