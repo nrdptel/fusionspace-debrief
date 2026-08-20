@@ -4662,6 +4662,108 @@ flight's channels arriving and the effect that re-seeds `yKeys` running, where t
 resolve to nothing — one frame, and returning null for it is better than an empty chart. Same lesson
 as rows 1 and 3: an audit that reads source finds divergence and cannot weigh it.
 
+**2026-08-20 — audit row 13 SHIPPED: §2's `control` border reaches WCAG 1.4.11, and the app gained
+its first NON-TEXT contrast check.** This is the row the last run measured and deliberately did not
+take, on the grounds that it is *"a visual decision the size of a milestone slice"*. It is, and this
+is the slice.
+
+**The defect, re-measured this run rather than read off the row.** `border-zinc-300` on `bg-white`
+renders **1.48:1** (1.42 on `sunken`) and `border-zinc-700` on `bg-zinc-900` renders **1.70:1**,
+against the 3:1 that 1.4.11 asks of *"visual information required to identify user interface
+components"*. On this system the border IS that information — §5 gives `TextField`, `Select` and
+`Button variant="secondary"` a transparent fill — so every input, select and secondary button in the
+app had an edge at roughly half the contrast it owes, with a 16:1 label inside it.
+
+**`zinc-500`, in both themes, and it is the first value on the ramp that works rather than a
+preference**: 4.83 / 4.62 light (page / `sunken`), 4.12 / 3.67 dark (page / `raised`). One step
+lighter reaches 2.62 / 2.51 light and one step darker 2.58 / 2.29 dark, so there is nothing in
+between to argue over. §2 moved first and carries the table; **the sibling repo's copy moved in the
+same run**, which the binding-file invariant requires, with its own 12 call sites named as that
+repo's P-track work.
+
+**Fifteen sites converted, and four deliberately not.** The four are the interesting half:
+`ui.tsx:145`'s dashed empty-state card, `CHIP_TONES.default`, the `Chip` container and
+`RecognizedFormats`' badge are **not controls** — 1.4.11 exempts what is purely decorative — so
+raising them would have put a 4.6:1 line around static labels. Three of the four are wearing the
+wrong ROLE rather than the wrong value (a container in `control`, a badge whose light half is
+`hairline` and whose dark half is not) and are filed in `BACKLOG.md` as such.
+
+**One primitive pair now differs on purpose, and the old comment saying it must not was rewritten
+rather than left to contradict the code.** `ChipButton` took `control`; `Chip` did not. They had
+shared a ramp explicitly *"so the two primitives cannot drift apart in the same row"* — but one is
+operable with a fill matching its surface and the other is a static label with its own fill, which
+is precisely the distinction the criterion draws. A row holding both now shows which can be pressed.
+
+**FOUR hover states had to move with it**, because raising the resting border inverted them: the
+two pickers' `hover:border-zinc-400` was *lighter* than the new resting value, and `ChipButton`'s
+and the zoom presets' `hover:border-indigo-400` rates 3.13:1 against a 4.83:1 resting edge. Light
+hovers are `zinc-700` / `indigo-600` now — `indigo-600` being §2's own `accent`, which
+`indigo-400` never was.
+
+**And the pre-push review found five more the first cut had missed, four of them regressions this
+change itself introduced. They are listed rather than folded in, because the SHAPE is the lesson:
+raising a resting value inverts everything that was tuned against the old one, and the first cut
+looked only at hovers.**
+
+- **The SELECTED state went weaker than the unselected one, on three surfaces, in both themes.**
+  `FlightPicker`, `RecordingPicker` and the zoom presets marked their chosen item with
+  `border-indigo-400` (**3.13:1** light) / `border-indigo-500/50`–`/60` (**1.88**–**2.24:1** dark).
+  Against the old resting 1.48 / 1.70 that was stronger; against 4.83 / 3.67 the chosen flight had
+  the *fainter* edge. 1.4.11 covers states, so this is the criterion's own subject. All three are
+  §2's `accent` solid now — `indigo-600` (6.19:1) and `dark:indigo-400` (5.66:1).
+- **`ChipButton`'s ACCENT tone was never converted**, because it borrowed `Chip`'s
+  `border-indigo-500/30` — an opacity wash compositing to **1.49:1** light and **1.61:1** dark. So
+  the claim that the two primitives now differ on purpose was true of the neutral tone and false of
+  the one the figure chooser spends. It has its own solid border now, and keeps `Chip`'s fill and
+  ink so the family still reads as one.
+- **The zoom preset's DARK hover was left behind** at `indigo-500/60` (**2.18:1**) when its light
+  half went to `indigo-600` — one half of one string, and the weaker half.
+- **`NumberField`'s refusal became a hue-only change.** `border-red-600` is 4.57:1 on light
+  `sunken`; against the old resting 1.42 that was a large step and against 4.62 it is a step of
+  nothing. `red-700` (6.15:1) restores it. Dark already had the step.
+- **`ChannelExplorer`'s search input lost its focus indicator to the same arithmetic.** It has
+  `focus:border-indigo-500` and, alone among the four inputs in the tree, no `focus:ring-1`.
+  `indigo-500` against `zinc-500` is **1.05:1** — a hue-only focus indicator, where against the old
+  `zinc-300` it had been a clear lightness step. It carries the ring its three siblings carry now.
+
+**The census itself had a hole the review found, and closing it is worth more than any of the
+five.** It skipped `hairline`'s shades by SHADE to avoid drowning in container edges — so an
+OPERABLE control wearing a decorative shade was silently exempt, which is exactly `SectionNav`'s
+jump chip at **1.22:1**. And it rated `zinc` only, so a hued control border was invisible to it
+entirely, which is how the `ChipButton` accent tone survived the same change that raised its
+neutral one. A second census starts from the TAG instead: every `<button>`, `<a>`, `<input>`,
+`<select>` and `<textarea>`, every hue, decorative shades included — and an opacity wash it cannot
+rate is reported as a finding rather than skipped. Falsified by giving one `<input>` a
+`border-zinc-200`: the neutral census waves it through and the control census fails naming
+`components/ChannelExplorer.tsx:485`.
+
+**Both maps are keyed by FILE with a per-class count, not by line**, after a line-keyed version
+reddened on an unrelated docblock three files away. The count is what keeps it exact: a fourth
+sub-threshold border in a file already listed still fails.
+
+**A stale number in the binding file, found on the way and worth more than the fix.** §9 quoted
+`zinc-400` at **2.56:1**. That is the **Tailwind 3** value (`#a1a1aa`); this app ships Tailwind 4,
+where the same shade is `#9f9fa9` and rates **2.62:1**. The verdict never changed — both fail — but
+`lib/design-system.test.ts`'s own `HUES` docblock warns about exactly this, and the figure had
+already propagated into this row. Corrected where it drives a live decision; left where it records
+what a past run measured, because rewriting those falsifies the history rather than the number.
+
+**Pinned by** `lib/design-system.test.ts`, two cases. *"gives §2 `control` a border a flyer can
+find"* COMPUTES all six ratios from the rasterised ramp — including that the two neighbouring shades
+fail, so the value cannot be softened by one step — and *"has no neutral border under 3:1 outside the
+ones named"* is an exact census: it skips the two decorative roles by shade, then requires every
+remaining sub-threshold site to appear in a map that says why. Falsified by reverting one call site:
+it fails naming `components/CropControl.tsx:119`. §9's counts are unmoved — radius 0 · card
+treatments 3 · off-scale spacing 0 · half-steps 41 · off-scale type 1 · inverted files 10 of 51 ·
+`./ui` adopters 40 of 51 — because a border colour is on none of those greps, which is the gap the
+census closes.
+
+**What is still under the line, and it is stated rather than exempted.** `ui.tsx:1429`'s jump chip
+carries its "you are here" state on `border-zinc-400` — **2.62:1 light, 2.29:1 dark** — over a
+`bg-zinc-100` fill that is 1.05:1 against the page. 1.4.11 covers STATES, so this one genuinely
+applies. It is in the census as a `gap`, not an `exempt`, so the entry is deleted and the assert
+arms when it is fixed.
+
 **2026-08-19 (second entry, same day) — `Select` SHIPPED, which is audit row 12 and the largest
 thing on the list a flyer actually meets.** Seven `<select>` in five geometries became one, and it
 was measured by driving the built export rather than by reading the source: on the report with the
@@ -4726,7 +4828,7 @@ the code is how a session ships the same regression twice:**
 
 **What the list never had, ranked by what a flyer meets:**
 
-12. **Seven `<select>` in FIVE geometries, and §5 has no select primitive at all.**
+12. **SHIPPED 2026-08-19.** ~~Seven `<select>` in FIVE geometries, and §5 has no select primitive at all.~~
     `ChannelExplorer.tsx:35` (used at `:410`, `:443`) `px-2 py-1.5 text-sm` · `ColumnMapper.tsx:208`,
     `:228` `min-h-11 px-2 py-1 text-xs` · `UnitsControl.tsx:77` `px-2 py-1 font-mono text-sm` with
     `dark:border-zinc-600` and `dark:bg-zinc-950` · `RailExit.tsx:94` `px-2 py-1 text-sm
@@ -4734,7 +4836,8 @@ the code is how a session ships the same regression twice:**
     and two border vocabularies for one control — and every class is on §4's scale and `rounded-md`,
     so all seven §9 greps read clean. This is the "vocabulary short a word" shape §5 already records
     for `link`, `ChipButton`, `Popover` and `TextField`. **§5 moves first.**
-13. **§2's `control` border fails WCAG 1.4.11 in BOTH themes, and light is the worse one** —
+13. **SHIPPED 2026-08-20 — `control` is `zinc-500` in both themes; the dated entry above carries the
+    numbers and the census that pins it.** ~~§2's `control` border fails WCAG 1.4.11 in BOTH themes, and light is the worse one~~ —
     measured on the built export, not read off the source: `border-zinc-300` on `bg-white` renders
     **1.48:1** (1.42:1 on `sunken`) and `border-zinc-700` on `bg-zinc-900` renders **1.70:1**,
     against the 3:1 a control boundary needs. The border IS the control here, because the fill

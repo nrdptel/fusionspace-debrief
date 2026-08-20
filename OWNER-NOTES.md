@@ -404,6 +404,26 @@ outstanding, and the staged pair on two devices remains the place a competitor d
 us. Stated plainly rather than left silent: this run spent its budget on an inherited Sev-1 and on
 the P-track, so this note got a reading and no work.
 
+TRIAGED 2026-08-20 — **still open, and nothing this run advanced it.** D10 remains `SHIPPED`; the
+D-track this run went to a launch-safety Sev-1 on the rail-exit reading and to D12's GPS work, and
+the P-track to §2's border token. One thing touches this note sideways and is worth recording: the
+synthetic-flight generator D10 built is the only way to exercise several of the states this run
+measured, and the rail-exit guard shipped here deliberately does NOT lean on it — a synthetic file
+that can produce any state on demand proves nothing about whether a real one reaches it, which is
+the same argument `ROADMAP.md` records against D12 slice 1. That is a limit on what samples are FOR,
+not an argument against having more of them.
+
+TRIAGED 2026-08-20 — **still open, and this run MEASURED the affordance for the first time rather
+than only reasoning about it.** P8 shipped the popover; what this note is really about is whether a
+flyer can reach the explanation, and on a phone one of them cannot. `components/MetricGrid.tsx:69` —
+the "Read this on the methods page" link that closes the `?` popover, i.e. the last step of exactly
+the journey this note asks for — computes to a **20 px** tap target, **24 px under §8's 44 px
+floor**. Three things conspire: `Button variant="link"` strips both `BUTTON_SIZES` and
+`TOUCH_TARGET` by design (`components/ui.tsx:499`), `app/globals.css`'s coarse-pointer block floors
+`button` and `nav/header/footer a` but never `main a`, and `e2e/touchTargets.ts:47` skips it — so no
+check in the repo has ever seen it. Filed in `BACKLOG.md` with the arithmetic. Nothing else this run
+touched the popover.
+
 **ON-3 · a question mark should open a popover, not navigate · SOURCE: owner, 2026-08-08**
 
 > it would be nice if clicking on any of the question marks would just open up a pop up not to a
@@ -490,6 +510,11 @@ it: this run's `Select` conversion touched `components/UnitsControl.tsx`, which 
 `Popover` was extracted FROM when P8 shipped, and the popover behaviour was exercised by driving the
 built export (its five unit selects were measured open, in both themes). So the affordance this note
 asked for is still live and still working; nothing here reopens.
+
+TRIAGED 2026-08-20 — **unchanged, and neither control was touched.** The P-track this run went to
+§2's border token and the D-track to a launch-safety reading, and the sibling repo was opened only
+to carry the same `DESIGN.md` change — its components were not read. Stated so the silence is a
+measurement rather than an omission.
 
 **ON-B1 · match the motor finder's theme and tip controls · SOURCE: owner, 2026-08-08 · BOTH REPOS**
 
@@ -580,6 +605,11 @@ made here even if the run had reached it — `DESIGN.md` is carried identically 
 to one is owed to the other in the same run. Recorded as an environment fact rather than a decision:
 a session that wants to move this note needs both repos selected as sources.
 
+TRIAGED 2026-08-20 — **read, unchanged, and this is now the SIXTH consecutive run to leave the
+repository-metadata half.** Nothing in this session can write repository settings, which is the same
+answer every previous run reached; it is parked under `## Awaiting the owner` and stays there. The
+README half remains doable and remains not done, and saying so plainly is the point of this line.
+
 **ON-B2 · the GitHub repo page is a surface too · SOURCE: owner, 2026-08-08 · BOTH REPOS**
 
 > Another thing they can learn form this project is to also keep the github repo page itself updated.
@@ -640,6 +670,20 @@ Stated so the silence is visible rather than possible: the run went to an inheri
 atmosphere), the `Select` primitive, and a fix-forward on the first of those. P5's remaining half is
 still the README and repo-page work this note asked for, and it is still doable in one increment by
 whoever picks it up.
+
+TRIAGED 2026-08-20 — **this run's whole P-track increment came out of this note's subject, and it
+widened the check a second time.** Last run's answer was that the check rates TEXT only. This run
+found what that hid: §2's `control` border — the boundary of every input, select and secondary
+button — rated **1.48:1** on the light page and **1.70:1** on dark `raised`, against the 3:1 WCAG
+1.4.11 asks. Both themes failed, and **light was the worse one**, which is worth stating against a
+note about dark mode: the instrument was missing, not the theme. It is `zinc-500` in both themes now
+(4.62 / 3.67 on the worst surface each), and two new censuses in `lib/design-system.test.ts` rate
+non-text contrast in both themes for the first time — one over neutral borders, one over every
+operable control whatever hue it wears. The second exists because the pre-push review found the
+first had a hole exactly the shape this note keeps finding: it skipped `hairline`'s shades by value,
+so an operable control wearing a decorative shade was silently exempt. **The note stays open**,
+because what it asks for is that dark mode be *checked*, and every run so far has found a new axis
+that was not.
 
 **ON-5 · dark mode is not being checked · SOURCE: cross-applied from loft `ON-1` — NOT the owner's words**
 
@@ -753,6 +797,19 @@ control whose label rates 16:1. Light is the worse theme, which is the opposite 
 assumed. Filed with the numbers in `DESIGN.md` §9 and as P1 audit row 13, and NOT taken inline
 because `control` is worn by every input, select and secondary button, so raising it is its own
 slice. **The note stays open and its scope is now larger than the theme it named.**
+
+TRIAGED 2026-08-20 — **no phone work shipped, and the phone walk this run produced the sharpest
+list yet — all of it filed rather than fixed.** Three things are worth the owner's eye, because each
+is this note's own subject arriving as a defect: **fifteen touch floors keyed to VIEWPORT WIDTH
+rather than to pointer type**, of which the logbook's compare tick is 44×44 below 640 px and
+**16×16 at ≥640 px** — so a tablet gets the small target and a narrow desktop window gets the big
+one, which is precisely "a phone is not a narrow desktop" inverted; **`/stitch`'s timeline is the
+one table surface that never got the stack-down-the-page treatment**, at **128 px of 356 px spent
+on cell padding at 390 px, 36% of the width before a glyph is drawn**, where the comparison and the
+explorer both collapse; and **two hover-only affordances with no coarse-pointer partner**, where a
+third instance of the identical pattern three files away is written correctly. P4 remains the
+answer and remains `SHIPPED` for slices 1–5, so the note is not open on a stalled milestone — it is
+open on the after-list.
 
 **ON-6 · the phone should be vertical · SOURCE: cross-applied from loft `ON-3` — NOT the owner's words**
 

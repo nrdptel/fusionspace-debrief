@@ -1251,8 +1251,8 @@ export default function FlightReport({
                 onClick={() => focusRange(syncKey, p.min, p.max)}
                 className={`rounded-md border px-2 py-0.5 text-xs font-medium transition ${
                   active
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-950/40 dark:text-indigo-300'
-                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-500/60 dark:hover:text-indigo-400'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-300'
+                    : 'border-zinc-500 bg-white text-zinc-700 hover:border-indigo-600 hover:text-indigo-600 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-400 dark:hover:text-indigo-400'
                 }`}
               >
                 {p.label}
@@ -1535,7 +1535,7 @@ export default function FlightReport({
           apogeeAltitude={metrics.apogeeAltitude}
           events={events}
           fixGrade={getChannel(flight, 'gpsFixGrade')?.values}
-              hdop={getChannel(flight, 'dopHorizontal')?.values}
+          hdop={getChannel(flight, 'dopHorizontal')?.values}
           synthetic={synthetic}
           recordedBy={recordedBy}
         />

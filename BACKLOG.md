@@ -14,6 +14,178 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-20 · UNREPRODUCED (agent-reported, filed with its numbers so the repro is cheap) — a log
+  that starts mid-boost has an altitude it had ALREADY climbed subtracted from every height,
+  apogee included.** `lib/analyze/index.ts:407`'s `padBaseline()` forces `baseEnd = Math.max(3,
+  baseEnd)` and medians those three samples even when the opening run never sat still.
+  `padDataLikely` at `:1265` detects the condition and only WARNS; the offset is still applied at
+  `:1254`. Reported offsets: `the-gardener` **−39.5 m** (2,421 ft against the device's own
+  2,550 ft, **−5.1%**), `swiss-cheese` −34.8 m (−4.7%), `discovery` −31.2 m (−4.3%), `penguin`
+  −23.7 m (−3.2%). If it reproduces this is a Sev-1 — an apogee is the number a flyer puts in a
+  cert document — and the reason it is filed rather than fixed is that this run's Sev-1 budget went
+  to the rail-exit one, which was reproduced first. **Reproduce before scoping**: the warning's
+  presence is what decides severity, because a qualified number is not the same defect as a bare
+  one.
+
+- **2026-08-20 · UNREPRODUCED (agent-reported) — a trace that runs far BELOW its headline gets no
+  scope and no caveat, where one running above gets both.** `lib/explore.ts:424`'s
+  `traceTopsPeak()` only scopes a trace that exceeds the headline. Reported: on
+  `blueraven__trf-lemiv-l3` the device velocity reaches **−299.01 m/s (−981 ft/s)** with
+  `scope=NO caveat=NO`, and the Mach trace **−0.85**, while the descent tiles beside them are read
+  off the altitude and report **7.92 m/s**. The plotted trace and the window statistics both
+  publish it bare.
+
+- **2026-08-20 · UNREPRODUCED (agent-reported) — a record that stops while still climbing publishes
+  a coast efficiency against an "apogee" that is just its last row.** `lib/analyze/index.ts:2909`'s
+  coast guard tests `burnoutIdx !== null && !velocityUnusable` and never `apogeeIsFloor`. Reported
+  on `altusmetrum__issuiuc-intrepid2-20220623` — a green golden-value fixture — whose apogee is
+  sample **284 of 285** with velocity still **322.1 m/s** there, and whose tiles print
+  *"Coast efficiency 6% — 35,429 ft short of a drag-free coast"*. Same file this run's rail-exit
+  Sev-1 names, and for the same underlying reason: the record is a fragment and nothing asks
+  whether it contains the phase being measured.
+
+- **2026-08-20 · UNREPRODUCED (agent-reported) — the drogue descent rate and the same record's own
+  device velocity over the same leg disagree by up to 865%, and nothing reconciles or flags them.**
+  `lib/analyze/index.ts:2603`'s `legRate()` reads the leg off the altitude chord. Reported:
+  `altusmetrum__reddit-meraki2-121km` drogue **101.76 m/s** against a time-weighted device-velocity
+  mean of **10.54 m/s** over the identical leg; `blueraven__reddit-meraki2-121km` **107.44** against
+  **3,975.76**. Both fixtures carry a `knownIssue`, so no invariant runs on either — which is
+  exactly the shape `MAINTAINING.md` warns about, a skip that prints like a pass.
+
+- **2026-08-20 · UNREPRODUCED (agent-reported) — `series.altitude` is documented as spike-cleaned
+  and is not.** `lib/analyze/types.ts:176` calls it *"spike-cleaned — what the report shows"*, but a
+  **+89.9 m** spike **3.5 s after apogee** survives on `blueraven__trf-lemiv-l3`, so
+  `max(series.altitude)` is **3,676.0 m** against a reported apogee of **3,586.1 m** (2.5%). The
+  explorer scopes its own trace; any other consumer taking the array's maximum does not. 1 of 50.
+
+- **2026-08-20 — the `.gpx`/`.kml` exports are outside `KEPT_DOCUMENTS`, and that is what stops
+  D12's *done when* being pinnable as written.** The registry exists — `lib/documents.ts:95`, six
+  entries, already enumerated by three test files — but `lib/documents.ts:32` excludes `.gpx` and
+  `.kml` by name. Measured: **20 `download(` call sites across 10 files, of which 6 route through
+  the registry and 14 do not.** D12 asks for "a check [that] enumerates those sinks from the same
+  registry the exporters are registered in, so a new one fails rather than passing unnoticed";
+  until the two track exports are in a registry, that check can only be a hand-kept list. Worth one
+  increment before the milestone's last slice, not after.
+
+- **2026-08-20 — "Copy coords" drops the two fix-quality sentences the same component computed 440
+  lines earlier.** `components/GroundTrack.tsx:605` builds `coordsToCopy` as the bare lat/lon pair
+  plus a synthetic parenthetical; `fixQualitySentence` and `dopSentence` are computed at `:169` and
+  `:175` and printed at `:810`. Measured: `coordsToCopy === coords` verbatim on **all 12 corpus
+  recordings carrying a position**. Same defect class the run of 2026-08-18 fixed for the saved
+  report — a flyer who copies the coordinate and walks off takes the number without the sentence
+  qualifying it.
+
+- **2026-08-20 — the GPS cross-check block in every saved document drops the fix count the screen
+  shows.** `lib/report.ts:589` (.txt), `:675` (.md), `:824` (.html) print the GPS apogee against the
+  barometer; `components/GpsApogee.tsx:92` shows *"From N three-dimensional fixes on the way up"*
+  and no saved document carries it. Measured on a recording with `gpsAscentFixes=6`,
+  `gpsApogee=686 m`: all three formats contain "686" and none contains "three-dimensional"; only
+  the `.json` carries it, as a bare numeric field.
+
+- **2026-08-20 — the report's "How this file was read" card and the saved documents build their
+  note list from different sources, and the screen is the one that drops a note.**
+  `components/FlightReport.tsx:140` uses `[repeatedSpanNote, ...flight.notes]`; `lib/report.ts:532`'s
+  `howRead` adds `extentNote` and `gpsQualityNotes` on top. Measured: the screen renders **3** notes
+  where the documents render **4**, and the missing one is the fix-quality sentence. Two lists under
+  one heading is the drift `MAINTAINING.md`'s architecture invariant names — they should share a
+  module.
+
+- **2026-08-20 — five GPS-derived plot channels reach the channel explorer with no caveat and no
+  scope**, where Altitude, Velocity and Acceleration three lines above them carry both.
+  `lib/explore.ts:495` pushes `flight.channels` with `caveat` and `scope` unset. Measured: on SG1.1
+  all five of latitude, longitude, GPS altitude, nsat and "Fix (from satellite count)" have
+  `caveat: null` and `scope: null`; same five of five on the Featherweight log. The un-caveated
+  column then rides into the plot, the window statistics and the "Copy these stats" clipboard.
+
+- **2026-08-20 — the print/share card states a wholly GPS-derived apogee with no provenance at all,
+  while giving Max velocity a sub in the same call.** `lib/flightCard.ts:44`. On a Featherweight GPS
+  tracker log the ONLY altitude channel is "GPS altitude", so the headline is a GPS altitude and the
+  card says neither that nor the fix quality. Measured: `flightCardStats` returns Apogee 3,658 m
+  with **no sub**, beside Max velocity 447 m/s with `sub: 'Mach 1.32 · derived…'`.
+
+- **2026-08-20 — `analyzedDataCsv` emits `hdop`, `vdop`, `pdop` and a raw `Fix (from satellite
+  count)` column reading 3/2/0, with no legend and no qualifying sentence.**
+  `lib/documents.ts:131` flags it `carriesProse: false`, so neither `fixQualitySentence` nor
+  `dopSentence` reaches it. Measured: the SG1.2 header carries all four columns and
+  `csv.includes('Satellite geometry') === false`, while the same flight's `.txt` carries it.
+
+- **2026-08-20 — the comparison has no field for altitude provenance, so a GPS-only apogee sits in
+  the table and in two exports unmarked.** `lib/compare.ts:49`'s `CompareFlight` carries no `notes`,
+  no `altitudeSource` and no GPS field; the apogee row is qualified only by `apogeeIsQualified`.
+  Measured: a Featherweight GPS-only flight's 3,658 m apogee has a falsy `apogeeCaveat`, so nothing
+  attaches to it in `compare-metrics.csv` or `compare-debrief.html` either.
+
+- **2026-08-20 — nine viewport-keyed touch floors, where §8 says the floor belongs to POINTER
+  TYPE.** `components/RecentFlights.tsx:829` (`h-5 w-5 sm:h-4 sm:w-4`), `:835`, `:969`, `:988`,
+  `:1049`, `:1099`, `:1147` and `components/CompareView.tsx:909`, `:919`, plus six `min-h-11 …
+  sm:min-h-0` at `components/SiteHeader.tsx:91`, `:92` and four in `RecentFlights`. Measured: the
+  logbook compare tick is **44×44 below 640 px and 16×16 at ≥640 px**, and `app/globals.css:63`
+  exempts `input[type=checkbox]` from the coarse-pointer floor, so a touch device wider than 640 px
+  gets the 16 px target. Audit row 9 covers four of the fifteen. `lib/ui-tokens.ts:16` already
+  documents the correct string.
+
+- **2026-08-20 — `MetricGrid.tsx:69`'s methods link is a 20 px tap target, 24 px under §8's floor,
+  and it is the affordance owner note `ON-3` is about.** `Button variant="link"` strips both
+  `BUTTON_SIZES` and `TOUCH_TARGET` (`ui.tsx:499`); `globals.css`'s coarse block floors `button` and
+  `nav/header/footer a` but never `main a`; and `e2e/touchTargets.ts:47` skips it, which is why no
+  check has ever seen it. Measured height = `.875rem × 1.25/.875` = **20 px**. One live call site.
+  This is also audit row 18, which records the `<p>` violation and not the target size.
+
+- **2026-08-20 — `/stitch`'s timeline is the one table surface that never got the stack-down-the-page
+  treatment.** `components/StitchSurface.tsx:537` is a bare `<div className="overflow-x-auto">` with
+  no `sm:` prefix, over a table whose four cells are all `px-4`; `CompareView.tsx:860` and
+  `ChannelExplorer.tsx:839` both read `sm:overflow-x-auto` over a `block … sm:table` collapse.
+  Measured: **128 px of the 356 px available at a 390 px viewport is cell padding — 36% of the
+  width — before one glyph is drawn.**
+
+- **2026-08-20 — two hover-only affordances with no coarse-pointer or focus partner.**
+  `components/FusionSpaceBadge.tsx:27` and `components/SiteFooter.tsx:89` both carry
+  `opacity-0 transition group-hover:opacity-100` on the parent-brand ↗ glyph. `CompareView.tsx:1041`
+  is the same pattern written correctly, with `pointer-coarse:` and `focus-within:` partners.
+  Measured: at `(pointer: coarse)` the only rule that applies to either is `.opacity-0{opacity:0}` —
+  the glyph does not exist on a phone.
+
+- **2026-08-20 — `SectionNav` is a fourth border vocabulary, and BOTH its states are under WCAG
+  1.4.11.** `components/ui.tsx:1448` is an operable `<a>` a flyer clicks. Resting it wears
+  `border-zinc-200` (**1.22:1** light) / `dark:border-zinc-800` (**1.19:1**); the current section
+  wears `border-zinc-400` (**2.62:1**) / `dark:border-zinc-600` (**2.29:1**), over a `bg-zinc-100`
+  fill that is **1.05:1** against the page it sits on — so the border is the only visual signal of
+  the state, and neither state reaches the 3:1 the criterion asks. Four shades §2 does not name, in
+  one primitive. Reproduce:
+  `npx vitest run lib/design-system.test.ts -t "rates the border of every control"` and read the
+  `gap` entry; it is listed as a documented failure rather than an exemption, so deleting it arms
+  the assert. `aria-current="location"` carries the state correctly for a screen reader, which is
+  why this is a contrast defect and not a missing state. **It is a vocabulary question before it is
+  a value** — audit row 15's subject — because whatever the resting chip becomes, the current one
+  has to stay distinguishable from it, and `control` on both would collapse the pair.
+
+- **2026-08-20 — `Segmented`'s active thumb is 1.10:1 against the group it sits in, which is the
+  state 1.4.11 actually covers on that control.** `components/ui.tsx:586`'s group is `bg-zinc-100`
+  and the active segment is `bg-white` — **1.10:1** — while in dark it is `dark:bg-zinc-700` on
+  `dark:bg-zinc-900`, **1.70:1**. The border census cannot see it at all, because the signal is a
+  FILL, not a border: the 2026-08-20 change raised the group's edge and left the one thing inside
+  it that distinguishes the chosen option. The `shadow-sm` thumb §2 sanctions is carrying most of
+  the work. Reproduce: `sed -n '584,606p' components/ui.tsx` and rate the two fills. Found by the
+  pre-push review of that change, which is also why the next census here should rate FILL pairs on
+  a state, not only borders.
+
+- **2026-08-20 — `hover:border-indigo-400` (3.13:1) is left on the logbook card** at
+  `components/RecentFlights.tsx:809`, the exact value the same run replaced at two other sites for
+  being too weak. It is not an inversion there — its resting edge is `hairline` — so it is an
+  inconsistency rather than a defect, and the fix is one shade when that card is next touched.
+  Reproduce: `grep -rn 'hover:border-indigo-400' components/`.
+
+- **2026-08-20 — three neutral borders wear the wrong ROLE rather than the wrong value, and §2
+  forbids the mix in its own words** (*"a card is `hairline`, an input inside it is `control`"*).
+  `components/ui.tsx:145`'s `muted` card tone — the empty state's dashed container — wears the
+  control value on a non-control; `components/RecognizedFormats.tsx:31`'s badge is `border-zinc-200`
+  in light and `dark:border-zinc-700` in dark, which is `hairline` in one theme and `control` in the
+  other on one element; `CHIP_TONES.default` and the `Chip` container at `ui.tsx:1077,:1302` are
+  static labels on the control ramp. Reproduce: the census in `lib/design-system.test.ts` lists all
+  four with their reasons. None is a contrast failure — 1.4.11 exempts what is decorative, which is
+  why the 2026-08-20 slice left them — but each is a role mix, and the `muted` card is the one worth
+  taking first because converting it to `hairline` is a visible change with existing e2e coverage.
+
 - **2026-08-18 — the AltOS `.eeprom` reader drops the device serial its own header states.** The
   download's JSON header carries `"serial": 5581` and `"product": "EasyMega-v2.0"`; the CSV reader
   puts `serial` into `flight.meta` and the eeprom reader does not. Found while writing the check

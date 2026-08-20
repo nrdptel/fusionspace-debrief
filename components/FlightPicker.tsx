@@ -58,10 +58,17 @@ export default function FlightPicker({
                 onClick={() => onRead(s.from, s.to)}
                 disabled={busy || here}
                 {...(here ? { 'aria-current': 'true' as const } : {})}
+                // **The selected state is §2's `accent` SOLID, in both themes, and it has to be
+                // stronger than the resting border beside it.** It was `indigo-400` light
+                // (3.13:1) and `indigo-500/50` dark (1.88:1) against a resting border of 1.48 and
+                // 1.70 — stronger then. Raising `control` to `zinc-500` (4.83 / 3.67) inverted it,
+                // so the chosen flight would have had a FAINTER edge than the ones beside it, in
+                // both themes. `indigo-600` is 6.19:1 and `indigo-400` 5.66:1. WCAG 1.4.11 covers
+                // states, and this is one. Found by the pre-push review, on three surfaces at once.
                 className={`flex min-h-11 flex-col items-start rounded-md border px-3 py-1.5 text-left text-xs transition disabled:cursor-default ${
                   here
-                    ? 'border-indigo-400 bg-indigo-50 text-indigo-900 dark:border-indigo-500/50 dark:bg-indigo-950/40 dark:text-indigo-100'
-                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-100'
+                    : 'border-zinc-500 bg-white text-zinc-700 hover:border-zinc-700 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-300 dark:hover:text-zinc-100'
                 }`}
               >
                 <span className="font-medium">
