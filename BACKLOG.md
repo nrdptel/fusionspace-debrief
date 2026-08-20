@@ -99,8 +99,21 @@ wild, ideas too big for one pass. One line each, newest first.
   `max(series.altitude)` is **3,676.0 m** against a reported apogee of **3,586.1 m** (2.5%). The
   explorer scopes its own trace; any other consumer taking the array's maximum does not. 1 of 50.
 
-- **2026-08-20 — the `.gpx`/`.kml` exports are outside `KEPT_DOCUMENTS`, and that is what stops
-  D12's *done when* being pinnable as written.** The registry exists — `lib/documents.ts:95`, six
+- **2026-08-20 — the `.gpx`/`.kml` exports are outside `KEPT_DOCUMENTS`, and the stated reason for
+  that is now false. Scoped here so the next run starts from the real obstacle.** The docblock said
+  they are *"track exports built from GPS fixes, with no header a sentence could ride in"*. After
+  D12 slice 5 the GPX carries `<metadata><desc>`, a `<trk><desc>`, a `<src>` naming the instrument,
+  and per-point `<sat>`/`<hdop>` — so the format is not the obstacle. **The registry's SHAPE is.**
+  Every entry is `build(flight, analysis, sys, ctx)`, and a track export needs `lat`, `lon`,
+  `landingIndex` and `landed`, which are derived in `components/GroundTrack.tsx` and are not facts
+  about the flight. Two ways in, and the choice is the increment: compute the ground track inside
+  the registry (`groundTrack` + `recoveryStats` + `padOrigin` are all pure and already exported from
+  `lib/gps.ts`), or give `KeptDocumentContext` a `recovery` member the five existing documents carry
+  and ignore. The first keeps the context honest and costs a recompute per export; the second is
+  cheaper and puts a field on five documents that have no use for it. **Corrected in the docblock
+  2026-08-20 so the next session does not re-derive the wrong premise.**
+
+- **2026-08-20 — the ORIGINAL framing, kept for the measurement:** The registry exists — `lib/documents.ts:95`, six
   entries, already enumerated by three test files — but `lib/documents.ts:32` excludes `.gpx` and
   `.kml` by name. Measured: **20 `download(` call sites across 10 files, of which 6 route through
   the registry and 14 do not.** D12 asks for "a check [that] enumerates those sinks from the same
