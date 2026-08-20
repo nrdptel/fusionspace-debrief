@@ -1605,7 +1605,9 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
    * nothing against until 2026-08-20.**
    *
    * Every check above rates TEXT against 1.4.3. A border is not text, so all of it passed while
-   * `control` sat at **1.48:1** in light and **1.70:1** in dark — the boundary of every input,
+   * `control` sat at **1.48:1** on the light page and **1.42:1** on light `sunken`, and at 1.91:1
+   * on the dark page and **1.70:1** on dark `raised` — the surfaces `worst()` actually rates, and
+   * the pair a docblock quoting only the page figure would understate. It is the boundary of every input,
    * select and secondary button in the app, at half the 3:1 the criterion asks. §9's compliance
    * block has no border grep at all, which is why a census beside it found nothing either: the
    * value was on §2's own table, so every site was conforming to a failing rule.
@@ -1685,29 +1687,37 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
    */
   const DECORATIVE_SHADES = { light: new Set(['100', '200']), dark: new Set(['800', '900']) };
 
+  /**
+   * **Keyed by FILE with a count, not by line.** A line-keyed map is a map that fails on every
+   * unrelated edit above it — measured the hard way in the change that introduced this check, where
+   * adding a docblock to `components/ui.tsx` moved three entries and reddened a census that had
+   * found nothing new. The count is what makes it exact: a fourth sub-threshold border in a file
+   * already listed still fails, and the message names the file and the shade.
+   */
   const SUB_THRESHOLD_BORDERS: Record<string, string> = {
     // Static labels, not controls: a `Chip` is read, never pressed, and carries its own fill.
-    // `ChipButton` beside it is operable and took `control`, which is the distinction the two
-    // primitives now draw on purpose — see the note at its `className`.
-    'components/ui.tsx:1077': 'exempt: Chip tone, a static label',
-    'components/ui.tsx:1302': 'exempt: Chip container, a static label',
-    // A container: the empty state's dashed card. Wearing the old control value on a non-control
-    // is a role mix §2 forbids in its own words; it is filed rather than swept into this change,
-    // because converting it to `hairline` is a visible change to an empty state with its own
-    // e2e coverage.
-    'components/ui.tsx:145': 'exempt: card tone — but see BACKLOG, it wears the wrong ROLE',
-    // A badge whose two halves disagree: `hairline` in light, the old `control` in dark. Filed
-    // with the rest.
-    'components/RecognizedFormats.tsx:31': 'exempt: static badge — but its two themes name different roles',
-    // **The one real failure left, and it is stated rather than exempted.** The jump chip's
-    // "you are here" state is carried by `border-zinc-400` (2.62:1) over `bg-zinc-100`, which is
-    // 1.05:1 against the page it sits on — so at 2.62 the border is the only signal and it is
-    // under the line. 1.4.11 covers STATES, so this one genuinely applies.
-    'components/ui.tsx:1429': 'gap: Jumper current-state border, 2.62:1 light / 2.29:1 dark — BACKLOG',
+    // `ChipButton` beside it is operable and took `control` on BOTH tones, which is the distinction
+    // the two primitives now draw on purpose — see the note at its `className`.
+    //   · `CHIP_TONES.default`, the chip tone           · the `Chip` container
+    //   · the `muted` card tone — the empty state's dashed container, which is a container wearing
+    //     the old CONTROL value: a role mix §2 forbids in its own words, filed in BACKLOG rather
+    //     than swept in here, because converting it to `hairline` is a visible change to an empty
+    //     state with its own e2e coverage.
+    //   · `SectionNav`'s jump chip — see the control census below, which is where it is explained;
+    //     it appears in both because it is both an operable control and a neutral border.
+    // Counted per CLASS, not per site — each of these writes a light half and a dark half, and
+    // counting the halves is what makes changing only one of them fail.
+    'components/ui.tsx': '8 — 2 Chip tones, 1 card tone (wrong ROLE, see BACKLOG), 1 SectionNav gap, both halves each',
+    // A badge whose two halves name different roles: `hairline` in light, the old `control` in
+    // dark. Static, so 1.4.11 does not reach it; filed as a role mix with the others.
+    // One half only: its light border is `hairline`, which is skipped by shade. That the two
+    // halves land in different roles is the finding, and it is why exactly one shows up here.
+    'components/RecognizedFormats.tsx': '1 — static badge, and its two themes name different roles',
   };
 
   it('has no neutral border under 3:1 outside the ones named, and names why each is there', () => {
-    const found: Record<string, string> = {};
+    const byFile: Record<string, number> = {};
+    const offenders: string[] = [];
     let rated = 0;
     for (const f of uiSources(['components', 'app'], ['.tsx', '.css'])) {
       for (const m of f.text.matchAll(/(?<prefix>[a-z-]+:)?border-zinc-(?<shade>\d{2,3})\b/g)) {
@@ -1722,16 +1732,97 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
         if (!value) continue;
         rated++;
         if (worst(value, theme) >= AA_NON_TEXT) continue;
-        const line = f.text.slice(0, m.index ?? 0).split('\n').length;
-        const at = `${f.path}:${line}`;
-        found[at] = SUB_THRESHOLD_BORDERS[at] ?? `UNEXPLAINED sub-3:1 neutral border (${theme} zinc-${shade})`;
+        offenders.push(`${f.path}:${f.text.slice(0, m.index ?? 0).split('\n').length} (${theme} zinc-${shade})`);
+        byFile[f.path] = (byFile[f.path] ?? 0) + 1;
       }
+    }
+    const found: Record<string, string> = {};
+    for (const [file, n] of Object.entries(byFile)) {
+      const known = SUB_THRESHOLD_BORDERS[file];
+      found[file] = known && known.startsWith(`${n} `) ? known : `${n} UNEXPLAINED — ${offenders.filter((o) => o.startsWith(file)).join(', ')}`;
     }
     // A scanner that reads nothing reports a compliant app that it never looked at — the hole
     // §9 records about its own commands, applied here before the verdict is trusted. The floor is
     // the thirty control borders this change converted, minus room for one being removed.
-    expect(rated, 'the border census rated no control borders at all').toBeGreaterThan(28);
+    // A scanner that reads nothing reports a compliant app that it never looked at — the hole
+    // §9 records about its own commands, applied here before the verdict is trusted. This floor
+    // guards ONLY against a dead regex: reverting a conversion does not lower the count, because a
+    // reverted shade is still rated, just rated as failing. The census below it is what catches a
+    // revert, and it does so by NAMING the file.
+    expect(rated, 'the border census rated no non-decorative borders at all').toBeGreaterThan(28);
     expect(found, 'neutral borders under WCAG 1.4.11 3:1 — DESIGN.md §2:').toEqual(SUB_THRESHOLD_BORDERS);
+  });
+
+  /**
+   * **The census above has a hole, and this is the other half that closes it.**
+   *
+   * It skips `hairline`'s shades by SHADE, which is what keeps it from drowning in fifty container
+   * edges — but that means an OPERABLE control wearing a decorative shade is silently exempt. Found
+   * by the pre-push review of the 2026-08-20 change: `SectionNav`'s jump chips are `<a>` elements a
+   * flyer clicks, wearing `border-zinc-200` at **1.22:1**, and the shade skip waved them through.
+   * It rated zinc only, too, so a hued control border was invisible to it entirely — which is how
+   * `ChipButton`'s accent tone sat at 1.49:1 in the same change that raised its neutral one.
+   *
+   * So this one starts from the TAG rather than from the class: every `<button>`, `<a>`, `<input>`,
+   * `<select>` and `<textarea>` in the two surface trees, every border colour named in its opening
+   * tag, every hue, decorative shades included. It cannot see a class reached through a `const` (the
+   * primitive tones are declared away from their tags) — stated rather than papered over, and the
+   * reason the neutral census above still earns its place.
+   */
+  const OPERABLE = /<(button|a|input|select|textarea)[\s>]/g;
+
+  /** Operable elements whose border is under 3:1, by file, with the reason each is still there. */
+  const SUB_THRESHOLD_CONTROLS: Record<string, string> = {
+    // `SectionNav`'s jump chips — the resting chip at 1.22:1 / 1.19:1 and the "you are here" state
+    // at 2.62:1 / 2.29:1. One primitive carrying four shades §2 does not name, which is a border
+    // VOCABULARY question (P1 audit row 15) rather than a value to raise here: whatever the resting
+    // chip becomes, the current-state chip has to stay distinguishable from it. Filed in BACKLOG.
+    'components/ui.tsx': '4 — gap: SectionNav jump chip, resting 1.22:1 / 1.19:1, current 2.62:1 / 2.29:1, both halves each',
+  };
+
+  it('rates the border of every control the flyer can operate, whatever hue it is', () => {
+    const byFile: Record<string, number> = {};
+    const offenders: string[] = [];
+    let rated = 0;
+    let tags = 0;
+    for (const f of uiSources(['components', 'app'], ['.tsx'])) {
+      for (const m of f.text.matchAll(OPERABLE)) {
+        const tag = openingTag(f.text, m.index ?? 0, (m.index ?? 0) + m[0].length);
+        tags++;
+        for (const b of tag.matchAll(
+          new RegExp(`(?<prefix>[a-z-]+:)?border-(?<hue>${HUE_NAMES})-(?<shade>\\d{2,3})(?<alpha>/\\d+)?\\b`, 'g'),
+        )) {
+          const prefix = b.groups?.prefix ?? '';
+          // Resting state only, exactly as above: a focus indicator is governed separately and a
+          // hover does not exist on a touch device.
+          if (prefix && prefix !== 'dark:') continue;
+          const theme = prefix === 'dark:' ? 'dark' : 'light';
+          const value = HUES[b.groups!.hue]?.[b.groups!.shade];
+          if (!value) continue;
+          const line = f.text.slice(0, m.index ?? 0).split('\n').length;
+          // An opacity wash cannot be rated against a surface without compositing it, and this
+          // check refuses rather than guesses — the same rule the text census follows. An unrated
+          // control border is a finding, not a pass.
+          if (b.groups?.alpha) {
+            offenders.push(`${f.path}:${line} (UNRATEABLE ${b.groups!.hue}-${b.groups!.shade}${b.groups!.alpha})`);
+            byFile[f.path] = (byFile[f.path] ?? 0) + 1;
+            continue;
+          }
+          rated++;
+          if (worst(value, theme) >= AA_NON_TEXT) continue;
+          offenders.push(`${f.path}:${line} (${theme} ${b.groups!.hue}-${b.groups!.shade})`);
+          byFile[f.path] = (byFile[f.path] ?? 0) + 1;
+        }
+      }
+    }
+    const found: Record<string, string> = {};
+    for (const [file, n] of Object.entries(byFile)) {
+      const known = SUB_THRESHOLD_CONTROLS[file];
+      found[file] = known && known.startsWith(`${n} `) ? known : `${n} UNEXPLAINED — ${offenders.filter((o) => o.startsWith(file)).join(', ')}`;
+    }
+    expect(tags, 'the control census found no operable elements at all').toBeGreaterThan(50);
+    expect(rated, 'the control census rated no control borders at all').toBeGreaterThan(5);
+    expect(found, 'operable controls under WCAG 1.4.11 3:1 — DESIGN.md §2:').toEqual(SUB_THRESHOLD_CONTROLS);
   });
 });
 

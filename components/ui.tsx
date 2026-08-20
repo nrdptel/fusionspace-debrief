@@ -838,7 +838,13 @@ export function NumberField({
             // 3:1 against its background. `red-400` on white and `red-500/60` over `zinc-900` both
             // measured under it, so the border read as barely-there on the one control that had
             // just refused a number.
-            over || under ? 'border-red-600 dark:border-red-400' : 'border-zinc-500 dark:border-zinc-500',
+            // `red-700` rather than `red-600` in light, and the reason is the resting border under
+            // it: against the old `zinc-300` (1.42:1 on `sunken`) `red-600`'s 4.57:1 was a large
+            // step, and against the new `control` value (4.62:1) it is a step of nothing — the
+            // refusal would have become a hue-only change, which is what §2 forbids for a state.
+            // `red-700` is 6.15:1 on the same ground. Dark already had the step: `red-400` is
+            // 6.13:1 against `control`'s 3.67:1.
+            over || under ? 'border-red-700 dark:border-red-400' : 'border-zinc-500 dark:border-zinc-500',
           )}
         />
         <span className="font-mono">{unit}</span>
@@ -1073,6 +1079,23 @@ export function TextField({
  * The value below is the one `DeviceSummary` had hand-rolled, which is the tell that the
  * hand-roll was right and the primitive was the weak one.
  */
+/**
+ * **`ChipButton`'s accent border, which is NOT `Chip`'s.**
+ *
+ * `CHIP_TONES.accent` carries `border-indigo-500/30` — an opacity wash that composites to
+ * **1.49:1** on white and **1.61:1** on `dark:raised`. On a static `Chip` that is fine: 1.4.11
+ * exempts a label. On `ChipButton` it is an operable control at half the 3:1 its edge owes, and
+ * the accent tone is the one the figure chooser spends. Found by the pre-push review of the
+ * 2026-08-20 border change, which had converted the neutral tone and left this one behind.
+ *
+ * Solid, and rated: `indigo-500` is **4.38:1** on light `sunken` and `indigo-400` is **5.66:1** on
+ * dark `raised`, against the neutral tone's 4.62 / 3.67 — so the accent chip reads as at least as
+ * present as the neutral one in both themes, which is what "accent" is supposed to mean. The FILL
+ * and the ink stay `Chip`'s, so the two still read as one family.
+ */
+const CHIP_BUTTON_ACCENT =
+  'border-indigo-500 bg-indigo-500/10 text-indigo-700 dark:border-indigo-400 dark:text-indigo-300';
+
 const CHIP_TONES = {
   default: 'border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800',
   accent: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/40 dark:text-indigo-300',
@@ -1229,10 +1252,15 @@ export function ChipButton({
         // fill matches the surface behind it, so its border is the only thing identifying it and
         // owes 3:1; a `Chip` is a static label, is exempt, and carries its own fill anyway. A row
         // holding both now shows which of them can be pressed, which the shared ramp hid.
+        //
+        // **Both tones, not just this one.** The first cut of this change converted the neutral
+        // branch and left `tone="accent"` borrowing `CHIP_TONES.accent` — so the sentence above was
+        // false for exactly the tone the figure chooser uses. `CHIP_BUTTON_ACCENT` is why it is
+        // true now; the fill and the ink are still shared.
         off
           ? 'border-zinc-500 bg-transparent text-zinc-500 dark:border-zinc-500 dark:text-zinc-400'
           : tone === 'accent'
-            ? CHIP_TONES.accent
+            ? CHIP_BUTTON_ACCENT
             : 'border-zinc-500 bg-white text-zinc-700 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-200',
         !disabled && 'hover:border-indigo-600 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400',
         disabled && 'cursor-default opacity-60',

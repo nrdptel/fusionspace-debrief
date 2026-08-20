@@ -4694,11 +4694,52 @@ shared a ramp explicitly *"so the two primitives cannot drift apart in the same 
 operable with a fill matching its surface and the other is a static label with its own fill, which
 is precisely the distinction the criterion draws. A row holding both now shows which can be pressed.
 
-**Three hover states had to move with it**, because raising the resting border inverted them: the
+**FOUR hover states had to move with it**, because raising the resting border inverted them: the
 two pickers' `hover:border-zinc-400` was *lighter* than the new resting value, and `ChipButton`'s
 and the zoom presets' `hover:border-indigo-400` rates 3.13:1 against a 4.83:1 resting edge. Light
 hovers are `zinc-700` / `indigo-600` now — `indigo-600` being §2's own `accent`, which
 `indigo-400` never was.
+
+**And the pre-push review found five more the first cut had missed, four of them regressions this
+change itself introduced. They are listed rather than folded in, because the SHAPE is the lesson:
+raising a resting value inverts everything that was tuned against the old one, and the first cut
+looked only at hovers.**
+
+- **The SELECTED state went weaker than the unselected one, on three surfaces, in both themes.**
+  `FlightPicker`, `RecordingPicker` and the zoom presets marked their chosen item with
+  `border-indigo-400` (**3.13:1** light) / `border-indigo-500/50`–`/60` (**1.88**–**2.24:1** dark).
+  Against the old resting 1.48 / 1.70 that was stronger; against 4.83 / 3.67 the chosen flight had
+  the *fainter* edge. 1.4.11 covers states, so this is the criterion's own subject. All three are
+  §2's `accent` solid now — `indigo-600` (6.19:1) and `dark:indigo-400` (5.66:1).
+- **`ChipButton`'s ACCENT tone was never converted**, because it borrowed `Chip`'s
+  `border-indigo-500/30` — an opacity wash compositing to **1.49:1** light and **1.61:1** dark. So
+  the claim that the two primitives now differ on purpose was true of the neutral tone and false of
+  the one the figure chooser spends. It has its own solid border now, and keeps `Chip`'s fill and
+  ink so the family still reads as one.
+- **The zoom preset's DARK hover was left behind** at `indigo-500/60` (**2.18:1**) when its light
+  half went to `indigo-600` — one half of one string, and the weaker half.
+- **`NumberField`'s refusal became a hue-only change.** `border-red-600` is 4.57:1 on light
+  `sunken`; against the old resting 1.42 that was a large step and against 4.62 it is a step of
+  nothing. `red-700` (6.15:1) restores it. Dark already had the step.
+- **`ChannelExplorer`'s search input lost its focus indicator to the same arithmetic.** It has
+  `focus:border-indigo-500` and, alone among the four inputs in the tree, no `focus:ring-1`.
+  `indigo-500` against `zinc-500` is **1.05:1** — a hue-only focus indicator, where against the old
+  `zinc-300` it had been a clear lightness step. It carries the ring its three siblings carry now.
+
+**The census itself had a hole the review found, and closing it is worth more than any of the
+five.** It skipped `hairline`'s shades by SHADE to avoid drowning in container edges — so an
+OPERABLE control wearing a decorative shade was silently exempt, which is exactly `SectionNav`'s
+jump chip at **1.22:1**. And it rated `zinc` only, so a hued control border was invisible to it
+entirely, which is how the `ChipButton` accent tone survived the same change that raised its
+neutral one. A second census starts from the TAG instead: every `<button>`, `<a>`, `<input>`,
+`<select>` and `<textarea>`, every hue, decorative shades included — and an opacity wash it cannot
+rate is reported as a finding rather than skipped. Falsified by giving one `<input>` a
+`border-zinc-200`: the neutral census waves it through and the control census fails naming
+`components/ChannelExplorer.tsx:485`.
+
+**Both maps are keyed by FILE with a per-class count, not by line**, after a line-keyed version
+reddened on an unrelated docblock three files away. The count is what keeps it exact: a fourth
+sub-threshold border in a file already listed still fails.
 
 **A stale number in the binding file, found on the way and worth more than the fix.** §9 quoted
 `zinc-400` at **2.56:1**. That is the **Tailwind 3** value (`#a1a1aa`); this app ships Tailwind 4,

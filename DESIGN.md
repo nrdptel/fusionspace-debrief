@@ -109,9 +109,16 @@ rule**, which is a real result and the reason it can be adopted here without a r
 | `hairline` | `border-zinc-200 dark:border-zinc-800` | container edges, dividers, table rules |
 | `control` | **`border-zinc-500 dark:border-zinc-500`** | inputs, selects, secondary buttons — anything the flyer acts on |
 
-Two, deliberately. The control border is darker so an interactive edge is distinguishable from a
-decorative one without reading the element. Do not mix them: a card is `hairline`, an input inside
-it is `control`.
+Two, deliberately. The control border carries **more contrast against the surface** so an
+interactive edge is distinguishable from a decorative one without reading the element. Do not mix
+them: a card is `hairline`, an input inside it is `control`.
+
+**"Contrast", not "darker" — and the word matters since 2026-08-20.** This paragraph read *"one step
+darker"* for as long as both roles lived on the light half of the ramp. They no longer do: in dark
+mode `control` is `zinc-500` and `hairline` is `zinc-800`, so the control border is now the LIGHTER
+of the two, and describing it as darker would send the next session looking for a bug. What is
+constant in both themes is the direction that actually means something — 4.62:1 against 1.22:1 in
+light, 3.67:1 against 1.19:1 in dark — which is what `lib/design-system.test.ts` pins.
 
 **`control` was `border-zinc-300 dark:border-zinc-700` until 2026-08-20, and it failed WCAG 1.4.11
 in both themes — light by more than a factor of two.** The success criterion asks 3:1 of *"visual
