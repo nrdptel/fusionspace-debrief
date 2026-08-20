@@ -1541,6 +1541,7 @@ export default function FlightReport({
           events={events}
           fixGrade={getChannel(flight, 'gpsFixGrade')?.values}
           hdop={getChannel(flight, 'dopHorizontal')?.values}
+          satellites={getChannel(flight, 'satellites')?.values}
           synthetic={synthetic}
           recordedBy={recordedBy}
         />

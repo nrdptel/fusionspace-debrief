@@ -20,6 +20,7 @@ import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 import { alignStages } from '../stitch';
 import { canMeasureDrag } from '../drag';
 import { railExitBound, railExitReading, railExitVelocity, DEFAULT_RAIL_M } from '../rail';
+import { gradeFromValue } from '../gpsFix';
 import {
   DERIVED_PEAK_PAIRS,
   DERIVED_PEAK_FLIGHTS,
@@ -3411,5 +3412,134 @@ describe('a rail-exit speed is a reading of the rail, or it is not published', (
     expect(railExitBound(undefined, 2, 'device', false)).toBeNull();
     expect(railExitBound(Float64Array.from([9.80665, 9.7]), 2, 'device', false)).toBeNull();
     expect(railExitBound(accel, 2, 'device', true)).toBeNull();
+  });
+});
+
+/**
+ * **D12 slice 5: the quality reaches the file a flyer walks to, on the real corpus.**
+ *
+ * `lib/gps.test.ts` pins the shape and the schema order on synthetic arrays. This pins the two
+ * things only real files can answer: that the channels are actually THERE in the numbers stated,
+ * and that a parser change which quietly stops producing one fails here rather than shipping an
+ * export that silently loses a field.
+ *
+ * Counted over KEPT positions — the fixes a flyer sees on the map and walks to — which is the same
+ * basis `trackDop` and `trackFixQuality` use and the opposite of the corpus counts that ask how
+ * much independent evidence is behind a figure.
+ */
+describe('the track a flyer walks to carries how good each fix was', () => {
+  it('states a satellite count on 91.9% of kept positions and a dilution on 80.4%', { timeout: 300_000 }, async () => {
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    let kept = 0;
+    let withSat = 0;
+    let withHdop = 0;
+    let tracks = 0;
+    let pointsWithChildren = 0;
+    let worstHdop = 0;
+    let gradedSat = 0;
+    let gradedHdop = 0;
+    for (const fx of spec.fixtures) {
+      if (!existsSync(CORPUS + fx.file)) continue;
+      const bytes = new Uint8Array(readFileSync(CORPUS + fx.file));
+      let res;
+      try {
+        res = importFlight({ name: fx.file.split('/').pop() as string, text: decodeBytes(bytes), bytes });
+      } catch {
+        continue; // the high-rate downloads are refused by design
+      }
+      // Named parsers only. The one mapper-path track carries neither channel, and counting it
+      // would move the denominator without moving the numerator — an honest-looking dilution of a
+      // coverage figure.
+      if (res.kind !== 'flight') continue;
+      const la = getChannel(res.flight, 'latitude');
+      const lo = getChannel(res.flight, 'longitude');
+      if (!la || !lo) continue;
+      tracks++;
+      const hdop = getChannel(res.flight, 'dopHorizontal')?.values;
+      const sat = getChannel(res.flight, 'satellites')?.values;
+      const fixGrade = getChannel(res.flight, 'gpsFixGrade')?.values;
+      const n = Math.min(la.values.length, lo.values.length);
+      for (let i = 0; i < n; i++) {
+        if (!Number.isFinite(la.values[i]) || !Number.isFinite(lo.values[i])) continue;
+        kept++;
+        const stated = fixGrade ? gradeFromValue(fixGrade[i]) !== null : false;
+        if (sat && Number.isFinite(sat[i])) { withSat++; if (stated) gradedSat++; }
+        if (hdop && Number.isFinite(hdop[i])) { withHdop++; if (stated) gradedHdop++; }
+      }
+      const gpx = trackGpx(fx.file, la.values, lo.values, -1, false, false, null, { hdop, satellites: sat, fixGrade });
+      // An OPEN tag only — `[^/]>` excludes the self-closing form, which the first cut of this
+      // matched too and so counted every point in the corpus.
+      pointsWithChildren += (gpx.match(/<trkpt [^>]*[^/]>\n/g) ?? []).length;
+      for (const m of gpx.matchAll(/<hdop>([\d.]+)<\/hdop>/g)) worstHdop = Math.max(worstHdop, Number(m[1]));
+      await breathe();
+    }
+    if (tracks === 0) return;
+    // Exact, not bounded. A bound goes quietly green the day a parser stops reading a column —
+    // which is the whole failure this guards, and `lib/dop.test.ts` records the same argument.
+    expect({ tracks, kept, withSat, withHdop }).toEqual({
+      tracks: 12,
+      kept: 27624,
+      withSat: 25391,
+      withHdop: 22199,
+    });
+    // Every point that states either one exports an OPEN `<trkpt>` with children; the rest stay
+    // self-closing. 25,391 state a satellite count, which is the union here because every position
+    // with a dilution also has a count.
+    expect(pointsWithChildren).toBe(25391);
+
+    // **A HELD-OVER dilution never leaves the app, and the reason is structural rather than a
+    // filter.** A no-fix row keeps whatever dilution the receiver last had, and it cannot be
+    // recognised by its value: `endurance` writes an absurd 23.10 on its 108 no-fix samples while
+    // the 121 km TeleMega writes an entirely ordinary 3.60 on 12,931 of them. The test is the
+    // missing fix, never the number — and by the time this export runs those rows have no POSITION,
+    // because `applySatelliteFixQuality` blanked it, so the point is skipped and its dilution with
+    // it. Asserted against the worst value Debrief reads anywhere (`ROADMAP.md` D12 slice 2: 6.10),
+    // so a change that let a held-over row through would push this past it and fail.
+    expect(worstHdop).toBeLessThanOrEqual(6.1);
+    expect(worstHdop, 'the sweep read no dilution at all').toBeGreaterThan(1);
+    // **The grade gate costs nothing here**, which is why it can be unconditional: every one of
+    // the counts above already sits on a sample with a stated grade, so requiring one removes no
+    // real disclosure and closes the mapper path where the blanking never ran.
+    expect(gradedSat).toBe(withSat);
+    expect(gradedHdop).toBe(withHdop);
+  });
+
+  it('writes the two elements the SCHEMA reserves, in its order, on a real file', { timeout: 120_000 }, () => {
+    // The committed fixture, so this case survives in a fork with no corpus — which is the gap
+    // D12 slice 3 already recorded about a slice whose only variation lives in the private corpus.
+    const file = fileURLToPath(new URL('./__fixtures__/altusmetrum-telemetrum.csv', import.meta.url));
+    const bytes = new Uint8Array(readFileSync(file));
+    const res = importFlight({ name: 'altusmetrum-telemetrum.csv', text: decodeBytes(bytes), bytes });
+    expect(res.kind).toBe('flight');
+    if (res.kind !== 'flight') return;
+    const la = getChannel(res.flight, 'latitude')!;
+    const lo = getChannel(res.flight, 'longitude')!;
+    const hdop = getChannel(res.flight, 'dopHorizontal')?.values;
+    const sat = getChannel(res.flight, 'satellites')?.values;
+    const fixGrade = getChannel(res.flight, 'gpsFixGrade')?.values;
+    expect(fixGrade, 'the committed fixture grades its fixes').toBeTruthy();
+    expect(hdop, 'the committed fixture states a dilution').toBeTruthy();
+    expect(sat, 'the committed fixture states a satellite count').toBeTruthy();
+    const stats = recoveryStats(groundTrack(la.values, lo.values, 16, padOrigin(la.values, lo.values) ?? undefined)!)!;
+    const gpx = trackGpx('x', la.values, lo.values, stats.landingIndex, true, false, null, { hdop, satellites: sat, fixGrade });
+    // Order, on a real file rather than on a hand-built array.
+    const children = [...gpx.matchAll(/<trkpt\b[^>]*>([\s\S]*?)<\/trkpt>/g)].map((m) =>
+      [...m[1].matchAll(/<([a-z]+)>/g)].map((c) => c[1]).join(','),
+    );
+    expect(new Set(children)).toEqual(new Set(['sat,hdop']));
+    expect(children.length).toBe(421);
+    // The values are the receiver's own, unrounded beyond two places, and inside the range this
+    // fixture actually states.
+    for (const m of gpx.matchAll(/<hdop>([\d.]+)<\/hdop>/g)) {
+      expect(Number(m[1])).toBeGreaterThanOrEqual(0.8);
+      expect(Number(m[1])).toBeLessThanOrEqual(1.1);
+    }
+    for (const m of gpx.matchAll(/<sat>(\d+)<\/sat>/g)) {
+      expect(Number(m[1])).toBeGreaterThanOrEqual(6);
+      expect(Number(m[1])).toBeLessThanOrEqual(9);
+    }
+    // And no `<fix>`: the grade on this file is derived from that very satellite count, and its
+    // own channel label says so.
+    expect(gpx).not.toContain('<fix>');
   });
 });

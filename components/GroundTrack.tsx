@@ -68,6 +68,7 @@ export default function GroundTrack({
   events,
   fixGrade,
   hdop,
+  satellites,
   synthetic,
   recordedBy,
 }: {
@@ -108,6 +109,11 @@ export default function GroundTrack({
   fixGrade?: Float64Array;
   /** Horizontal dilution of precision, where the file states one. */
   hdop?: Float64Array;
+  /** Satellites IN the fix, where the file states them — the `satellites` channel and only that
+   *  one. It rides into the `.gpx`'s `<sat>` beside `hdop`'s `<hdop>`; see `lib/gps.ts`'s
+   *  `FixQualityChannels` for why a similarly-named column that counts satellites the receiver can
+   *  merely HEAR must not be mapped here. */
+  satellites?: Float64Array;
   /** Whether this is a flight Debrief MADE UP. Required with no default, for the reason
    *  `MetricGrid`'s and `FlightCard`'s are: on a panel whose three exports are coordinates
    *  somebody walks to, the safe-looking default is the defect value.
@@ -775,7 +781,7 @@ export default function GroundTrack({
           size="sm"
           onClick={() =>
             download(
-              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed, synthetic, recordedBy)], {
+              new Blob([trackGpx(stem, lat, lon, stats.landingIndex, landed, synthetic, recordedBy, { hdop, satellites, fixGrade })], {
                 type: 'application/gpx+xml',
               }),
               `${stem}-track.gpx`,

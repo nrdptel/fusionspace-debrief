@@ -3229,10 +3229,63 @@ instead of a constant. What is missing is everything downstream of the position.
    18 or 19 on rows whose own `FIX` column says NO FIX (row 47), and mapping that here would make a
    held-over position claim to be measured.
 
-5. **The tracks a flyer walks to carry it.** GPX reserves `<sat>`, `<hdop>` and `<fix>` and Debrief
-   writes none of them; KML has `ExtendedData` per point. `lib/gps.ts` already skips a fix whose
-   height was withheld rather than putting it on the ground (fixed 2026-08-18) — this is the other
-   half: saying, in the file a handheld navigates by, which fixes were good.
+5. **The tracks a flyer walks to carry it. SHIPPED 2026-08-20 — and the model above was wrong in
+   three of its four clauses, all corrected by measurement before anything was built.**
+
+   **What shipped:** `<sat>` and `<hdop>` on every `<trkpt>` that states them and on the landing
+   `<wpt>`, in the schema's own child order. Measured over the 12 tracks a named parser reaches:
+   **27,624 kept positions, of which 25,391 (91.9%) state a satellite count and 22,199 (80.4%) a
+   horizontal dilution** — and the dilution VARIES, 0.70–3.10 on `sg1.2` against a 0.80 median, so
+   it is a real per-point signal rather than a constant. The committed
+   `lib/parsers/__fixtures__/altusmetrum-telemetrum.csv` carries both on all 421 of its kept
+   positions, so a fork with no corpus exercises the whole path.
+
+   **`<fix>` is NOT written, and refusing it is the substantive half of this slice.** GPX annotates
+   `fix` as the type of fix the RECEIVER reported. Debrief's own channel label on **25,391 of the
+   27,624** positions is literally *"Fix (from satellite count)"* — a grade it derived. Writing a
+   derived grade into the receiver's own field launders an inference into a schema slot, and the
+   file outlives the app that wrote it. It would also be a **constant**: 27,240 of 27,624 points
+   would write `3d`, and all 384 two-dimensional points are ONE flight downloaded twice, so no
+   committed fixture reaches the interesting state and fork CI could not assert it. `lib/gps.test.ts`
+   asserts the absence, so a future slice has to argue with it rather than quietly add it.
+
+   **`<sat>` is safe only because of a distinction this repo already drew.** Featherweight's
+   trackers write satellites the receiver can HEAR — 16, 18 or 19 on rows whose own `FIX` column
+   says no fix — and `lib/flight/types.ts` keeps that out of the `satellites` kind for exactly this
+   reason. The export reads that kind and nothing else.
+
+   **The KML half is not an addition, it is a rewrite, and it is deliberately not in this slice.** A
+   `LineString` cannot carry per-point data at all; it needs `gx:Track`, and `e2e/analyze.spec.ts:3128`
+   and `lib/gps.test.ts:412` both assert an exact placemark count of 3.
+
+   **Nothing is said about a fix Debrief cannot say WAS a fix**, which the pre-push review found and
+   is the substantive correction to this slice. The blanking of bad positions rides on
+   `applySatelliteFixQuality`, and that function returns early without a `satellites` channel — a
+   role a flyer on the COLUMN MAPPER may simply never map. Measured on `Mega38-1_TeleMega.csv`, the
+   one corpus track that arrives that way: map the dilution role alone and **25,322 positions export,
+   12,501 of them on rows whose own satellite count says fewer than three** — a held-over position
+   with a held-over dilution now attached. So the export asks for the grade itself. It costs nothing
+   where the grade is known: across the 12 tracks a named parser reaches, **all 25,391 satellite
+   counts and all 22,199 dilutions already sit on a sample with a stated grade**, and that equality
+   is asserted rather than assumed.
+
+   **Pinned by** `lib/gps.test.ts` → *"writes sat before hdop, in the schema's order"*, which checks
+   a SEQUENCE rather than a pair. Nothing here parses either export as XML (`DOMParser|fast-xml|
+   xml2js|xmllint` → 0 hits); `indexOf` already establishes one or two pairwise orderings in that
+   file, but `wptType` declares nineteen children in a fixed xsd `sequence` and pairwise checks do
+   not scale to it. This pulls the child tag names out and asserts they are a SUBSEQUENCE of the
+   declared sequence, rating its own subsequence check against a known-bad ordering first. Falsified
+   by swapping the two writes: it fails naming `['hdop','sat']`. Plus two corpus cases pinning the
+   coverage counts EXACTLY, the grade-gate equality, the worst exported dilution against the worst
+   Debrief reads, and the order on a real file — and one asserting the no-quality path is
+   byte-identical to what it produced before, which is what lets every existing assertion and the
+   corpus digest stand unchanged. Falsified again by letting a no-fix row through: the count moves
+   25,391 → 25,499, exactly `endurance`'s 108 held-over samples.
+
+   **And it was walked, not only tested.** Dropping `altusmetrum-telemetrum.csv` into the built
+   export and pressing *Save GPX* produces a 46,513-byte file with **421 open `<trkpt>`s, zero
+   self-closing, 422 `<sat>` and 422 `<hdop>`** (the extra of each is the waypoint), no `<fix>`, and
+   the waypoint carrying the quality of the fix that placed it.
 
 **Done when** every GPS-derived value a flyer can read or export states the quality of the fixes
 behind it or is withheld — the ground track, the landing coordinate, the GPS apogee and its
@@ -3242,10 +3295,23 @@ fails rather than passing unnoticed. **And no accuracy is stated in metres anywh
 vendor publishes a function from what these files carry; the claim is always what the receiver
 solved, never how close it got.
 
-**Size.** 4–6 increments. **Slices 2 and 4 are shipped**; slice 1 is not counted until a file that
-exercises it turns up, having been refused twice. **Next: slice 3** (the Featherweight signal
-breakdown), then 5 (the `.gpx`/`.kml` quality fields) — both are disclosure of data the files
-already carry, checkable against the corpus today.
+**Size.** 4–6 increments. **Slices 2, 4 and 5 are shipped**; slice 1 is not counted until a file
+that exercises it turns up, having been refused twice. **Next: slice 3** (the Featherweight signal
+breakdown), whose own model this roadmap also has wrong — see the correction under it — and then the
+KML half of slice 5 as its own increment, since it is a geometry rewrite rather than an addition.
+
+**And the *done when* cannot be pinned as written, which is one increment's work before the last
+slice rather than after it.** It asks for "a check [that] enumerates those sinks from the same
+registry the exporters are registered in". The registry exists — `KEPT_DOCUMENTS` at
+`lib/documents.ts:95`, six entries, already enumerated by three test files — **but
+`lib/documents.ts:32` excludes `.gpx` and `.kml` by name**, and measured across the tree there are
+**18 `download(` call sites across 8 files, of which exactly ONE routes through the registry** —
+`components/FlightReport.tsx:488`, which covers the registry's six documents — while the other 17
+are hand-wired. (A first version of this line said "20 in 10, of which 6 route through the
+registry": that was an agent's framing counting the registry's six DOCUMENTS as call sites and
+including `lib/download.ts`'s own definition. Measured with
+`grep -rn '\bdownload(' --include=*.ts --include=*.tsx components app lib | grep -v test`.) Until
+the two track exports are in a registry, that check can only be a hand-kept list.
 
 **Notes.** The standing trap on this milestone is the one `COMPETITION.md` row 47 already records and
 this decomposition repeats twice: **fix quality buys graded confidence, not filtering.** Every gate
