@@ -74,7 +74,7 @@ export default function RecordingPicker({
                 className={`flex min-h-11 max-w-full flex-col items-start rounded-md border px-3 py-1.5 text-left text-xs transition aria-disabled:cursor-default ${
                   here
                     ? 'border-indigo-400 bg-indigo-50 text-indigo-900 dark:border-indigo-500/50 dark:bg-indigo-950/40 dark:text-indigo-100'
-                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100'
+                    : 'border-zinc-500 bg-white text-zinc-700 hover:border-zinc-700 hover:text-zinc-900 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-300 dark:hover:text-zinc-100'
                 }`}
               >
                 <span className="max-w-[16rem] truncate font-medium">

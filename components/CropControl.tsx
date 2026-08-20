@@ -116,7 +116,7 @@ export default function CropControl({
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               aria-labelledby={`${id}-from-label`}
-              className="h-11 w-28 rounded-md border border-zinc-300 bg-white px-2 font-mono text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="h-11 w-28 rounded-md border border-zinc-500 bg-white px-2 font-mono text-sm text-zinc-900 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -130,7 +130,7 @@ export default function CropControl({
               value={to}
               onChange={(e) => setTo(e.target.value)}
               aria-labelledby={`${id}-to-label`}
-              className="h-11 w-28 rounded-md border border-zinc-300 bg-white px-2 font-mono text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="h-11 w-28 rounded-md border border-zinc-500 bg-white px-2 font-mono text-sm text-zinc-900 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
         </div>

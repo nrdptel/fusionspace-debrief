@@ -107,11 +107,42 @@ rule**, which is a real result and the reason it can be adopted here without a r
 | Role | Value | Use for |
 |---|---|---|
 | `hairline` | `border-zinc-200 dark:border-zinc-800` | container edges, dividers, table rules |
-| `control` | `border-zinc-300 dark:border-zinc-700` | inputs, selects, secondary buttons — anything the flyer acts on |
+| `control` | **`border-zinc-500 dark:border-zinc-500`** | inputs, selects, secondary buttons — anything the flyer acts on |
 
-Two, deliberately. The control border is one step darker so an interactive edge is distinguishable
-from a decorative one without reading the element. Do not mix them: a card is `hairline`, an input
-inside it is `control`.
+Two, deliberately. The control border is darker so an interactive edge is distinguishable from a
+decorative one without reading the element. Do not mix them: a card is `hairline`, an input inside
+it is `control`.
+
+**`control` was `border-zinc-300 dark:border-zinc-700` until 2026-08-20, and it failed WCAG 1.4.11
+in both themes — light by more than a factor of two.** The success criterion asks 3:1 of *"visual
+information required to identify user interface components"*, and on every control this system
+draws, the border IS that information: §5 gives `TextField`, `Select` and `Button variant="secondary"`
+a transparent fill, so the edge is the only thing separating the control from the surface behind it.
+Measured, on the same rasterised ramp §9's contrast census rates text against — the worst surface
+each value can sit on:
+
+| value | light (page / sunken) | dark (page / raised) | verdict |
+|---|---|---|---|
+| `zinc-300` / `zinc-700` (old) | **1.48 / 1.42** | 1.91 / **1.70** | fails both, by 2.1× and 1.8× |
+| `zinc-400` / `zinc-600` | 2.62 / **2.51** | 2.58 / **2.29** | still fails both |
+| **`zinc-500` (new)** | 4.83 / **4.62** | 4.12 / **3.67** | passes both |
+
+`zinc-500` is not a preference, it is the FIRST value on the ramp that clears 3:1 on both — one
+step lighter fails light at 2.51 and one step darker fails dark at 2.29, so there is no
+intermediate choice to argue about.
+
+**And the symmetry here is measured, not assumed** — which matters, because one value for both
+themes is exactly the mistake `tertiary` below records. There it was symmetry inherited from a
+palette table and never rated; here the two themes were rated separately and the same shade
+happened to be the answer to both, because zinc-500 sits near the middle of the ramp and both page
+grounds are near its ends. If the surfaces move, re-rate it rather than preserving the symmetry.
+
+**`hairline` is deliberately NOT raised with it.** WCAG 1.4.11 exempts *"visual information … that
+is purely decorative"*, and a card edge is: the card is not a control, nothing about its state is
+read off its border, and darkening every container rule to 4.6:1 would put a heavier line around
+every surface in the app than around the controls on it — inverting the hierarchy this table's
+whole first paragraph exists to state. The gap between the two roles is what carries the meaning,
+and raising `control` widens it from one ramp step to three.
 
 ### Text
 
@@ -971,9 +1002,9 @@ move off the failing values, so the hierarchy each one sat in survives:
 | three simulation-run annotations, one an apogee | `text-zinc-500`, no `dark:` partner | **3.67:1** dark | a reading a flyer compares against their own |
 | the logbook's cross-check spread, `Chip`'s key, the stitch annotation, two placeholders | `dark:text-zinc-500` | **3.67:1** dark | text, in dark |
 
-**Every ratio above is TEXT contrast (WCAG 1.4.3), and NON-TEXT contrast (1.4.11) has never been
-checked in either app. Measured on the built export 2026-08-19, §2's `control` border fails it in
-both themes, and light is the worse one:**
+**Every ratio above is TEXT contrast (WCAG 1.4.3). NON-TEXT contrast (1.4.11) went unchecked in
+either app until 2026-08-20, and §2's `control` border was failing it in both themes — light by more
+than a factor of two:**
 
 | boundary | rendered | 1.4.11 wants |
 |---|---|---|
@@ -983,17 +1014,37 @@ both themes, and light is the worse one:**
 
 1.4.11 applies to the boundary of any control whose shape is what identifies it, which is every
 `TextField`, `NumberField`, `Select` and secondary `Button` in both apps — the border IS the control,
-because the fill matches the container it sits on. The first value that clears 3:1 on both surfaces
-is `zinc-500` (**4.86:1** light, **3.67:1** dark); `zinc-400` reaches only 2.56:1 light and
-`zinc-600` only 2.29:1 dark.
+because the fill matches the container it sits on.
 
-**This is a §2 token change and it is deliberately NOT taken here.** `control` is worn by inputs,
-selects and secondary buttons at more than a dozen sites in `components/ui.tsx` alone, so raising it
-changes the weight of every control in the app in both themes — a visual decision the size of a
-milestone slice, not a fix to fold into whichever conversion happens to notice it. It is filed in
-`ROADMAP.md` under P1 with these numbers. **What is recorded here is that the greps above cannot see
-it**: they rate `text-zinc-*` only, so a control whose boundary is invisible passes every command in
-§9 while its label rates 16:1.
+**TAKEN 2026-08-20. §2's table now reads `border-zinc-500 dark:border-zinc-500`**, which is the first
+value on the ramp clearing 3:1 on both themes' worst surface: **4.83:1** on the light page and 4.62:1
+on light `sunken`, **4.12:1** on the dark page and 3.67:1 on dark `raised`. One step lighter reaches
+only 2.62:1 light and one step darker only 2.29:1 dark, so there is no intermediate value to argue
+over. The reasoning, the surfaces each ratio is on, and why `hairline` was deliberately left below it
+are in §2.
+
+**Pinned by** `lib/design-system.test.ts` → *"gives §2 `control` a border a flyer can find"*, which
+computes all six ratios rather than asserting remembered ones, and *"has no neutral border under 3:1
+outside the ones named"*, an exact census that skips the two decorative roles by shade and lists
+every remaining sub-threshold site with the reason it is there. Falsified by reverting one call site:
+it fails naming `components/CropControl.tsx:119`.
+
+**What this paragraph got wrong before it was taken, and it is the same trap this section already
+records about itself.** It quoted `zinc-400` at **2.56:1** and `zinc-500` at **4.86:1**. `2.56` is
+the **Tailwind 3** value (`#a1a1aa`); this app ships Tailwind 4, where `zinc-400` is `#9f9fa9` and
+rates **2.62:1** on white. The verdict never changed — both fail 3:1 — but the number was a
+remembered palette's, which is exactly what `lib/design-system.test.ts`'s `HUES` docblock warns
+about, and it had propagated into `ROADMAP.md`'s audit row before anyone re-rated it. **Earlier
+`2.56:1` figures elsewhere in this file and in `ROADMAP.md` are left as written**: they are records
+of what a past run measured with the Tailwind 3 map, and rewriting them would falsify the history
+rather than correct it. Read any of them as "≈2.6:1 in this build". **The lesson is the one already
+here: a ratio quoted in prose is not rated by anything.** These six now are.
+
+**What is also recorded here is that the greps above cannot see any of it**: they rate `text-zinc-*`
+only, so a control whose boundary is invisible passes every command in §9 while its label rates 16:1.
+There is still no border-colour grep in the block above — the census in the test file is what covers
+it, and P1 audit row 15 is the open question of whether §2 should also name the table row rule as a
+role.
 
 **The `zinc-600` version of this fix was written first and was WRONG, which is worth more than the
 fix.** Lifting these to §2's `secondary` clears AA by a wider margin — and inverts hierarchies the

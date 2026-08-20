@@ -736,7 +736,7 @@ export default function RecentFlights({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, logger or note…"
-            className="min-h-[2.25rem] w-full max-w-xs rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+            className="min-h-[2.25rem] w-full max-w-xs rounded-md border border-zinc-500 bg-white px-2.5 py-1 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
           />
           {filtering && (
             <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400" role="status">
@@ -1005,7 +1005,7 @@ export default function RecentFlights({
                     }}
                     aria-label={`Note for ${rowName(r)}`}
                     placeholder="Motor, conditions, cert… (kept as a logbook entry)"
-                    className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                    className="min-w-0 flex-1 rounded-md border border-zinc-500 bg-white px-2 py-1 text-xs text-zinc-800 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-200"
                   />
                   <Button size="sm" onClick={saveEdit}>
                     Save

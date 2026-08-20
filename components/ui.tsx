@@ -416,7 +416,7 @@ const BUTTON_VARIANTS = {
   primary:
     'border border-transparent bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400',
   secondary:
-    'border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800',
+    'border border-zinc-500 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800',
   ghost:
     'border border-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100',
   danger:
@@ -583,7 +583,7 @@ export function Segmented<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex rounded-md border border-zinc-300 bg-zinc-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-900"
+      className="inline-flex rounded-md border border-zinc-500 bg-zinc-100 p-0.5 dark:border-zinc-500 dark:bg-zinc-900"
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -838,7 +838,7 @@ export function NumberField({
             // 3:1 against its background. `red-400` on white and `red-500/60` over `zinc-900` both
             // measured under it, so the border read as barely-there on the one control that had
             // just refused a number.
-            over || under ? 'border-red-600 dark:border-red-400' : 'border-zinc-300 dark:border-zinc-700',
+            over || under ? 'border-red-600 dark:border-red-400' : 'border-zinc-500 dark:border-zinc-500',
           )}
         />
         <span className="font-mono">{unit}</span>
@@ -938,10 +938,10 @@ export function Select({
       aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value)}
       className={cx(
-        'rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800',
+        'rounded-md border border-zinc-500 bg-white px-3 py-1.5 text-sm text-zinc-800',
         'focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500',
         'disabled:cursor-not-allowed disabled:opacity-60',
-        'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+        'dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100',
         className,
       )}
     >
@@ -993,12 +993,12 @@ export function TextField({
   className?: string;
 }) {
   const shared = cx(
-    'w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800',
+    'w-full rounded-md border border-zinc-500 bg-white px-3 py-1.5 text-sm text-zinc-800',
     // §2's `tertiary`, in the corrected form: `zinc-500` renders 3.67:1 on dark `raised`, which is
     // why the token moved. A placeholder is real text and AA applies to it.
     'placeholder:text-zinc-500 dark:placeholder:text-zinc-400',
     'focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500',
-    'dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100',
+    'dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100',
     inputClassName,
   );
   const common = {
@@ -1220,14 +1220,21 @@ export function ChipButton({
         'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950',
         dashed || off ? 'border-dashed' : 'border-solid',
-        // An unpressed toggle recedes; a pressed one and a plain action read as present. The
-        // ramp is `Chip`'s own so the two primitives cannot drift apart in the same row.
+        // An unpressed toggle recedes; a pressed one and a plain action read as present.
+        //
+        // **The border is `control`, and it is deliberately one step darker than `Chip`'s** —
+        // which is a change from the rule that used to be written here, that the two primitives
+        // share `Chip`'s ramp so they cannot drift apart in one row. They now differ on purpose,
+        // for a reason WCAG 1.4.11 decides rather than taste: this is an operable control whose
+        // fill matches the surface behind it, so its border is the only thing identifying it and
+        // owes 3:1; a `Chip` is a static label, is exempt, and carries its own fill anyway. A row
+        // holding both now shows which of them can be pressed, which the shared ramp hid.
         off
-          ? 'border-zinc-300 bg-transparent text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'
+          ? 'border-zinc-500 bg-transparent text-zinc-500 dark:border-zinc-500 dark:text-zinc-400'
           : tone === 'accent'
             ? CHIP_TONES.accent
-            : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',
-        !disabled && 'hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400',
+            : 'border-zinc-500 bg-white text-zinc-700 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-200',
+        !disabled && 'hover:border-indigo-600 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400',
         disabled && 'cursor-default opacity-60',
         'touch-area',
         className,

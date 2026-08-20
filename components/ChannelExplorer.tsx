@@ -496,7 +496,7 @@ export default function ChannelExplorer({
                 }
               }}
               placeholder="Boost check"
-              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+              className="min-h-[1.75rem] w-36 rounded-md border border-zinc-500 bg-white px-2 py-0.5 text-sm text-zinc-800 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
             />
             {/* **A control that is always enabled and fails only when pressed** is a tell
                 `MAINTAINING.md` names outright, and this was one: `commitPreset` opens with

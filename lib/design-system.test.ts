@@ -1599,6 +1599,140 @@ describe('DESIGN.md §2 — a grey a flyer has to read meets WCAG AA in BOTH the
     }
     expect(failures, `enabled text below WCAG AA:\n${[...new Set(failures)].join('\n')}`).toEqual([]);
   });
+
+  /**
+   * **§2's border roles, against WCAG 1.4.11 — the NON-text criterion, which this file rated
+   * nothing against until 2026-08-20.**
+   *
+   * Every check above rates TEXT against 1.4.3. A border is not text, so all of it passed while
+   * `control` sat at **1.48:1** in light and **1.70:1** in dark — the boundary of every input,
+   * select and secondary button in the app, at half the 3:1 the criterion asks. §9's compliance
+   * block has no border grep at all, which is why a census beside it found nothing either: the
+   * value was on §2's own table, so every site was conforming to a failing rule.
+   *
+   * 1.4.11 asks 3:1 of *"visual information required to identify user interface components"*, and
+   * on this system the border IS that information — §5 gives `TextField`, `Select` and
+   * `Button variant="secondary"` a transparent fill, so nothing else separates the control from the
+   * surface behind it.
+   *
+   * The ratios are COMPUTED from the same rasterised ramp the text census uses, never asserted as
+   * remembered numbers, so the verdict moves with the palette.
+   */
+  const AA_NON_TEXT = 3;
+  /** The worst surface each theme can put a border on — a control sits on any of §2's three. */
+  const worst = (v: string, theme: 'light' | 'dark') =>
+    Math.min(...SURFACES[theme].map(([, bg]) => contrast(v, bg)));
+
+  it('gives §2 `control` a border a flyer can find, on every surface, in both themes', () => {
+    // The token as §2 states it: one value, both themes. The symmetry is measured rather than
+    // inherited — see the note under §2's table, and `tertiary` above for why that distinction
+    // is worth making out loud.
+    expect(worst(ZINC['500'], 'light')).toBeGreaterThanOrEqual(AA_NON_TEXT);
+    expect(worst(ZINC['500'], 'dark')).toBeGreaterThanOrEqual(AA_NON_TEXT);
+
+    // **And it is the FIRST value on the ramp that does, which is what stops the next session
+    // "softening" it by one step.** One lighter fails light, one darker fails dark — so there is
+    // no intermediate choice, and this assert says so rather than leaving it as a claim in prose.
+    expect(worst(ZINC['400'], 'light')).toBeLessThan(AA_NON_TEXT);
+    expect(worst(ZINC['600'], 'dark')).toBeLessThan(AA_NON_TEXT);
+
+    // The pair this replaced, asserted as failing so the fix cannot quietly regress to it.
+    expect(worst(ZINC['300'], 'light')).toBeLessThan(AA_NON_TEXT);
+    expect(worst(ZINC['700'], 'dark')).toBeLessThan(AA_NON_TEXT);
+  });
+
+  it('leaves `hairline` below it, because a container edge is decorative and a control edge is not', () => {
+    // 1.4.11 exempts information "that is purely decorative", and a card edge is: the card is not
+    // operable and nothing about its state is read off its border. Raising it too would put a
+    // heavier line around every surface than around the controls on it. What the system does owe
+    // is the ORDER — §2's opening sentence says the control border is the darker of the two — and
+    // that is what is pinned here, in both themes, rather than a ratio hairline does not owe.
+    expect(worst(ZINC['200'], 'light')).toBeLessThan(worst(ZINC['500'], 'light'));
+    expect(worst(ZINC['800'], 'dark')).toBeLessThan(worst(ZINC['500'], 'dark'));
+  });
+
+  /**
+   * **The census: every RESTING neutral border in either surface tree that rates under 3:1.**
+   *
+   * Exact, not bounded, for the reason `lib/dop.test.ts` records about bounds — a budget goes
+   * quietly green the day something drifts into it. Reverting any one of the fifteen conversions
+   * this pins adds an entry and the failure names the file.
+   *
+   * **Resting only.** `hover:` and `focus:` variants are excluded on purpose: 1.4.11 asks about the
+   * states "required to identify" a component, the focus indicator is governed separately (§2 pins
+   * it to `accent`), and a hover tint does not exist on the touch device half this app's traffic
+   * arrives on. Including them would rate treatments the criterion does not ask about and bury the
+   * ones it does.
+   *
+   * Each entry says WHY it is under the line. Two kinds only, and the difference matters: `exempt`
+   * is a considered verdict that the criterion does not apply, and `gap` is a real failure that is
+   * documented rather than blessed — the same convention the corpus uses for a `knownIssue`, and
+   * for the same reason. A `gap` entry is deleted when it is fixed, and the assert arms itself.
+   */
+  /**
+   * **The two DECORATIVE border roles are skipped by shade, not by site.**
+   *
+   * 1.4.11 exempts information "that is purely decorative", and both of these are: `hairline` is
+   * a container edge (`zinc-200` / `zinc-800`) and the row rule under it (`zinc-100` / `zinc-900`)
+   * separates table rows. Neither is operable and no state is read off either. Listing their 50-odd
+   * sites individually would bury the handful that matter under the ones that do not — which is the
+   * shape §9 already records about the suite-wide type ratio, where a real inversion hid inside a
+   * total that passed.
+   *
+   * The row rule is NOT on §2's table yet; `ROADMAP.md`'s P1 audit row 15 is the open question of
+   * whether it should be a named role. It is skipped here on the same decorative grounds either
+   * way, so this check does not pre-judge that.
+   */
+  const DECORATIVE_SHADES = { light: new Set(['100', '200']), dark: new Set(['800', '900']) };
+
+  const SUB_THRESHOLD_BORDERS: Record<string, string> = {
+    // Static labels, not controls: a `Chip` is read, never pressed, and carries its own fill.
+    // `ChipButton` beside it is operable and took `control`, which is the distinction the two
+    // primitives now draw on purpose — see the note at its `className`.
+    'components/ui.tsx:1077': 'exempt: Chip tone, a static label',
+    'components/ui.tsx:1302': 'exempt: Chip container, a static label',
+    // A container: the empty state's dashed card. Wearing the old control value on a non-control
+    // is a role mix §2 forbids in its own words; it is filed rather than swept into this change,
+    // because converting it to `hairline` is a visible change to an empty state with its own
+    // e2e coverage.
+    'components/ui.tsx:145': 'exempt: card tone — but see BACKLOG, it wears the wrong ROLE',
+    // A badge whose two halves disagree: `hairline` in light, the old `control` in dark. Filed
+    // with the rest.
+    'components/RecognizedFormats.tsx:31': 'exempt: static badge — but its two themes name different roles',
+    // **The one real failure left, and it is stated rather than exempted.** The jump chip's
+    // "you are here" state is carried by `border-zinc-400` (2.62:1) over `bg-zinc-100`, which is
+    // 1.05:1 against the page it sits on — so at 2.62 the border is the only signal and it is
+    // under the line. 1.4.11 covers STATES, so this one genuinely applies.
+    'components/ui.tsx:1429': 'gap: Jumper current-state border, 2.62:1 light / 2.29:1 dark — BACKLOG',
+  };
+
+  it('has no neutral border under 3:1 outside the ones named, and names why each is there', () => {
+    const found: Record<string, string> = {};
+    let rated = 0;
+    for (const f of uiSources(['components', 'app'], ['.tsx', '.css'])) {
+      for (const m of f.text.matchAll(/(?<prefix>[a-z-]+:)?border-zinc-(?<shade>\d{2,3})\b/g)) {
+        // Variant-prefixed treatments are out of scope — see the docblock. `dark:` is not a
+        // variant here, it is the other half of the token, so it is rated against dark surfaces.
+        const prefix = m.groups?.prefix ?? '';
+        if (prefix && prefix !== 'dark:') continue;
+        const theme = prefix === 'dark:' ? 'dark' : 'light';
+        const shade = m.groups!.shade;
+        if (DECORATIVE_SHADES[theme].has(shade)) continue;
+        const value = ZINC[shade];
+        if (!value) continue;
+        rated++;
+        if (worst(value, theme) >= AA_NON_TEXT) continue;
+        const line = f.text.slice(0, m.index ?? 0).split('\n').length;
+        const at = `${f.path}:${line}`;
+        found[at] = SUB_THRESHOLD_BORDERS[at] ?? `UNEXPLAINED sub-3:1 neutral border (${theme} zinc-${shade})`;
+      }
+    }
+    // A scanner that reads nothing reports a compliant app that it never looked at — the hole
+    // §9 records about its own commands, applied here before the verdict is trusted. The floor is
+    // the thirty control borders this change converted, minus room for one being removed.
+    expect(rated, 'the border census rated no control borders at all').toBeGreaterThan(28);
+    expect(found, 'neutral borders under WCAG 1.4.11 3:1 — DESIGN.md §2:').toEqual(SUB_THRESHOLD_BORDERS);
+  });
 });
 
 describe('DESIGN.md §5 — the fifth button weight', () => {

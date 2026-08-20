@@ -14,6 +14,28 @@ track in `ROADMAP.md` with its own *done when*.
 Things noticed but not done — rough edges, missing affordances, formats seen in the
 wild, ideas too big for one pass. One line each, newest first.
 
+- **2026-08-20 — the jump chip's "you are here" state is under WCAG 1.4.11 in both themes, and it
+  is the last neutral border in the tree that is.** `components/ui.tsx:1429` marks the current
+  section with `border-zinc-400` (**2.62:1** on the light page) / `dark:border-zinc-600`
+  (**2.29:1** on dark `raised`), over a `bg-zinc-100` fill that is **1.05:1** against the page it
+  sits on — so the border is the only visual signal of the state and it is under the 3:1 the
+  criterion asks. Reproduce: `npx vitest run lib/design-system.test.ts -t "no neutral border under"`
+  and read the `gap` entry; it is deliberately listed as a documented failure rather than an
+  exemption, so deleting the entry arms the assert. `aria-current="location"` carries it correctly
+  for a screen reader, which is why this is a contrast defect and not a missing state. The fix is
+  one shade in each theme plus a re-rate of the `bg-zinc-100` fill against the two it can sit on.
+
+- **2026-08-20 — three neutral borders wear the wrong ROLE rather than the wrong value, and §2
+  forbids the mix in its own words** (*"a card is `hairline`, an input inside it is `control`"*).
+  `components/ui.tsx:145`'s `muted` card tone — the empty state's dashed container — wears the
+  control value on a non-control; `components/RecognizedFormats.tsx:31`'s badge is `border-zinc-200`
+  in light and `dark:border-zinc-700` in dark, which is `hairline` in one theme and `control` in the
+  other on one element; `CHIP_TONES.default` and the `Chip` container at `ui.tsx:1077,:1302` are
+  static labels on the control ramp. Reproduce: the census in `lib/design-system.test.ts` lists all
+  four with their reasons. None is a contrast failure — 1.4.11 exempts what is decorative, which is
+  why the 2026-08-20 slice left them — but each is a role mix, and the `muted` card is the one worth
+  taking first because converting it to `hairline` is a visible change with existing e2e coverage.
+
 - **2026-08-18 — the AltOS `.eeprom` reader drops the device serial its own header states.** The
   download's JSON header carries `"serial": 5581` and `"product": "EasyMega-v2.0"`; the CSV reader
   puts `serial` into `flight.meta` and the eeprom reader does not. Found while writing the check
