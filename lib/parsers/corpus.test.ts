@@ -19,6 +19,7 @@ import { buildPlotChannels } from '../explore';
 import { peakAgreement, peakTimeTolerance } from '../crossPeak';
 import { alignStages } from '../stitch';
 import { canMeasureDrag } from '../drag';
+import { railExitBound, railExitReading, railExitVelocity, DEFAULT_RAIL_M } from '../rail';
 import {
   DERIVED_PEAK_PAIRS,
   DERIVED_PEAK_FLIGHTS,
@@ -3272,5 +3273,143 @@ describe('what a derived peak speed overstates by, measured rather than remember
       pairs.some((p) => Math.round(p.speedPct) !== Math.round(p.machPct)),
       `the two bases must be different numbers on at least one real pair:\n${shown}`,
     ).toBe(true);
+  });
+});
+
+/**
+ * **Rail exit had no corpus coverage at all until 2026-08-20**, which is why a launch-safety
+ * reading was wrong on six real flights for as long as the module has existed. `lib/rail.test.ts`
+ * is nine cases on a synthetic uniform 0.1 s clock, every one of them starting from rest at
+ * `velocity[liftoffIndex] = 0`; rail exit is not a metric in the corpus digest and no fixture
+ * asserted it. So the one shape that goes wrong on real files — a record that does not contain
+ * the rail traverse — could not appear in any test in the repo.
+ *
+ * The first case here is the general one and the one that matters: it is an INVARIANT over every
+ * flight, so a file added tomorrow is covered without anyone listing it. The second pins the six
+ * by name, because a guard that quietly stops firing looks exactly like a guard that has nothing
+ * to fire on.
+ */
+describe('a rail-exit speed is a reading of the rail, or it is not published', () => {
+  /** Every corpus flight, analysed once, with what rail exit does for it. */
+  interface RailRead {
+    file: string;
+    /** What the bare integral returns — what the app published before the guards. */
+    unguarded: number | null;
+    reading: ReturnType<typeof railExitReading>;
+  }
+
+  let cache: RailRead[] | null = null;
+  const railReads = async (): Promise<RailRead[]> => {
+    if (cache) return cache;
+    const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as { fixtures: Fixture[] };
+    const out: RailRead[] = [];
+    for (const fx of spec.fixtures) {
+      // The high-rate Blue Raven downloads are refused by design and `loadForCompare` lets that
+      // throw — the same shape the sweep two describes up already guards. A refusal is not a
+      // reading, so it is skipped rather than counted.
+      let got: CompareInput | null = null;
+      try {
+        got = loadForCompare(fx.file);
+      } catch {
+        continue;
+      }
+      if (!got) continue;
+      const a = got.analysis;
+      const li = a.events.find((e) => e.type === 'liftoff')?.index ?? null;
+      const unguarded =
+        li != null && li >= 0 && a.series.velocitySource === 'device' && !a.series.velocityUnusable
+          ? railExitVelocity(a.series.time, a.series.velocity, DEFAULT_RAIL_M, li)
+          : null;
+      out.push({
+        file: fx.file,
+        unguarded,
+        reading: railExitReading(a.series, DEFAULT_RAIL_M, li, a.metrics.accelClipped),
+      });
+      // Hand the loop back. This sweep is ~15 s of otherwise unbroken synchronous work, and
+      // `breathe`'s own note above records a reporter RPC timeout from exactly that shape — a run
+      // that exits 1 with every assertion passing, twice, on a two-core CI runner.
+      await breathe();
+    }
+    cache = out;
+    return out;
+  };
+
+  it('never publishes one its own measured acceleration could not produce', { timeout: 300_000 }, async () => {
+    const reads = await railReads();
+    // The corpus was really there. A sweep that examined nothing and found nothing is the false
+    // all-clear this file exists to prevent, and rail exit is where it would have hidden longest.
+    if (reads.length === 0) return;
+    expect(reads.length, 'the corpus was linked and analysable').toBeGreaterThan(30);
+
+    const published = reads.filter((r) => r.reading.velocity != null);
+    expect(published.length, 'some flight still produces a rail-exit reading').toBeGreaterThan(10);
+
+    // `v = √(2·a·d)` from the flight's own peak NET acceleration — generous three ways over (see
+    // `railExitBound`), so exceeding it is impossible rather than merely surprising.
+    const impossible = published
+      .filter((r) => r.reading.bound != null && (r.reading.velocity as number) > (r.reading.bound as number))
+      .map((r) => `${r.file.split('/').pop()}: ${(r.reading.velocity as number).toFixed(2)} m/s against its own bound of ${(r.reading.bound as number).toFixed(2)}`);
+    expect(impossible, 'rail-exit speeds above what the flight itself could reach').toEqual([]);
+  });
+
+  it('withholds on the records that do not contain a rail traverse, and says which reason', { timeout: 300_000 }, async () => {
+    const reads = await railReads();
+    if (reads.length === 0) return;
+
+    // Measured 2026-08-20 over the whole corpus. The `was` column is what the app published
+    // before the guards — kept in the expectation because the SIZE of the error is the reason
+    // this is a Sev-1 rather than a tidy-up, and a bare list of filenames would lose it.
+    const EXPECTED: Record<string, string> = {
+      'altusmetrum__issuiuc-intrepid1-20220507__telemetrum.csv': 'unsampled (was 18.44)',
+      'altusmetrum__issuiuc-intrepid2-20220623__telemetrum_data.csv': 'aboveOwnAcceleration (was 57.90, bound 38.19)',
+      'altusmetrum__issuiuc-kairos-20240323__Kairos-Sustainer-March-TeleMega-Telemetry.csv': 'unsampled (was 32.64)',
+      'altusmetrum__issuiuc-sg1.2-20231118__SG1.2-Sustainer-November-TeleMega.csv': 'aboveOwnAcceleration (was 28.90, bound 22.58)',
+      'blueraven__trf-f1machbuster-jan10__BLRVN87-bckup LR_01-10-2026_14_55_30.csv': 'aboveOwnAcceleration (was 61.28, bound 53.00)',
+      'blueraven__trf-f1machbuster-jan18__BlRv_159F1cm LR_01-18-2026_10_48_41.csv': 'aboveOwnAcceleration (was 71.08, bound 55.40)',
+    };
+
+    const got: Record<string, string> = {};
+    for (const r of reads) {
+      if (r.unguarded == null || r.reading.velocity != null) continue;
+      const name = r.file.split('/').pop() as string;
+      got[name] =
+        r.reading.refused === 'aboveOwnAcceleration'
+          ? `aboveOwnAcceleration (was ${r.unguarded.toFixed(2)}, bound ${(r.reading.bound as number).toFixed(2)})`
+          : `${r.reading.refused} (was ${r.unguarded.toFixed(2)})`;
+    }
+    expect(got, 'flights whose rail-exit reading is withheld, and why').toEqual(EXPECTED);
+  });
+
+  it('leaves every other flight’s reading exactly where it was', { timeout: 300_000 }, async () => {
+    const reads = await railReads();
+    if (reads.length === 0) return;
+    // The guards refuse; they never re-derive. A flight that keeps its reading keeps the SAME
+    // number, to the bit — which is what makes this a withholding change rather than a tuning,
+    // and it is the half a "6 of 21 moved" summary cannot state on its own.
+    const moved = reads
+      .filter((r) => r.unguarded != null && r.reading.velocity != null)
+      .filter((r) => r.reading.velocity !== r.unguarded)
+      .map((r) => `${r.file.split('/').pop()}: ${r.unguarded} → ${r.reading.velocity}`);
+    expect(moved, 'readings the guards changed rather than refused').toEqual([]);
+
+    const kept = reads.filter((r) => r.unguarded != null && r.reading.velocity != null).length;
+    expect(kept, 'flights that still publish a rail-exit reading').toBe(15);
+  });
+
+  it('rates its own bound against a case whose answer is known by hand', () => {
+    // A bound that is quietly wrong reports a compliant app that is not one — the same argument
+    // §9's contrast census makes about its arithmetic. Constant 4 g over a 2 m rail: net is
+    // 4·g − g = 3g = 29.42 m/s², and √(2 · 29.42 · 2) = 10.85 m/s.
+    const accel = Float64Array.from([4 * 9.80665, 4 * 9.80665, 4 * 9.80665]);
+    expect(railExitBound(accel, 2, 'device', false)).toBeCloseTo(Math.sqrt(2 * 3 * 9.80665 * 2), 9);
+    // **A derived trace is already gravity-free**, so nothing comes off it — the same numbers give
+    // a different, larger ceiling, and subtracting twice is what the pre-push review caught.
+    expect(railExitBound(accel, 2, 'baro', false)).toBeCloseTo(Math.sqrt(2 * 4 * 9.80665 * 2), 9);
+    // Nothing claimed where there is no trace, where the accelerometer never read above the 1 g it
+    // carries at rest, or where it flat-topped at full scale — a railed peak is a floor, and a
+    // ceiling built from a floor refuses the fastest real boosts.
+    expect(railExitBound(undefined, 2, 'device', false)).toBeNull();
+    expect(railExitBound(Float64Array.from([9.80665, 9.7]), 2, 'device', false)).toBeNull();
+    expect(railExitBound(accel, 2, 'device', true)).toBeNull();
   });
 });

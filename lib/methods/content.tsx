@@ -1037,6 +1037,42 @@ export const METHOD_CONTENT: Record<MethodId, { title: string; body: ReactNode; 
           and is withheld on a baro-only or GPS log rather than shown as a number that low can&apos;t
           support.
         </p>
+        <p>
+          <strong>
+            It is also withheld where the recording does not contain the rocket leaving a rail
+          </strong>{' '}
+          — which turns out to be a real state and not a hypothetical one. Integrating from liftoff
+          gives a number on any file; whether that number is a <em>reading of the rail</em> depends
+          on what the record holds. Two things are asked of it, and neither is a tuned threshold.
+          First, whether any sample falls inside the traverse at all: on one corpus log the whole
+          2.4&nbsp;m goes by inside a single 0.3&nbsp;s sample, so what comes back is the speed at
+          liftoff rather than at the rail. Second, whether the answer is one the flight&apos;s own
+          measured acceleration could have produced over that distance from a standstill —{' '}
+          <code>√(2·a·d)</code>, where <code>a</code> is the greatest acceleration anywhere in the
+          record — less one <em>g</em> where the trace is an accelerometer&apos;s, since a resting one
+          already reads that much, and unchanged where the trace was worked out from the altitude and
+          is gravity-free already. No ceiling is built at all from an accelerometer that flat-topped
+          at its full scale, because a railed peak is a floor and a ceiling built on a floor would
+          refuse the fastest real boosts.
+        </p>
+        <p>
+          Six of the 21 corpus flights that produced a rail-exit figure fail one of those two, and
+          five of them exceeded their own ceiling by 16% to 62%. The causes are ordinary: a log that
+          starts after the rocket is already moving (one is 346 rows, every one of them in{' '}
+          <em>boost</em>, opening at 31&nbsp;m/s), and a sustainer that was carried up by a booster
+          and never stood on a rail at all. A figure like that is not a conservative reading — the
+          error runs high, so it would quietly withhold the low-airflow caution on exactly the
+          flight that earned it. It is refused, with the reason on the panel.
+        </p>
+        <p>
+          Two other ways of catching this were measured and rejected. Re-anchoring the integral at
+          the pad swaps a visibly impossible number for a plausible fabricated one: on two logs it
+          integrates straight across a 0.6&nbsp;s sampling hole that spans the whole rail phase.
+          And refusing when the liftoff sample&apos;s <em>altitude</em> is already past the rail
+          fires on healthy flights — one corpus log reads 3.4&nbsp;m at a moment its velocity says
+          1.1&nbsp;m/s, which is a rocket standing still under a noisy barometer, and near-pad
+          barometric altitude is the exact signal this method avoids using.
+        </p>
       </>
     ),
   },
