@@ -145,6 +145,52 @@ wild, ideas too big for one pass. One line each, newest first.
   Measured: at `(pointer: coarse)` the only rule that applies to either is `.opacity-0{opacity:0}` —
   the glyph does not exist on a phone.
 
+- **2026-08-20 — the rail-exit ceiling is taken over the WHOLE record, so on six flights it is a
+  ground-impact spike rather than the boost.** `lib/rail.ts`'s `railExitBound` scans every sample.
+  Measured: `mercury__altimetercloud-lilnuke4alt-1784` peaks at **440.93 m/s² at t = 151.0 s** — the
+  landing — against **314.30 m/s²** during the ascent (apogee at 33.1 s), inflating its ceiling by
+  **1.19×**, and up to **1.23×** on `supernova-1866`. This makes the guard weaker, never wrong: an
+  inflated ceiling refuses less, so nothing is falsely withheld — it just means a real over-bound
+  flight could slip under. The analysis's own ceiling at `lib/analyze/index.ts:2121` windows
+  liftoff→apogee and this one should too; it needs `apogeeIndex` threaded into `railExitReading`,
+  which is why it was not folded into the Sev-1 fix. Reproduce: analyse `1784` and compare
+  `max(series.acceleration)` against the max over `[liftoffIndex, apogeeIndex]`.
+
+- **2026-08-20 — "how much resolution is enough" is an open question the rail-exit guard
+  deliberately does not answer.** The `unsampled` refusal fires when NOTHING accumulated before the
+  crossing, which is the only form of the question that can be asked without inventing a threshold.
+  A record where the first step covers **0.12 m of a 2.438 m rail (5%)** keeps its reading and is
+  interpolated across a step where velocity goes 0.6 → 40 m/s — pinned as such in
+  `lib/rail.test.ts`. That is the honest edge of the rule. A resolution *fraction* would catch more
+  and would need a constant nothing in the corpus justifies; if a real file ever lands there, this
+  is the entry to reopen.
+
+- **2026-08-20 · the agent finding that did NOT reproduce, filed so nobody re-derives it.** A
+  competitive probe reported that the GPX welds a loss of lock into a straight line and quoted
+  **12,931 consecutive no-fix samples, 125.0 s, 5,758 m** on the 121 km TeleMega. **Measured through
+  the column mapper — the only route that file reaches Debrief by, since it falls to `mapping` — it
+  has 25,322 kept fixes and ZERO gaps.** The weld is real but far smaller: across all 13 corpus
+  tracks the worst is `endurance` at **108 samples / 11.6 s / 376 m**, and
+  `fwgps jan18` at 4 samples / 5.0 s / 225 m. **And the naive fix is worse than the defect**: the two
+  AltOS `.eeprom` tracks have a gap between almost every kept fix (321 kept, 320 gaps on
+  `Kairos-Booster`) because an eeprom writes a GPS record only when the receiver solves one, so
+  splitting a `<trkseg>` at every gap — which is what GPX's own wording literally says — renders
+  those two tracks as **nothing**. A real fix needs the gap measured against the track's own median
+  fix interval, which is a judgement, and it is worth one increment on its own.
+
+- **2026-08-20 — the liftoff altitude fallback pins liftoff far above any rail, and rail exit is
+  only the first reading to notice.** `lib/analyze/index.ts:1653` takes the first sample with
+  `altClean[i] > 3 && velocity[i] > 2` when the accelerometer detector cannot run. Measured across
+  the corpus: it fires on four Blue Raven flights at liftoff altitudes **3.54 / 4.60 / 6.52 /
+  14.26 m** — the last of those **5.8 lengths of an 8 ft rail** off the pad. The rail-exit guard
+  shipped 2026-08-20 refuses the two worst by a different route (their reading exceeds the flight's
+  own acceleration ceiling), so this entry is the CAUSE rather than the symptom, and it is still
+  live for every other reading measured from `liftoffIndex` — burn time, time to apogee, the boost
+  mean acceleration. Reproduce: analyse `blueraven__trf-f1machbuster-jan18` and read
+  `series.altitude[liftoffIndex]`. **The obvious fix is not obviously right**: lowering the 3 m
+  threshold walks into the near-pad barometric noise the same run measured at 3.45 m on a rocket
+  standing still, so this wants the velocity trace, not a smaller altitude constant.
+
 - **2026-08-20 — `SectionNav` is a fourth border vocabulary, and BOTH its states are under WCAG
   1.4.11.** `components/ui.tsx:1448` is an operable `<a>` a flyer clicks. Resting it wears
   `border-zinc-200` (**1.22:1** light) / `dark:border-zinc-800` (**1.19:1**); the current section

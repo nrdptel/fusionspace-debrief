@@ -1175,7 +1175,12 @@ export default function FlightReport({
             so it only makes sense with barometric altitude — GPS is far too coarse. It's
             read by integrating the logged velocity from liftoff to one rail-length of travel. */}
         {series.altitudeSource !== 'gps' && (
-          <RailExit series={series} sys={sys} liftoffIndex={events.find((e) => e.type === 'liftoff')?.index ?? null} />
+          <RailExit
+            series={series}
+            sys={sys}
+            liftoffIndex={events.find((e) => e.type === 'liftoff')?.index ?? null}
+            accelClipped={metrics.accelClipped}
+          />
         )}
 
         {/* Measured drag coefficient — read from the coast deceleration, so it needs a
@@ -1295,7 +1300,7 @@ export default function FlightReport({
         {/* The refusal travels with the curve. Six surfaces already consult
             `series.velocityUnusable` — the timeline reading NaNs it (:691), the channel explorer
             attaches the headline's own reason to the SAME trace (`lib/explore.ts:201`), the rail
-            exit refuses (`RailExit.tsx:72`), the exports NaN it (`lib/report.ts:71`), the
+            exit refuses (`RailExit.tsx`'s `reading.refused` branch), the exports NaN it (`lib/report.ts:71`), the
             comparison marks it unusable (`lib/compare.ts:164`) and drag refuses (`drag.ts:54`) —
             and this Figure, the largest rendering of that data on the page, said only "derived
             from altitude". Measured 2026-08-08: 15 of 50 analysable corpus recordings reach the

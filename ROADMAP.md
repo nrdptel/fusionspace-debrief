@@ -107,6 +107,109 @@ land here, unlike in a repo that ships none — they land as small affordances o
 whatever order a defect sweep surfaced them, while both North Star ambitions' headline items sit
 still.
 
+### The Sev-1 that preempted a run on 2026-08-20 — a launch-safety reading taken off records that do not contain a rail
+
+**A rail-exit velocity is a measurement of the rail, and on 6 of the 21 corpus flights that
+published one there was no rail in the record.** `railExitVelocity` integrates from liftoff until
+the cumulative displacement reaches the rail length; given a fragment it returns a number anyway.
+Five of the six published a speed their own measured acceleration could not have produced over
+2.438 m from a standstill:
+
+| flight | published | its own bound | ratio |
+|---|---|---|---|
+| `kairos` (sustainer) | 32.64 m/s | 20.16 | **1.62** |
+| `intrepid2` | 57.90 | 38.19 | **1.52** |
+| `f1machbuster-jan18` | 71.08 | 55.40 | **1.28** |
+| `sg1.2` (sustainer) | 28.90 | 22.58 | **1.28** |
+| `f1machbuster-jan10` | 61.28 | 53.00 | **1.16** |
+
+The sixth, `intrepid1`, covers the whole 2.438 m inside ONE 0.300 s sample and returns the liftoff
+velocity unchanged — 18.44 m/s, which is `velocity[liftoffIndex]` to the digit.
+
+**Why it is a Sev-1 rather than a wrong tile.** The figure feeds the hero readout on
+`components/RailExit.tsx`, its Mach sub-value, and the `MARGINAL_RAIL_VELOCITY` caution — *"a rocket
+that leaves the rail slowly has less airflow over its fins to hold it straight"*. **The error runs
+HIGH**, so the failure mode is a flight that earned the caution not getting it. That is the one
+direction a safety heads-up must not fail in.
+
+**The causes are ordinary once the records are read.** `intrepid2`'s log is 346 rows every one of
+which is in state `boost`, opening at t = −0.30 s with speed already 30.69 m/s — the recording
+starts after the rocket left the rail. `kairos-Sustainer` and `sg1.2-Sustainer` are second stages:
+carried up by a booster, never on a rail, and their detected "liftoff" is second-stage ignition
+across a 0.630 s and 0.570 s telemetry gap. `jan10` and `jan18` are Blue Ravens whose liftoff is
+pinned by the 3 m altitude fallback, at 6.52 m and **14.26 m** — 5.8 rail lengths off the pad.
+
+**`HANDOFF.md` framed this as "the integral starts at the detected liftoff sample rather than at the
+pad", and that framing is wrong for the three flights it named.** The accelerometer detector fired
+on all three, at the FIRST sample in each record above 2 g — there is no earlier at-rest sample to
+move the anchor to. It also under-counted: **5 flights break the bound, not 3**, because the two
+Blue Ravens were outside the sweep that produced the claim. The numbers it quoted were right to
+0.1 m/s; only the mechanism was not, and a fix written to the mechanism would have missed two
+flights and repaired none.
+
+**Two guards, neither with a tuned threshold**, which is the point — a constant read off the corpus
+is a constant that fits the corpus. A reading is refused when the rail is cleared inside the FIRST
+sample after the anchor (a fact about the record's resolution), or when it exceeds
+`√(2·(a_peak − g)·L)` from the flight's own acceleration trace. That ceiling is generous three ways
+over — peak taken across the whole record, resultant magnitude rather than axial, and noise inflates
+a maximum — so exceeding it is impossible rather than merely surprising.
+
+**Three things about that ceiling were wrong in the first cut and were caught by the pre-push
+review; two of them would have refused CORRECT readings.** They are worth more than the fix.
+
+- **Gravity was subtracted from a trace that never carried it.** Where `accelerationSource` is
+  `baro` the trace is `d(v)/dt`, already net, so `peak − g` took gravity off twice and tightened the
+  ceiling by 9.81 m/s². On a uniform 5 g flight that refuses a physically perfect record at
+  **15.46 m/s against a ceiling of 13.82** — right on `MARGINAL_RAIL_VELOCITY`, which is the
+  population the guard exists to protect. Corrected, the two Blue Raven ceilings move 52.55 → 53.00
+  and 54.97 → **55.40**, and both flights still exceed them, so **the verdict is unchanged and the
+  arithmetic is not**.
+- **A SATURATED accelerometer reports a floor, so a ceiling built on one is a floor too.** Four
+  Mercury corpus flights read a flat 32.0 g full scale and the railed TeleMetrum this repo already
+  names reads 17.9 g — whose 8 ft ceiling would be 28.4 m/s, refusing any genuine boost above about
+  25 g. `metrics.accelClipped` already existed and the analysis's own ceiling at
+  `lib/analyze/index.ts:2126` already guards on it; this one did not. It does now, and no ceiling is
+  built from a clipped trace at all.
+- **The claim that it is a cross-instrument check was FALSE** where the acceleration is derived,
+  because the trace is the derivative of the very velocity being integrated. The sharper reading is
+  better, not weaker: with `a = dv/dt` exactly, `v² = 2∫a ds` holds identically **iff the record
+  starts at rest**, so exceeding the ceiling proves `v(0) ≠ 0` — which is precisely the defect being
+  hunted.
+
+**Two other tells were measured and REFUSED, so they are not re-derived.**
+
+- **Re-anchoring the integral at the pad** — the obvious reading of the symptom, and it is worse.
+  On `kairos` and `sg1.2` it trapezoids straight across the sampling hole that spans the entire rail
+  phase, giving **7.28** and **8.17 m/s**. A wrong number that looks right beats nothing only in the
+  direction of harm.
+- **Refusing when the anchor's ALTITUDE is already past the rail.** It reads well and it fires on
+  healthy flights: `sg1.1-Booster`'s anchor altitude is **3.45 m** while its velocity there is
+  **1.12 m/s** — a rocket standing still under a noisy barometer. Near-pad barometric altitude is
+  the exact trace `lib/rail.ts`'s own header says is unusable, so a guard built on it contradicts the
+  module it guards. This one is worth remembering: it separated the corpus cleanly, and it was still
+  wrong.
+
+**And the resolution guard asked the wrong question in its first cut**, which the same review found:
+it tested whether the FIRST step was longer than the rail, where the condition it describes is that
+nothing had accumulated when the crossing happened. The loop discards non-positive steps, so a single
+negative wobble off the pad hid the case — `[0.2, −0.6, 40, 60]` on a 0.3 s clock published 16.15 m/s,
+and flipping the sign of one sample refused the identical traverse.
+
+**Pinned by four cases in `lib/parsers/corpus.test.ts`, where rail exit had NO coverage at all** —
+`lib/rail.test.ts` is nine cases on a synthetic uniform clock every one of which starts from rest,
+so the shape that fails on real files could not appear. The first case is an INVARIANT over every
+flight (no reading above its own ceiling), so a file added tomorrow is covered without anyone listing
+it; the second pins the six by name with the number each used to publish; the third asserts that
+every flight which KEEPS a reading keeps the identical number, which is what makes this a withholding
+change and not a tuning; the fourth rates the ceiling's arithmetic against a case worked by hand.
+Falsified by removing each guard in turn: the bound guard's removal names **four** flights and their
+ceilings (`kairos` is caught by the resolution guard first, which is why it is four here and five in
+the table above), and the resolution guard's removal drops the expected set from six to five.
+
+**15 of 21 readings are untouched, bit for bit. No other surface consumes this figure** — a grep for
+`railExitVelocity` finds one component and the tests, so unlike most readings here it has no export
+sinks to follow.
+
 ### The Sev-1 that preempted a run on 2026-08-19 — a structural load case read at the wrong height
 
 **Max-Q is `½ρv²`, so the height the air was read at is half the reading — and the atmosphere was

@@ -7,138 +7,130 @@ Overwritten each run. What just shipped, what is part-way through, and what to p
 | track | where it is |
 |---|---|
 | **Shipped to production** | Measure it, do not read this line: `git fetch --prune origin && git log --oneline origin/main \| head -3`, then `curl -s "https://debrief.fusionspace.co/version.json?cb=$RANDOM"`. |
-| **Sev-1 inherited** | **The max-Q one is FIXED** — see below. The baseline gate was green before anything was touched: unit **98 files / 1,485 tests WITH the corpus**, and no open pull requests on either repo. |
-| **Sev-1 found** | **The rail-exit integral starts at the DETECTED LIFTOFF SAMPLE rather than at the pad — REPRODUCED, and the sweep's own framing of it was wrong.** Three corpus flights report a rail-exit speed their own measured acceleration cannot produce over 2.438 m: `intrepid2` 57.9 m/s against a 38.8 m/s bound, `kairos` 32.6 against 21.3, `sg1.2` 28.9 against 23.6. The sweep's "up to 4.5× high / suppresses the caution on 3 of 21" is an ARTEFACT of comparing against an integral anchored at the record's first sample, which pad noise eats — that comparison makes `kairos` a 1.1 g rail exit, i.e. a rocket that cannot lift off. Full numbers and the trap are in `BACKLOG.md`. |
-| **D — capability** | D12 slices 2 and 4 shipped previously. **Slice 3's stated model is REFUTED — read the entry below before building it.** Slice 5 is scoped in detail below. |
-| **P — product & craft** | P1 is IN PROGRESS. The largest measured divergence is not on its audit list: **seven hand-rolled `<select>` in five geometries across four flyer-facing surfaces, and `DESIGN.md` §5 has no word for a select at all.** |
+| **Sev-1 inherited** | None. The baseline gate was green before anything was touched: unit **99 files / 1,491 tests WITH the corpus** (151 in `lib/parsers/corpus.test.ts`), build clean, e2e **365 passed**. |
+| **Sev-1 found and FIXED** | **The rail-exit velocity was published on records that do not contain a rail — 6 of the 21 corpus flights that produced one.** Reproduced, fixed, pinned by four corpus asserts where rail exit previously had none. Numbers in `ROADMAP.md`'s Sev-1 section. |
+| **D — capability** | D12 slices 2 and 4 shipped previously; slice 1 is refused twice and parked at the back. **Slice 5's shape is settled by measurement and it is NOT what `ROADMAP.md` says — read below before building it.** |
+| **P — product & craft** | P1 audit row 13 SHIPPED — §2's `control` border reaches WCAG 1.4.11 in both themes, in BOTH repos. Rows 5, 7, 9, 10, 11, 14–21 remain open, four of them with line numbers this run re-measured. |
 
-## The Sev-1 that was inherited, and why the THIRD attempt was the small one
+## The Sev-1, and why the HANDOFF that described it was wrong in a way that mattered
 
-**Max-Q is `½ρv²`, so the height the air was read at is half the reading** — and the atmosphere was
-built from the raw barometric trace hundreds of lines before the ascent bounds existed. The analysis
-held two heights for one instant. On `f1machbuster-jan10`: **482.5 m printed, −93.5 m read**.
+**A rail-exit velocity is a measurement of the rail, and on 6 of 21 flights there was no rail in the
+record.** Five published a speed their own acceleration could not produce over 2.438 m from rest —
+`kairos` 32.64 against 20.16, `intrepid2` 57.90 against 38.19, `jan18` 71.08 against 54.97, `sg1.2`
+28.90 against 22.58, `jan10` 61.28 against 52.55. The sixth clears the whole rail inside ONE 0.300 s
+sample and returns `velocity[liftoffIndex]` unchanged.
 
-Two earlier attempts were built and refused by the corpus. Both aimed at the peak SAMPLE. The
-distinction they missed, and the transferable part: **the trace is smoothly wrong, not spikily
-wrong**, so withholding on the peak sample just watches the peak migrate one sample sideways to a
-neighbour the bands do not catch — where the stated height was 11.4 m on a rocket doing Mach 1.9.
-Fixing the *cause* — read the air at the height the analysis will state — is smaller than any of the
-guards, and it needed no new withholding at all.
+**The previous handoff called it "the integral starts at the detected liftoff sample rather than at
+the pad". That is false for all three flights it named** — the accelerometer detector fired on each,
+at the FIRST sample in the record above 2 g, so there is no earlier at-rest sample to move to. It
+also under-counted: **5 flights break the bound, not 3.** The numbers it quoted were right to
+0.1 m/s and the mechanism was not, which is the expensive kind of wrong: a fix written to it would
+have missed two flights and repaired none.
 
-**Exactly 4 of 39 analysed flights move — TWO metrics each, `maxDynamicPressure` and `mach` — and
-the error runs BOTH ways.** That last part is what makes it a correction rather than a tuning: `jan18`'s barometer over-reads, so its
-air was too THIN and its load case went **up** 83.8 → 89.0 kPa, while `jan10` went down 254.3 →
-240.9 and the two irec2023 recordings down 212.5 → 206.7 and 205.1 → 199.8.
+**The transferable part is what was refused.** Two tells looked right and are not:
 
-## The technique that made the blast radius provable, and it is worth reusing
+- **Re-anchoring at the pad** trapezoids straight across a 0.630 s and 0.570 s sampling hole that
+  spans the whole rail phase, giving 7.28 and 8.17 m/s. It swaps a visibly impossible number for a
+  plausible fabricated one.
+- **Refusing when the anchor's ALTITUDE is past the rail** separates the corpus cleanly and is still
+  wrong: `sg1.1-Booster` reads **3.45 m** at a moment its velocity says **1.12 m/s** — a rocket
+  standing still under a noisy barometer. Near-pad altitude is the exact trace `lib/rail.ts`'s own
+  header says is unusable.
 
-The corpus digest snapshot says a flight "analyses differently" and nothing more, so **8 flights
-moved and 4 readings did** — with no way to tell which was which. Hashing **each digest component
-separately** (metrics, events, warnings, and every series key on its own) before and after, across
-all 50 analysable flights, turned that into: 4 flights moved `metrics`, 4 moved only
-`airDensity`/`speedOfSoundProfile`, and **no event, no warning and no other series moved anywhere**.
+What shipped instead is two guards with no tuned constant in either: the rail cleared inside the
+first sample after the anchor, and a reading above `√(2·(a_peak − g)·L)` from the flight's own trace.
 
-That is a ten-minute probe and it is the difference between regenerating a snapshot on faith and
-knowing what is in it. Any change to the analysis core should do this before touching
-`corpus-digests.json`.
+## D12 slice 5 — its shape is settled, and it is NOT the one in the roadmap
 
-## Two things measured and REFUSED this run, with the numbers, so they are not re-derived
+`ROADMAP.md` says the slice is `<sat>`, `<hdop>` and `<fix>` in the GPX plus KML `ExtendedData`.
+**Measured this run, three of those four are wrong:**
 
-- **The GPS altitude is not a usable cross-source floor**, which is what `BACKLOG.md` had proposed.
-  A recording earns the right to stand in for another only where the two agree on the stretch the
-  first is sound. Median gap against its own barometer over the uncontradicted ascent: **174.8 m on
-  `endurance` (band 85 m), 105.3 m on `intrepid2` (32), 235.9 m on `sg1.2` (63), 572.6 m on `sg1.1`
-  (30), 560.8 m over 3,488 samples on `irec_2023_telemega` (250)** — whose GPS also puts apogee at
-  8,854 m against its barometer's 8,317 m. The only two that agree (`kairos`, both exports) have no
-  contradicted ascent sample to place. **It was implemented before it was refused, and the corpus
-  caught the consequence**: with the running-maximum floor switched off for a cross-source
-  candidate, five burnout heights read 0, 9, 6, 456 and 579 m against barometric 488, 103, 360,
-  1,012 and 1,536 — a lagging receiver replacing a sound barometer.
-- **An agreement gate for that is written down and NOT shipped**, because measured today it fires on
-  zero real files. Both decisions are in `ROADMAP.md` under *Decisions taken without the owner*.
+- **`<fix>` must NOT be written.** GPX annotates it as what the RECEIVER reported. Debrief's own
+  channel label on **25,391 of 27,624 points (91.9%)** is literally *"Fix (from satellite count)"* —
+  a value it derived. Only 2,233 points (3 Featherweight files) carry a fix read off a real column.
+  Writing a derived grade into the receiver's own field launders an inference into a schema slot, and
+  it is unrecoverable once the file leaves the device.
+- **`<fix>` would also be a constant** on 11 of 12 files: 27,240 of 27,624 points would write `3d`,
+  and every one of the 384 two-dimensional points is ONE flight downloaded twice — both derived.
+  None of the three committed fixtures reaches the state, so fork CI could not assert it.
+- **The KML half needs a geometry rewrite.** Debrief writes ONE `<LineString>`; per-point quality
+  needs `gx:Track` or N Placemarks, and `e2e/analyze.spec.ts:3128` and `lib/gps.test.ts:280` both
+  assert an exact placemark count of 3.
+- **`<hdop>` is the slice.** **22,199 of 27,624 kept positions (80.4%) across 5 corpus files carry a
+  finite hdop, and it VARIES** — 0.70–3.10 on SG1.2, 0.80–2.30 on irec2023. The committed fixture
+  `lib/parsers/__fixtures__/altusmetrum-telemetrum.csv` carries it on all 421 kept positions, so fork
+  CI without the corpus exercises the new path. `components/GroundTrack.tsx:110` already declares
+  `hdop?` and `FlightReport.tsx` already passes it, so no prop threading.
+- **GPX 1.1 `wptType` child ORDER**, from the schema: `ele, time, magvar, geoidheight, name, cmt,
+  desc, src, link, sym, type, fix, sat, hdop, vdop, pdop, ageofdgpsdata, dgpsid, extensions`. The
+  `<wpt>` today ends at `<src>` (position 8) and hdop is 14, so new children append and nothing
+  moves. **No test anywhere parses the GPX or KML as XML** — 0 hits for `DOMParser|fast-xml|xml2js|
+  xmllint` — so the slice must bring its own order assertion.
+- **`HANDOFF.md`'s own "25,471 trackpoints" was not reproducible**: it is **27,624**, and no subset
+  of the 12 track-carrying files explains the difference. Its other two numbers reproduce exactly.
 
-## D12 slice 3 — its stated model is REFUTED. Read this before building it.
+## D12's *done when* cannot be pinned as written, and that is one increment's work
 
-`ROADMAP.md` says the Featherweight `>40`/`>32`/`>24` dB-Hz columns are "three disjoint bands
-summing to at most the tracked total". **That is true of the jan10 corpus log and FALSE of this
-repo's own committed fixture**, where the same three headers are *cumulative thresholds*:
-`>40 <= >32 <= >24 <= #SATS` on 490/490 rows, sum > #SATS on 478/490, and `>32` exceeds `>24` on 0
-(against 127 on jan10). Two firmware generations share identical headers — 2021 tracker exports are
-cumulative, 2025/2026 tracker and ground-station exports are disjoint.
+It asks for "a check [that] enumerates those sinks from the same registry the exporters are
+registered in". **The registry exists** — `KEPT_DOCUMENTS` at `lib/documents.ts:95`, six entries,
+already enumerated by three test files — **but `lib/documents.ts:32` excludes `.gpx` and `.kml` by
+name**, and measured across the tree there are **20 `download(` call sites in 10 files, of which 6
+route through the registry and 14 do not.** Until the two track exports are in a registry the check
+can only be a hand-kept list. Worth doing before the milestone's last slice, not after.
 
-This matters more than it looks: the cumulative file is the **committed fixture**, which is the only
-Featherweight bin file fork CI sees without the corpus. Shipping the disjoint model publishes a
-wrong breakdown there and the gate goes green on it.
+## P1 — what this run moved, and what the audit list still gets wrong
 
-**The smallest safe slice is the `>40` bin alone** — it means the same thing under both conventions
-(the vendor's Blue "full accuracy available" band) and is a real diagnostic: it reads 0 on 383 of
-`lemiv`'s 404 rows. Also measured: the bin columns are **never tokenised** in either parser variant
-(not parse-and-drop, unlike slice 2's DOP columns), and the ground station carries **held-over bins
-on no-fix rows** — 14 of 14 rows where the bins exceed `#TOT` are `FIX == 0`, the same defect shape
-slice 2 fixed for DOP. Never reuse the `satellites` kind; `lib/flight/types.ts:37-40` already
-records why.
+Row 13 shipped: `control` is `border-zinc-500` in both themes, in both repos. The transferable part
+is not the value:
 
-## D12 slice 5 — scoped, and its KML half is a wrong premise
+**Raising a resting border inverts everything that was tuned against the old one.** The first cut
+looked at hovers and stopped; the pre-push review found the selected state had gone WEAKER than the
+unselected one on three surfaces in both themes, `ChipButton`'s accent tone had never been converted
+at all, one dark hover was left behind, `NumberField`'s refusal became a hue-only change, and one
+input lost its focus indicator to the same arithmetic. Check states, not just hovers.
 
-`trackGpx` emits `<trkpt lat lon/>` self-closing with zero children; the landing `<wpt>` carries only
-`<name>` and `<src>`. **25,471 corpus trackpoints would gain a `<fix>`, 22,199 an hdop/vdop, and 384
-points across two files are 2D** — the ones the field exists for.
+**And the census that was supposed to catch all of it had a hole**: it skipped `hairline`'s shades by
+SHADE, so an operable control wearing a decorative shade was silently exempt, and it rated `zinc`
+only. There are two censuses now — one over neutral borders, one starting from the TAG over every
+operable element, every hue.
 
-- **GPX 1.1 `wptType` child ORDER** (from the published schema): `ele, time, magvar, geoidheight,
-  name, cmt, desc, src, link, sym, type, fix, sat, hdop, vdop, pdop, ageofdgpsdata, dgpsid,
-  extensions`. New children land AFTER `<src>`. `trkpt` uses the same type.
-- **`<fix>` is enumerated `none|2d|3d|dgps|pps`** and Debrief's `FixGrade` maps directly — but
-  `gradeFromSatellites` and `gradeFromFixColumn` both return `'3d'` when the file says NOTHING, so
-  write nothing where `gradeFromValue` returns null. A defaulted `3d` is an invented quality claim.
-- **The three Featherweight GPS files carry NO `satellites` channel** — their column is "Satellites
-  tracked", deliberately kind `other`. A `/sat/i` fallback would publish 16–19 satellites on rows
-  the receiver called no fix.
-- **KML per-point ExtendedData does not exist for the geometry Debrief writes** (one `LineString`).
-  It needs `gx:Track` — a geometry rewrite — or N Placemarks, which breaks
-  `e2e/analyze.spec.ts:3128`'s exact count of 3. **GPX-only is the slice; say why in the commit.**
-- **No test anywhere parses the GPX or KML as XML** (`DOMParser|fast-xml|xml2js|xmllint` → 0 hits),
-  so the slice must bring its own order assertion. Keep the no-quality path byte-identical and
-  `lib/gps.test.ts:69,97` stay green.
-
-## P1 — the audit list is stale in three places, all measured this run
-
-§9 itself is honest: radius 0 · card treatments 3 · off-scale spacing 0 · half-steps 41 · off-scale
-type 1 · inverted files 10 of 51 · `./ui` adopters 40 of 51 — every number matches what `ROADMAP.md`
-records. Everything below is drift the ratchet structurally cannot see.
-
-- **Row 10 is overstated**: `CompareView`'s transposed table now sorts, and two of the remaining
-  three would REGRESS if converted.
-- **Row 11's prescribed primitive is refuted** by the code; its real defect is a **sixth chip
-  geometry at `py-0.5`**, which the row does not name.
-- **Four of the five open rows have moved line numbers.**
-- **The largest divergence is not on the list at all**: seven hand-rolled `<select>` across five
-  geometries on four flyer-facing surfaces. `DESIGN.md` §5 has no word for a select, so this is a
-  vocabulary gap before it is a conversion — the same shape that produced `Popover`.
+§9's counts are unmoved by any of it — radius **0** · card treatments **3** · off-scale spacing
+**0** · half-steps **41** · off-scale type **1** · inverted files **10 of 51** · `./ui` adopters
+**40 of 51** — because a border colour is on none of those greps.
 
 ## Environment, measured this run
 
-- **Both repos attached.** `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__` and the
-  corpus suite named its fixtures — **151 tests in `lib/parsers/corpus.test.ts` alone**.
+- **Both repos attached**, plus the sibling `nrdptel/fusionspace-loft` added mid-run with `add_repo`
+  and cloned to `/home/user/fusionspace-loft`, because `DESIGN.md` is binding in both and a change to
+  one is a change to both in the same run. `ln -sfn /home/user/debrief-fixtures lib/parsers/__corpus__`
+  and the corpus suite named its fixtures — **155 tests in `lib/parsers/corpus.test.ts`** after this
+  run's four additions, 151 before.
 - **`npx playwright install chromium` was needed again** (image ships 1194, this Playwright wants
-  1228). It succeeds through the proxy in about a minute. Then plain `npx playwright test` with
-  **no** browser variable set. This is paid every session and belongs in the environment's setup
-  script — saying so is the fix.
+  1228). It succeeds through the proxy in about a minute. Then plain `npx playwright test` with **no**
+  browser variable set. **This is paid every session and belongs in the environment's setup script.**
 - **Git identity arrived as the harness vendor's default** and was reset per-repo before the first
   commit, in BOTH repos.
 - **The clone is SHALLOW**, so any commit count or file history is a window, not the record.
-- CI fires on `pull_request` and on push to `main` — **not** on a push to a working branch.
-- **The harness pinned a vendor-named branch.** The owner explicitly authorised overriding it, so
-  work ships on `feature/…` branches, which is what `MAINTAINING.md`'s zero-trace invariant and its
-  branch-naming rule both require.
+- CI fires on `pull_request` and on push to `main` — **not** on a push to a working branch. The
+  `frontend` job takes ~4 min and `e2e` ~6 min.
+- **The harness pinned a vendor-named branch and the owner explicitly authorised overriding it**, so
+  work ships on `feature/…` branches, which is what the zero-trace invariant and the branch-naming
+  rule both require.
+- **The GitHub MCP server appends an attribution footer to a PR body** and the update path strips it —
+  verified again on `#218`. Read every body back after posting.
+- **Only ~2 subagents run concurrently here** (4 CPUs; the cap is `min(16, cpus − 2)`), so a nine-agent
+  fan-out takes about 50 minutes. Dispatch it first and ship while it runs.
+- **A gitignored `*.test.ts` probe still runs in `npm test`.** Two of them inflated the count to
+  101 files / 1,497 tests; the honest number was 99 / 1,495. Delete probes before quoting a gate.
 
 ## Next, in order
 
-1. **Verify the rail-exit claim.** It is the only Sev-1 candidate outstanding and it is a
-   launch-safety reading. `lib/rail.ts:63` integrates from `liftoffIndex + 1`; the fallback detector
-   fires at 3 m, which is longer than a 2.438 m rail. Reproduce it on the corpus before scoping —
-   the accelerometer-based detector fires at ignition and may make the fallback path rare.
-2. **P1 — the `<select>` vocabulary gap.** `DESIGN.md` moves first, then the component, then the
-   seven call sites. This is the biggest single thing a flyer meets that the design system has no
-   answer for.
-3. **D12 slice 5** — the GPX quality fields, scoped above.
-4. **D12 slice 3** — the `>40` bin, and correct the milestone's refuted model in the same commit.
+1. **D12 slice 5 — the `<hdop>` half only**, scoped above with the numbers and the schema order.
+   Bring an XML-order assertion; nothing in the repo parses either file as XML today.
+2. **Put `.gpx` and `.kml` into a registry** so D12's *done when* becomes pinnable at all.
+3. **The `padBaseline` finding in `BACKLOG.md`** is the strongest unreproduced Sev-1 candidate: a log
+   starting mid-boost has an already-climbed altitude subtracted from every height, reported at
+   **−39.5 m / −5.1%** on `the-gardener`. `padDataLikely` detects the condition and only warns, which
+   is what decides its severity — reproduce before scoping.
+4. **P1 rows 16 and 9** — three hand-rolled text inputs in three geometries, and fifteen touch floors
+   keyed to viewport width rather than pointer type (the audit row names four of the fifteen).
